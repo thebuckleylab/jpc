@@ -61,9 +61,6 @@ markdown_extensions:
         permalink: "¤"  # Adds a clickable permalink to each section heading
         toc_depth: 4
     - attr_list
-    - pymdownx.emoji:
-        emoji_index: !!python/name:material.extensions.emoji.twemoji
-        emoji_generator: !!python/name:material.extensions.emoji.to_svg
 
 plugins:
     - search  # default search plugin; needs manually re-enabling when using any other plugins
