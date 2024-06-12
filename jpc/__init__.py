@@ -17,4 +17,4 @@ from ._grads import (
 )
 
 
-__version__ = importlib.metadata.version("jpc_local")
+__version__ = importlib.metadata.version("jpc")

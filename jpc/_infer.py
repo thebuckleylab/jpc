@@ -2,7 +2,7 @@
 
 from jaxtyping import PyTree, ArrayLike, Array
 from typing import Callable, Optional, Union
-from _grads import _neg_activity_grad, _neg_lateral_activity_grad
+from ._grads import _neg_activity_grad, _neg_lateral_activity_grad
 from diffrax import (
     AbstractSolver,
     AbstractStepSizeController,

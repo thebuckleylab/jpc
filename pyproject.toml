@@ -3,8 +3,8 @@ name = "jpc"
 version = "0.0.1"
 description = "Predictive coding networks in JAX."
 readme = "README.md"
-requires-python ="~=3.8"
-#license = {file = "LICENSE"}
+requires-python ="~=3.9"
+license = {file = "LICENSE"}
 authors = [
   {name = "Francesco Innocenti", email = "F.Innocenti@sussex.ac.uk"},
 ]
@@ -33,10 +33,10 @@ classifiers = [
 ]
 urls = {repository = "https://github.com/thebuckleylab/jpc"}
 dependencies = [
-    "jax>=0.4.13",
-    "equinox>=0.10.4",
-    "diffrax>=0.3.1",
-    "jaxtyping>=0.2.19"
+    "jax>=0.4.23",
+    "equinox>=0.11.2",
+    "diffrax>=0.5.1",
+    "jaxtyping>=0.2.24"
 ]
 
 [build-system]

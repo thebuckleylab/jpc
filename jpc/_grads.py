@@ -4,7 +4,7 @@ from jax import grad
 from equinox import filter_grad
 from jaxtyping import PyTree, ArrayLike, Array
 from typing import Union, Tuple, Callable, Optional
-from _energies import _energy_fn, pc_energy_fn, _lateral_energy_fn
+from ._energies import _energy_fn, pc_energy_fn, _lateral_energy_fn
 
 
 def _neg_activity_grad(
