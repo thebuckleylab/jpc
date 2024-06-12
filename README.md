@@ -18,9 +18,9 @@ useful JAX transforms such as `vmap` and `jit`.
 pip install jpc
 ```
 
-Requires Python 3.8+, JAX 0.4.13+, [Equinox](https://github.com/patrick-kidger/equinox) 
-0.10.4+, [Diffrax](https://github.com/patrick-kidger/diffrax) 0.3.1+, and 
-[Jaxtyping](https://github.com/patrick-kidger/jaxtyping) 0.2.19+.
+Requires Python 3.9+, JAX 0.4.23+, [Equinox](https://github.com/patrick-kidger/equinox) 
+0.11.2+, [Diffrax](https://github.com/patrick-kidger/diffrax) 0.5.1+, and 
+[Jaxtyping](https://github.com/patrick-kidger/jaxtyping) 0.2.24+.
 
 ## Documentation
 Available at X.
