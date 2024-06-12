@@ -36,7 +36,7 @@ from equinox import nn as nn
 
 # some data
 x = jnp.array([1., 1., 1.])
-y = -input
+y = -x
 
 # network
 key = jax.random.key(0)
