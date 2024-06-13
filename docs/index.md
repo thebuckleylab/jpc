@@ -3,9 +3,9 @@
 JPC is a [JAX](https://github.com/google/jax) library for predictive 
 coding networks (PCNs). It is built on top of two main libraries:
 
-* [Equinox](https://github.com/patrick-kidger/equinox) to define neural 
+* [Equinox](https://github.com/patrick-kidger/equinox), to define neural 
 networks with PyTorch-like syntax, and
-* [Diffrax](https://github.com/patrick-kidger/diffrax) to solve the PC 
+* [Diffrax](https://github.com/patrick-kidger/diffrax), to solve the PC 
 activity (inference) dynamics.
 
 JPC provides a simple but flexible API for research of PCNs compatible with

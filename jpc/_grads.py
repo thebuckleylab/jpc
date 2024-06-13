@@ -37,12 +37,12 @@ def _neg_activity_grad(
 
     """
     amortiser, generator, output, input = args
-    dFdzs = grad(_energy_fn)(
-        activities=activities,
-        generator=generator,
-        output=output,
-        input=input,
-        amortiser=amortiser
+    dFdzs = grad(_energy_fn, argnums=1)(
+        generator,
+        activities,
+        output,
+        input,
+        amortiser
     )
     return [-dFdz for dFdz in dFdzs]
 
@@ -70,10 +70,10 @@ def _neg_lateral_activity_grad(
 
     """
     amortiser, outputs = args
-    dFdzs = grad(_lateral_energy_fn)(
-        activities=activities,
-        amortiser=amortiser,
-        outputs=outputs
+    dFdzs = grad(_lateral_energy_fn, argnums=1)(
+        amortiser,
+        activities,
+        outputs
     )
     for branch in range(2):
         dFdzs[branch] = [-dFdz for dFdz in dFdzs[branch]]
@@ -101,10 +101,10 @@ def compute_pc_param_grads(
 
     """
     return filter_grad(pc_energy_fn)(
-        network=network,
-        activities=activities,
-        output=output,
-        input=input
+        network,
+        activities,
+        output,
+        input
     )
 
 
@@ -138,11 +138,11 @@ def compute_gen_param_grads(
 
     """
     return filter_grad(_energy_fn)(
-        generator=generator,
-        amortiser=amortiser,
-        activities=activities,
-        output=output,
-        input=input
+        generator,
+        amortiser,
+        activities,
+        output,
+        input
     )
 
 
@@ -169,12 +169,12 @@ def compute_amort_param_grads(
     List of parameter gradients for each layer of the amortiser.
 
     """
-    return filter_grad(_energy_fn)(
-        amortiser=amortiser,
-        generator=generator,
-        activities=activities,
-        output=output,
-        input=input
+    return filter_grad(_energy_fn, argnum=4)(
+        generator,
+        activities,
+        output,
+        input,
+        amortiser
     )
 
 
@@ -198,7 +198,7 @@ def compute_lateral_pc_param_grads(
 
     """
     return filter_grad(_lateral_energy_fn)(
-        amortiser=amortiser,
-        activities=activities,
-        outputs=outputs
+        amortiser,
+        activities,
+        outputs
     )
