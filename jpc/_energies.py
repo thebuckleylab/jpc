@@ -36,7 +36,7 @@ def _energy_fn(
     start_l = 1 if input is not None else 2
     n_hidden = len(generator) - 1
 
-    gen_eL = output - vmap(generator[-1])(activities[-1])
+    gen_eL = output - vmap(generator[-1])(activities[-2])
     energy = 0.5 * sum(gen_eL ** 2)
     if amortiser is not None:
         amort_eL = input - vmap(amortiser[-1])(activities[0])
@@ -98,7 +98,7 @@ def pc_energy_fn(
     batch_size = output.shape[0]
     start_l = 1 if input is not None else 2
 
-    eL = output - vmap(network[-1])(activities[-1])
+    eL = output - vmap(network[-1])(activities[-2])
     energy = 0.5 * sum(eL ** 2)
 
     for l in range(start_l, len(network) - 1):
@@ -158,7 +158,7 @@ def hpc_energy_fn(
     batch_size = output.shape[0]
     n_hidden = len(generator) - 1
 
-    gen_eL = output - vmap(generator[-1])(activities[-1])
+    gen_eL = output - vmap(generator[-1])(activities[-2])
     amort_eL = input - vmap(amortiser[-1])(activities[0])
     energy = 0.5 * sum(amort_eL ** 2) + 0.5 * sum(gen_eL ** 2)
 
