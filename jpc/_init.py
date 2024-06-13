@@ -51,25 +51,16 @@ def init_activities_from_gaussian(
     List of randomly initialised activities for each layer.
 
     """
+    start_l = 0 if mode == "unsupervised" else 1
+    n_layers = len(layer_sizes) if mode == "unsupervised" else len(layer_sizes)-1
     activities = []
-    if mode == "unsupervised":
-        key, subkey = random.split(key)
-        n_input = network[0].in_features
-        activities.append(sigma * random.normal(
-            subkey,
-            shape=(batch_size, n_input)
-            )
-        )
-
-    n_layers = len(network)
     for l, subkey in zip(
-            range(n_layers),
+            range(start_l, n_layers+1),
             random.split(key, num=n_layers)
     ):
-        n_hidden_nodes = network[l].out_features
         activities.append(sigma * random.normal(
             subkey,
-            shape=(batch_size, n_hidden_nodes)
+            shape=(batch_size, layer_sizes[l])
             )
         )
     return activities
