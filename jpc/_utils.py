@@ -16,9 +16,9 @@ def get_fc_network(
     **Main arguments:**
 
     - `key`: `jax.random.PRNGKey` for parameter initialisation.
-    - `layer_sizes`: dimension of all layers (input, hidden and output).
+    - `layer_sizes`: Dimension of all layers (input, hidden and output).
         Options are `linear`, `tanh` and `relu`.
-    - `act_fn`: activation function for all layers except the output.
+    - `act_fn`: Activation function for all layers except the output.
     - `use_bias`: `True` by default.
 
     **Returns:**

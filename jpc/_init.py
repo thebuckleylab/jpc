@@ -30,7 +30,7 @@ def init_activities_with_ffwd(
 
 def init_activities_from_gaussian(
         key: PRNGKeyArray,
-        network: PyTree[Callable],
+        layer_sizes: PyTree[int],
         mode: str,
         batch_size: int,
         sigma: Scalar = 0.05
@@ -40,7 +40,7 @@ def init_activities_from_gaussian(
     **Main arguments:**
 
     - `key`: `jax.random.PRNGKey` for sampling.
-    - `network`: List of callable network layers.
+    - `layer_sizes`: Dimension of all layers (input, hidden and output).
     - `mode`: If 'supervised', all hidden layers are initialised. If
         'unsupervised' the input layer is also initialised.
     - `batch_size`: Dimension of data batch.

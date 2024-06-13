@@ -22,7 +22,7 @@ def _neg_activity_grad(
 
     **Main arguments:**
 
-    - `t`: time step of the ODE system, used for downstream integration by
+    - `t`: Time step of the ODE system, used for downstream integration by
         `diffrax.diffeqsolve`.
     - `activities`: List of activities for each layer free to vary.
     - `args`: 4-Tuple with
@@ -56,7 +56,7 @@ def _neg_lateral_activity_grad(
 
     **Main arguments:**
 
-    - `t`: time step of the ODE system, used for downstream integration by
+    - `t`: Time step of the ODE system, used for downstream integration by
         `diffrax.diffeqsolve`.
     - `activities`: List of activities for each layer free to vary, one list
         per branch (n=2).

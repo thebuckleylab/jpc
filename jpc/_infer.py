@@ -53,7 +53,7 @@ def solve_pc_activities(
 
     - `amortiser`: Optional list of callable layers for a network amortising
         the inference of the generative model.
-    - `solver`: diffrax (ODE) solver to be used. Default is Dopri5.
+    - `solver`: Diffrax (ODE) solver to be used. Default is Dopri5.
     - `n_iters`: Number of integration steps (300 as default).
     - `stepsize_controller`: diffrax controllers for step size integration.
         Defaults to `PIDController`.
@@ -105,7 +105,7 @@ def solve_lateral_pc_activities(
 
     **Other arguments:**
 
-    - `solver`: diffrax (ODE) solver to be used. Default is Dopri5.
+    - `solver`: Diffrax (ODE) solver to be used. Default is Dopri5.
     - `n_iters`: Number of integration steps (300 as default).
     - `stepsize_controller`: diffrax controllers for step size integration.
         Defaults to `PIDController`.
