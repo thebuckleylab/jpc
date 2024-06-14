@@ -33,8 +33,9 @@ def _energy_fn(
 
     """
     batch_size = output.shape[0]
-    start_l = 1 if input is not None else 2
-    n_hidden = len(generator) - 1
+    start_activity_l = 1 if input is not None else 2
+    n_activity_layers = len(activities)-1
+    n_layers = len(generator)-1
 
     gen_eL = output - vmap(generator[-1])(activities[-2])
     energy = 0.5 * sum(gen_eL ** 2)
@@ -42,11 +43,15 @@ def _energy_fn(
         amort_eL = input - vmap(amortiser[-1])(activities[0])
         energy += 0.5 * sum(amort_eL ** 2)
 
-    for l, rev_l in zip(range(start_l, n_hidden), reversed(range(1, n_hidden))):
-        gen_err = activities[l] - vmap(generator[l])(activities[l - 1])
+    for act_l, gen_l, amort_l in zip(
+            range(start_activity_l, n_activity_layers),
+            range(1, n_layers),
+            reversed(range(1, n_layers))
+    ):
+        gen_err = activities[act_l] - vmap(generator[gen_l])(activities[act_l-1])
         energy += 0.5 * sum(gen_err ** 2)
         if amortiser is not None:
-            amort_err = activities[rev_l - 1] - vmap(amortiser[l])(activities[rev_l])
+            amort_err = activities[amort_l-1] - vmap(amortiser[gen_l])(activities[amort_l])
             energy += 0.5 * sum(amort_err ** 2)
 
     gen_e1 = activities[0] - vmap(generator[0])(input) if (
@@ -96,19 +101,24 @@ def pc_energy_fn(
 
     """
     batch_size = output.shape[0]
-    start_l = 1 if input is not None else 2
+    start_activity_l = 1 if input is not None else 2
+    n_activity_layers = len(activities) - 1
+    n_layers = len(network) - 1
 
-    eL = output - vmap(network[-1])(activities[-2])
-    energy = 0.5 * sum(eL ** 2)
+    gen_eL = output - vmap(network[-1])(activities[-2])
+    energy = 0.5 * sum(gen_eL ** 2)
 
-    for l in range(start_l, len(network) - 1):
-        err = activities[l] - vmap(network[l])(activities[l - 1])
-        energy += 0.5 * sum(err ** 2)
+    for act_l, gen_l in zip(
+            range(start_activity_l, n_activity_layers),
+            range(1, n_layers)
+    ):
+        gen_err = activities[act_l] - vmap(network[gen_l])(activities[act_l - 1])
+        energy += 0.5 * sum(gen_err ** 2)
 
-    e1 = activities[0] - vmap(network[0])(input) if (
+    gen_e1 = activities[0] - vmap(network[0])(input) if (
             input is not None
     ) else activities[1] - vmap(network[0])(activities[0])
-    energy += 0.5 * sum(e1 ** 2)
+    energy += 0.5 * sum(gen_e1 ** 2)
 
     return energy / batch_size
 
@@ -163,8 +173,8 @@ def hpc_energy_fn(
     energy = 0.5 * sum(amort_eL ** 2) + 0.5 * sum(gen_eL ** 2)
 
     for l, rev_l in zip(range(1, n_hidden), reversed(range(1, n_hidden))):
-        gen_err = activities[l] - vmap(generator[l])(activities[l - 1])
-        amort_err = activities[rev_l - 1] - vmap(amortiser[l])(activities[rev_l])
+        gen_err = activities[l] - vmap(generator[l])(activities[l-1])
+        amort_err = activities[rev_l-1] - vmap(amortiser[l])(activities[rev_l])
         energy += 0.5 * sum(gen_err ** 2) + 0.5 * sum(amort_err ** 2)
 
     gen_e1 = activities[0] - vmap(generator[0])(input)
@@ -211,8 +221,8 @@ def _lateral_energy_fn(
     energy += 0.5 * sum(lateral1 ** 2) + 0.5 * sum(lateralL ** 2)
 
     for l, rev_l in zip(range(1, n_layers), reversed(range(1, n_layers))):
-        amort_err = activities1[rev_l - 1] - vmap(amortiser[l])(activities1[rev_l])
-        amort_err2 = activities2[rev_l - 1] - vmap(amortiser[l])(activities2[rev_l])
+        amort_err = activities1[rev_l-1] - vmap(amortiser[l])(activities1[rev_l])
+        amort_err2 = activities2[rev_l-1] - vmap(amortiser[l])(activities2[rev_l])
         energy += 0.5 * sum(amort_err ** 2) + 0.5 * sum(amort_err2 ** 2)
 
         lateral_err = activities2[l] - activities2[l]
