@@ -2,7 +2,7 @@
 
 from jaxtyping import PyTree, ArrayLike, Array
 from typing import Callable, Optional, Union
-from ._grads import _neg_activity_grad, _neg_lateral_activity_grad
+from ._grads import _neg_activity_grad
 from diffrax import (
     AbstractSolver,
     AbstractStepSizeController,
@@ -22,8 +22,8 @@ def solve_pc_activities(
         solver: AbstractSolver = Dopri5(),
         n_iters: int = 300,
         stepsize_controller: AbstractStepSizeController = PIDController(
-            rtol=1e-5,
-            atol=1e-5
+            rtol=1e-3,
+            atol=1e-3
         ),
         dt: Union[float, int] = None,
         record_iters: bool = False
@@ -76,57 +76,3 @@ def solve_pc_activities(
         saveat=SaveAt(t1=True, steps=record_iters)
     )
     return sol.ys if record_iters else [activity[0] for activity in sol.ys]
-
-
-def solve_lateral_pc_activities(
-        amortiser: PyTree[Callable],
-        activities: PyTree[ArrayLike],
-        outputs: PyTree[ArrayLike],
-        solver: AbstractSolver = Dopri5(),
-        n_iters: int = 300,
-        stepsize_controller: AbstractStepSizeController = PIDController(
-            rtol=1e-5,
-            atol=1e-5
-        ),
-        dt: Union[float, int] = None,
-        record_iters: bool = False
-) -> PyTree[Array]:
-    """Same as `solve_pc_activities` but for a network with lateral connections.
-
-    **Main arguments:**
-
-    - `amortiser`: List of callable layers for an amortised network.
-    - `activities`: List of activities for each layer free to vary, one list
-        per branch (n=2).
-    - `outputs`: List of two inputs to the amortiser, one for each branch.
-
-    **Other arguments:**
-
-    - `solver`: Diffrax (ODE) solver to be used. Default is Dopri5.
-    - `n_iters`: Number of integration steps (300 as default).
-    - `stepsize_controller`: diffrax controllers for step size integration.
-        Defaults to `PIDController`.
-    - `dt`: Integration step size. Defaults to None, since step size is
-        automatically determined by the default `PIDController`.
-    - `record_iters`: If `True`, returns all integration steps. `False` by
-        default.
-
-    **Returns:**
-
-    List with solution of the activity dynamics for each branch and layer.
-
-    """
-    sol = diffeqsolve(
-        terms=ODETerm(_neg_lateral_activity_grad),
-        solver=solver,
-        t0=0,
-        t1=n_iters,
-        dt0=dt,
-        y0=activities,
-        args=(amortiser, outputs),
-        stepsize_controller=stepsize_controller,
-        saveat=SaveAt(t1=True, steps=record_iters)
-    )
-    return sol.ys if record_iters else [
-        [activity[0] for activity in branch] for branch in sol.ys
-    ]

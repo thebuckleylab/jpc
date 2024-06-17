@@ -1,6 +1,6 @@
 """Energy functions for predictive coding networks."""
 
-from jax.numpy import sum, log, exp
+from jax.numpy import sum
 from jax import vmap
 from jaxtyping import PyTree, ArrayLike, Scalar
 from typing import Callable, Optional
@@ -116,56 +116,5 @@ def hpc_energy_fn(
 
     amort_e1 = activities[-2] - vmap(amortiser[0])(output)
     energy += 0.5 * sum(amort_e1 ** 2)
-
-    return energy / batch_size
-
-
-def _lateral_energy_fn(
-        amortiser: PyTree[Callable],
-        activities: PyTree[ArrayLike],
-        outputs: PyTree[ArrayLike],
-) -> Scalar:
-    """Computes the free energy for a predictive coding network with lateral connections.
-
-    !!! note
-
-        This is currently experimental.
-
-    **Main arguments:**
-
-    - `amortiser`: List of callable layers for an amortised network.
-    - `activities`: List of activities for each layer free to vary, one list
-        per branch (n=2).
-    - `outputs`: List of two inputs to the amortiser, one for each branch.
-
-    **Returns:**
-
-    The total energy normalised by batch size.
-
-    """
-    activities1, activities2 = activities
-    output1, output2 = outputs
-    batch_size = output1.shape[0]
-    n_layers = len(amortiser)
-
-    amort_e1 = activities1[-1] - vmap(amortiser[0])(output1)
-    amort_e12 = activities2[-1] - vmap(amortiser[0])(output2)
-    energy = 0.5 * sum(amort_e1 ** 2) + 0.5 * sum(amort_e12 ** 2)
-
-    lateral1 = activities1[-1] - activities2[-1]
-    lateralL = activities1[0] - activities2[0]
-    energy += 0.5 * sum(lateral1 ** 2) + 0.5 * sum(lateralL ** 2)
-
-    for l, rev_l in zip(range(1, n_layers), reversed(range(1, n_layers))):
-        amort_err = activities1[rev_l-1] - vmap(amortiser[l])(activities1[rev_l])
-        amort_err2 = activities2[rev_l-1] - vmap(amortiser[l])(activities2[rev_l])
-        energy += 0.5 * sum(amort_err ** 2) + 0.5 * sum(amort_err2 ** 2)
-
-        lateral_err = activities2[l] - activities2[l]
-        energy += 0.5 * sum(lateral_err ** 2)
-
-        logsumexp = log(sum(exp(-amort_err**2), axis=0))
-        logsumexp2 = log(sum(exp(-amort_err2**2), axis=0))
-        energy += 0.5 * sum(logsumexp) + 0.5 * sum(logsumexp2)
 
     return energy / batch_size

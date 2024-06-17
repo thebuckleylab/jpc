@@ -4,7 +4,7 @@ from jax import grad
 from equinox import filter_grad
 from jaxtyping import PyTree, ArrayLike, Array
 from typing import Union, Tuple, Callable, Optional
-from ._energies import pc_energy_fn, hpc_energy_fn, _lateral_energy_fn
+from ._energies import pc_energy_fn, hpc_energy_fn
 
 
 def _neg_activity_grad(
@@ -44,39 +44,6 @@ def _neg_activity_grad(
         input
     )
     return [-dFdz for dFdz in dFdzs]
-
-
-def _neg_lateral_activity_grad(
-    t: Union[float, int],
-    activities: PyTree[ArrayLike],
-    args: Tuple[PyTree[Callable], PyTree[ArrayLike], PyTree[ArrayLike]]
-) -> PyTree[Array]:
-    """Same as `_neg_activity_grad` but for a network with lateral connections.
-
-    **Main arguments:**
-
-    - `t`: Time step of the ODE system, used for downstream integration by
-        `diffrax.diffeqsolve`.
-    - `activities`: List of activities for each layer free to vary, one list
-        per branch (n=2).
-    - `args`: 2-Tuple with
-        (i) list of callable layers for amortised network, and
-        (ii) network outpus (observations), one for each branch.
-
-    **Returns:**
-
-    List of negative gradients of the energy w.r.t the activities.
-
-    """
-    amortiser, outputs = args
-    dFdzs = grad(_lateral_energy_fn, argnums=1)(
-        amortiser,
-        activities,
-        outputs
-    )
-    for branch in range(2):
-        dFdzs[branch] = [-dFdz for dFdz in dFdzs[branch]]
-    return dFdzs
 
 
 def compute_pc_param_grads(
@@ -167,30 +134,4 @@ def compute_amort_param_grads(
         activities,
         output,
         input
-    )
-
-
-def compute_lateral_pc_param_grads(
-        amortiser: PyTree[Callable],
-        activities: PyTree[ArrayLike],
-        outputs: PyTree[ArrayLike],
-) -> PyTree[Array]:
-    """Same as `compute_pc_param_grads` but for a network with lateral connections.
-
-    **Main arguments:**
-
-    - `amortiser`: List of callable layers for an amortised network.
-    - `activities`: List of activities for each layer free to vary, one list
-        per branch (n=2).
-    - `outputs`: List of two inputs to the amortiser, one for each branch.
-
-    **Returns:**
-
-    List of parameter gradients for each network layer.
-
-    """
-    return filter_grad(_lateral_energy_fn)(
-        amortiser,
-        activities,
-        outputs
     )
