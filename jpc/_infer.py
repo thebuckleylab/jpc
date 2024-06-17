@@ -15,11 +15,10 @@ from diffrax import (
 
 
 def solve_pc_activities(
-        generator: PyTree[Callable],
+        network: PyTree[Callable],
         activities: PyTree[ArrayLike],
         output: ArrayLike,
         input: Optional[ArrayLike] = None,
-        amortiser: Optional[PyTree[Callable]] = None,
         solver: AbstractSolver = Dopri5(),
         n_iters: int = 300,
         stepsize_controller: AbstractStepSizeController = PIDController(
@@ -44,15 +43,13 @@ def solve_pc_activities(
 
     **Main arguments:**
 
-    - `generator`: List of callable layers for the generative model.
+    - `network`: List of callable layers for the generative model.
     - `activities`: List of activities for each layer free to vary.
     - `output`: Observation or target of the generative model.
     - `input`: Optional prior of the generative model.
 
     **Other arguments:**
 
-    - `amortiser`: Optional list of callable layers for a network amortising
-        the inference of the generative model.
     - `solver`: Diffrax (ODE) solver to be used. Default is Dopri5.
     - `n_iters`: Number of integration steps (300 as default).
     - `stepsize_controller`: diffrax controllers for step size integration.
@@ -74,7 +71,7 @@ def solve_pc_activities(
         t1=n_iters,
         dt0=dt,
         y0=activities,
-        args=(amortiser, generator, output, input),
+        args=(network, output, input),
         stepsize_controller=stepsize_controller,
         saveat=SaveAt(t1=True, steps=record_iters)
     )

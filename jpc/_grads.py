@@ -4,13 +4,13 @@ from jax import grad
 from equinox import filter_grad
 from jaxtyping import PyTree, ArrayLike, Array
 from typing import Union, Tuple, Callable, Optional
-from ._energies import _energy_fn, pc_energy_fn, _lateral_energy_fn
+from ._energies import pc_energy_fn, hpc_energy_fn, _lateral_energy_fn
 
 
 def _neg_activity_grad(
         t: Union[float, int],
         activities: PyTree[ArrayLike],
-        args: Tuple[PyTree[Callable], Optional[PyTree[Callable]], ArrayLike, ArrayLike]
+        args: Tuple[Optional[PyTree[Callable]], ArrayLike, ArrayLike]
 ) -> PyTree[Array]:
     """Computes the negative gradient of the energy with respect to the activities.
 
@@ -36,13 +36,12 @@ def _neg_activity_grad(
     List of negative gradients of the energy w.r.t the activities.
 
     """
-    amortiser, generator, output, input = args
-    dFdzs = grad(_energy_fn, argnums=1)(
+    generator, output, input = args
+    dFdzs = grad(pc_energy_fn, argnums=1)(
         generator,
         activities,
         output,
-        input,
-        amortiser
+        input
     )
     return [-dFdz for dFdz in dFdzs]
 
@@ -109,7 +108,6 @@ def compute_pc_param_grads(
 
 
 def compute_gen_param_grads(
-        amortiser: PyTree[Callable],
         generator: PyTree[Callable],
         activities: PyTree[ArrayLike],
         output: ArrayLike,
@@ -125,8 +123,6 @@ def compute_gen_param_grads(
 
     **Main arguments:**
 
-    - `amortiser`: List of callable layers for the network amortising the
-        inference of the generative model.
     - `generator`: List of callable layers for the generative model.
     - `activities`: List of activities for each layer free to vary.
     - `output`: Observation or target of the generative model.
@@ -137,9 +133,8 @@ def compute_gen_param_grads(
     List of parameter gradients for each layer of the generative network.
 
     """
-    return filter_grad(_energy_fn)(
+    return filter_grad(pc_energy_fn)(
         generator,
-        amortiser,
         activities,
         output,
         input
@@ -148,7 +143,6 @@ def compute_gen_param_grads(
 
 def compute_amort_param_grads(
         amortiser: PyTree[Callable],
-        generator: PyTree[Callable],
         activities: PyTree[ArrayLike],
         output: ArrayLike,
         input: ArrayLike
@@ -159,7 +153,6 @@ def compute_amort_param_grads(
 
     - `amortiser`: List of callable layers for a network amortising the
         inference of the generative model.
-    - `generator`: List of callable layers for the generative network.
     - `activities`: List of activities for each layer free to vary.
     - `output`: Observation or target of the generative model.
     - `input`: Optional prior of the generative model.
@@ -169,12 +162,11 @@ def compute_amort_param_grads(
     List of parameter gradients for each layer of the amortiser.
 
     """
-    return filter_grad(_energy_fn, argnum=4)(
-        generator,
+    return filter_grad(hpc_energy_fn)(
+        amortiser,
         activities,
         output,
-        input,
-        amortiser
+        input
     )
 
 

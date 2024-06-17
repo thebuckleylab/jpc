@@ -64,3 +64,33 @@ def init_activities_from_gaussian(
             )
         )
     return activities
+
+
+def amort_init(
+        amortiser: PyTree[Callable],
+        generator: PyTree[Callable],
+        output: ArrayLike
+) -> PyTree[Array]:
+    """Initialises layers' activity using an amortised network.
+
+    **Main arguments:**
+
+    - `amortiser`: List of callable layers for network amortising the inference
+        of the generative model.
+    - `generator`: List of callable layers for the generative model.
+    - `output`: Input to the amortiser.
+
+    **Returns:**
+
+    List with amortised initialisation of each layer.
+
+    """
+    activities = [vmap(amortiser[0])(output)]
+    for l in range(1, len(amortiser)):
+        activities.append(vmap(amortiser[l])(activities[l - 1]))
+
+    activities = activities[::-1]
+    activities.append(
+        vmap(generator[-1])(activities[-1])
+    )
+    return activities

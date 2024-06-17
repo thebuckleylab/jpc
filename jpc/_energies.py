@@ -6,65 +6,6 @@ from jaxtyping import PyTree, ArrayLike, Scalar
 from typing import Callable, Optional
 
 
-def _energy_fn(
-        generator: PyTree[Callable],
-        activities: PyTree[ArrayLike],
-        output: ArrayLike,
-        input: Optional[ArrayLike] = None,
-        amortiser: Optional[PyTree[Callable]] = None
-) -> Scalar:
-    """Computes the free energy for a 'hybrid' or standard predictive coding network.
-
-    **Main arguments:**
-
-    - `generator`: List of callable layers for the generative model.
-    - `activities`: List of activities for each layer free to vary.
-    - `output`: Observation or target of the generative model.
-    - `input`: Optional prior of the generative model.
-
-    **Other arguments:**
-
-    - `amortiser`: Optional list of callable layers for a network amortising
-        the inference of the generative model.
-
-    **Returns:**
-
-    The total energy normalised by batch size.
-
-    """
-    batch_size = output.shape[0]
-    start_activity_l = 1 if input is not None else 2
-    n_activity_layers = len(activities)-1
-    n_layers = len(generator)-1
-
-    gen_eL = output - vmap(generator[-1])(activities[-2])
-    energy = 0.5 * sum(gen_eL ** 2)
-    if amortiser is not None:
-        amort_eL = input - vmap(amortiser[-1])(activities[0])
-        energy += 0.5 * sum(amort_eL ** 2)
-
-    for act_l, gen_l, amort_l in zip(
-            range(start_activity_l, n_activity_layers),
-            range(1, n_layers),
-            reversed(range(1, n_layers))
-    ):
-        gen_err = activities[act_l] - vmap(generator[gen_l])(activities[act_l-1])
-        energy += 0.5 * sum(gen_err ** 2)
-        if amortiser is not None:
-            amort_err = activities[amort_l-1] - vmap(amortiser[gen_l])(activities[amort_l])
-            energy += 0.5 * sum(amort_err ** 2)
-
-    gen_e1 = activities[0] - vmap(generator[0])(input) if (
-            input is not None
-    ) else activities[1] - vmap(generator[0])(activities[0])
-    energy += 0.5 * sum(gen_e1 ** 2)
-    if amortiser is not None:
-        amort_e1 = activities[-1] - vmap(amortiser[0])(output)
-        energy += 0.5 * sum(amort_e1 ** 2)
-
-    return energy / batch_size
-
-
 def pc_energy_fn(
         network: PyTree[Callable],
         activities: PyTree[ArrayLike],
@@ -102,8 +43,8 @@ def pc_energy_fn(
     """
     batch_size = output.shape[0]
     start_activity_l = 1 if input is not None else 2
-    n_activity_layers = len(activities) - 1
-    n_layers = len(network) - 1
+    n_activity_layers = len(activities)-1
+    n_layers = len(network)-1
 
     gen_eL = output - vmap(network[-1])(activities[-2])
     energy = 0.5 * sum(gen_eL ** 2)
@@ -112,7 +53,7 @@ def pc_energy_fn(
             range(start_activity_l, n_activity_layers),
             range(1, n_layers)
     ):
-        gen_err = activities[act_l] - vmap(network[gen_l])(activities[act_l - 1])
+        gen_err = activities[act_l] - vmap(network[gen_l])(activities[act_l-1])
         energy += 0.5 * sum(gen_err ** 2)
 
     gen_e1 = activities[0] - vmap(network[0])(input) if (
@@ -125,7 +66,6 @@ def pc_energy_fn(
 
 def hpc_energy_fn(
         amortiser: PyTree[Callable],
-        generator: PyTree[Callable],
         activities: PyTree[ArrayLike],
         output: ArrayLike,
         input: ArrayLike
@@ -155,7 +95,6 @@ def hpc_energy_fn(
 
     - `amortiser`: List of callable layers for network amortising the inference
         of the generative model.
-    - `generator`: List of callable layers for the generative model.
     - `activities`: List of activities for each layer free to vary.
     - `output`: Observation of the generative model (or input of the amortiser).
     - `input`: Prior of the generative model (or output of the amortiser).
@@ -166,20 +105,17 @@ def hpc_energy_fn(
 
     """
     batch_size = output.shape[0]
-    n_hidden = len(generator) - 1
+    n_hidden = len(amortiser) - 1
 
-    gen_eL = output - vmap(generator[-1])(activities[-2])
     amort_eL = input - vmap(amortiser[-1])(activities[0])
-    energy = 0.5 * sum(amort_eL ** 2) + 0.5 * sum(gen_eL ** 2)
+    energy = 0.5 * sum(amort_eL ** 2)
 
     for l, rev_l in zip(range(1, n_hidden), reversed(range(1, n_hidden))):
-        gen_err = activities[l] - vmap(generator[l])(activities[l-1])
         amort_err = activities[rev_l-1] - vmap(amortiser[l])(activities[rev_l])
-        energy += 0.5 * sum(gen_err ** 2) + 0.5 * sum(amort_err ** 2)
+        energy += 0.5 * sum(amort_err ** 2)
 
-    gen_e1 = activities[0] - vmap(generator[0])(input)
-    amort_e1 = activities[-1] - vmap(amortiser[0])(output)
-    energy += 0.5 * sum(amort_e1 ** 2) + 0.5 * sum(gen_e1 ** 2)
+    amort_e1 = activities[-2] - vmap(amortiser[0])(output)
+    energy += 0.5 * sum(amort_e1 ** 2)
 
     return energy / batch_size
 
