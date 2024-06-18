@@ -10,7 +10,7 @@ from diffrax import (
 )
 from jpc import (
     init_activities_with_ffwd,
-    amort_init,
+    init_activities_with_amort,
     solve_pc_activities,
     compute_pc_param_grads,
     compute_gen_param_grads,
@@ -158,15 +158,15 @@ def make_hpc_step(
     """
     gen_optim, amort_optim = optims
     gen_opt_state, amort_opt_state = opt_states
-    activities = amort_init(
+    amort_activities = init_activities_with_amort(
         amortiser=amortiser,
         generator=generator,
         output=output
     )
-    train_mse_loss = mean((input - activities[0])**2)
+    train_mse_loss = mean((input - amort_activities[0])**2)
     equilib_activities = solve_pc_activities(
         network=generator,
-        activities=activities[1:],
+        activities=amort_activities[1:],
         output=output,
         input=input,
         solver=solver,

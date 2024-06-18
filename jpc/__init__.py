@@ -3,7 +3,7 @@ import importlib.metadata
 from core._init import (
     init_activities_with_ffwd as init_activities_with_ffwd,
     init_activities_from_gaussian as init_activities_from_gaussian,
-    amort_init as amort_init
+    init_activities_with_amort as init_activities_with_amort
 )
 from core._energies import (
     pc_energy_fn as pc_energy_fn,

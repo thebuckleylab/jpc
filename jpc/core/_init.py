@@ -67,7 +67,7 @@ def init_activities_from_gaussian(
     return activities
 
 
-def amort_init(
+def init_activities_with_amort(
         amortiser: PyTree[Callable],
         generator: PyTree[Callable],
         output: ArrayLike
