@@ -36,6 +36,7 @@ dependencies = [
     "jax>=0.4.23",
     "equinox>=0.11.2",
     "diffrax>=0.5.1",
+    "optax>=0.2.2",
     "jaxtyping>=0.2.24"
 ]
 
