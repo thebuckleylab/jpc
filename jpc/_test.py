@@ -19,6 +19,29 @@ from typing import Callable, Union, Tuple
 
 
 @eqx.filter_jit
+def test_discriminative_pc(
+        network: PyTree[Callable],
+        output: ArrayLike,
+        input: ArrayLike,
+) -> Scalar:
+    """Computes prediction accuracy of a discriminative predictive coding network.
+
+    **Main arguments:**
+
+    - `network`: List of callable network layers.
+    - `output`: Observation or target of the generative model.
+    - `input`: Optional prior of the generative model.
+
+    **Returns:**
+
+    Accuracy of output predictions.
+
+    """
+    preds = init_activities_with_ffwd(network=network, input=input)[-1]
+    return compute_accuracy(output, preds)
+
+
+@eqx.filter_jit
 def test_generative_pc(
         key: PRNGKeyArray,
         layer_sizes: PyTree[int],
