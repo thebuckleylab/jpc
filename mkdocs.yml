@@ -26,10 +26,6 @@ theme:
     favicon: "_static/favicon.png"
     custom_dir: "docs/_overrides"  # Overriding part of the HTML
 
-    # These additions are my own custom ones, having overridden a partial.
-    #twitter_name: "@InnocFrancesco"
-    #twitter_url: "https://x.com/InnocFrancesco"
-
 site_name: jpc
 site_description: The documentation for the jpc software library.
 site_author: Francesco Innocenti
