@@ -45,6 +45,7 @@ def init_activities_from_gaussian(
         'unsupervised' the input layer is also initialised.
     - `batch_size`: Dimension of data batch.
     - `sigma`: Standard deviation for Gaussian to sample activities from.
+        Defaults to 5e-2.
 
     **Returns:**
 

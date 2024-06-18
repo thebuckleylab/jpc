@@ -8,15 +8,15 @@ from diffrax import (
     Dopri5,
     PIDController
 )
-from optax import GradientTransformationExtraArgs, OptState
-from ._init import init_activities_with_ffwd, amort_init
-from ._infer import solve_pc_activities
-from ._grads import (
+from jpc import (
+    init_activities_with_ffwd,
+    amort_init,
+    solve_pc_activities,
     compute_pc_param_grads,
     compute_gen_param_grads,
     compute_amort_param_grads
 )
-
+from optax import GradientTransformationExtraArgs, OptState
 from jaxtyping import PyTree, ArrayLike, Scalar
 from typing import Callable, Optional, Union, Tuple
 
@@ -49,8 +49,8 @@ def make_pc_step(
     **Other arguments:**
 
     - `solver`: Diffrax (ODE) solver to be used. Default is Dopri5.
-    - `n_iters`: Number of integration steps (300 as default).
-    - `stepsize_controller`: diffrax controllers for step size integration.
+    - `n_iters`: Number of integration steps for inference (300 as default).
+    - `stepsize_controller`: diffrax controllers for inference integration.
         Defaults to `PIDController`.
     - `dt`: Integration step size. Defaults to None, since step size is
         automatically determined by the default `PIDController`.
@@ -133,9 +133,11 @@ def make_hpc_step(
 
     **Main arguments:**
 
-    - `network`: List of callable network layers.
-    - `optim`: Optax optimiser, e.g. `optax.sgd()`.
-    - `opt_state`: State of Optax optimiser.
+    - `generator`: List of callable layers for the generative network.
+    - `amortiser`: List of callable layers for network amortising the inference
+        of the generative model.
+    - `optims`: Optax optimisers (e.g. `optax.sgd()`), one for each model.
+    - `opt_states`: State of Optax optimisers, one for each model.
     - `output`: Observation of the generator, input to the amortiser.
     - `input`: Prior of the generator, target for the amortiser.
 
