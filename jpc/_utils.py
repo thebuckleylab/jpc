@@ -1,7 +1,7 @@
 import jax
-import jax.numpy as jnp
+from jax.numpy import tanh, mean, argmax
 import equinox.nn as nn
-from jaxtyping import PRNGKeyArray, PyTree
+from jaxtyping import PRNGKeyArray, PyTree, ArrayLike, Scalar
 from typing import Callable
 
 
@@ -45,7 +45,7 @@ def get_fc_network(
                         use_bias=use_bias,
                         key=subkey
                     ),
-                    nn.Lambda(jnp.tanh)
+                    nn.Lambda(tanh)
                 ]
             )
         elif act_fn == "relu" and not is_last:
@@ -68,3 +68,9 @@ def get_fc_network(
         layers.append(hidden_layer)
 
     return layers
+
+
+def compute_accuracy(truths: ArrayLike, preds: ArrayLike) -> Scalar:
+    return mean(
+        argmax(truths, axis=1) == argmax(preds, axis=1)
+    )
