@@ -25,9 +25,9 @@ Requires Python 3.9+, JAX 0.4.23+, [Equinox](https://github.com/patrick-kidger/e
 ## Documentation
 Available at X.
 
-## Quick example
+## Quickstart
 
-Given a neural network with callable layers, for example defined with
+Given a neural network with callable layers defined with
 [Equinox](https://github.com/patrick-kidger/equinox)
 ```py
 import jax
