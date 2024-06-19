@@ -87,16 +87,20 @@ plugins:
 
 nav:
     - 'index.md'
+    - Predictive coding primer: 'pc_overview.md'
     - Examples:
         - Discriminative PC: 'examples/discriminative_pc.ipynb'
         - Generative PC: 'examples/generative_pc.ipynb'
         - Hybrid PC: 'examples/hybrid_pc.ipynb'
-    - API:
+    - Basic API:
+          - 'api/Training.md'
+          - 'api/Testing.md'
+          - 'api/get_fc_network.md'
+    - Advanced API:
         - 'api/Initialisation.md'
-        - 'api/Inference.md'
         - 'api/Energy functions.md'
+        - 'api/solve_pc_activities.md'
         - 'api/Gradients.md'
-    - 'FAQs.md'
 
 copyright: |
   &copy; 2024 <a href="https://github.com/thebuckleylab"  target="_blank" rel="noopener">thebuckleylab</a>
