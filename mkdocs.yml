@@ -87,6 +87,10 @@ plugins:
 
 nav:
     - 'index.md'
+    - Examples:
+        - Discriminative PC: 'examples/discriminative_pc.ipynb'
+        - Generative PC: 'examples/generative_pc.ipynb'
+        - Hybrid PC: 'examples/hybrid_pc.ipynb'
     - API:
         - 'api/Initialisation.md'
         - 'api/Inference.md'
