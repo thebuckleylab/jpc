@@ -4,7 +4,7 @@ from jax import grad
 from equinox import filter_grad
 from jaxtyping import PyTree, ArrayLike, Array
 from typing import Union, Tuple, Callable, Optional
-from ._energies import pc_energy_fn, hpc_energy_fn
+from ._energies import pc_energy_fn
 
 
 def _neg_activity_grad(
@@ -68,69 +68,6 @@ def compute_pc_param_grads(
     """
     return filter_grad(pc_energy_fn)(
         network,
-        activities,
-        output,
-        input
-    )
-
-
-def compute_gen_param_grads(
-        generator: PyTree[Callable],
-        activities: PyTree[ArrayLike],
-        output: ArrayLike,
-        input: ArrayLike
-) -> PyTree[Array]:
-    """Computes the gradient of the energy w.r.t the parameters of a generative model $\partial \mathcal{F} / \partial θ$.
-
-    !!! note
-
-        This has the same functionality as `compute_pc_param_grads` but can be
-        used together with `compute_amort_param_grads` for a more user-friendly
-        API when training hybrid predictive coding networks.
-
-    **Main arguments:**
-
-    - `generator`: List of callable layers for the generative model.
-    - `activities`: List of activities for each layer free to vary.
-    - `output`: Observation or target of the generative model.
-    - `input`: Prior of the generative model.
-
-    **Returns:**
-
-    List of parameter gradients for each layer of the generative network.
-
-    """
-    return filter_grad(pc_energy_fn)(
-        generator,
-        activities,
-        output,
-        input
-    )
-
-
-def compute_amort_param_grads(
-        amortiser: PyTree[Callable],
-        activities: PyTree[ArrayLike],
-        output: ArrayLike,
-        input: ArrayLike
-) -> PyTree[Array]:
-    """Computes the gradient of the energy w.r.t the parameters of an amortised model $\partial \mathcal{F} / \partial \phi$.
-
-    **Main arguments:**
-
-    - `amortiser`: List of callable layers for a network amortising the
-        inference of the generative model.
-    - `activities`: List of activities for each layer free to vary.
-    - `output`: Observation or target of the generative model.
-    - `input`: Optional prior of the generative model.
-
-    **Returns:**
-
-    List of parameter gradients for each layer of the amortiser.
-
-    """
-    return filter_grad(hpc_energy_fn)(
-        amortiser,
         activities,
         output,
         input

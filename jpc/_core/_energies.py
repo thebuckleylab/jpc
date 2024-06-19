@@ -1,17 +1,18 @@
 """Energy functions for predictive coding networks."""
 
-from jax.numpy import sum
+from jax.numpy import sum, array
 from jax import vmap
 from jaxtyping import PyTree, ArrayLike, Scalar
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 
 
 def pc_energy_fn(
         network: PyTree[Callable],
         activities: PyTree[ArrayLike],
         output: ArrayLike,
-        input: Optional[ArrayLike] = None
-) -> Scalar:
+        input: Optional[ArrayLike] = None,
+        record_layers: bool = False
+) -> Union[Scalar, PyTree[Scalar]]:
     """Computes the free energy for a feedforward neural network of the form
 
     $$
@@ -36,9 +37,14 @@ def pc_energy_fn(
     - `output`: Observation or target of the generative model.
     - `input`: Optional prior of the generative model.
 
+    **Other arguments:**
+
+    - `record_layers`: If `True`, returns energies for each layer. Defaults to
+        `False`.
+
     **Returns:**
 
-    The total energy normalised by batch size.
+    The total or layer-wise energy normalised by batch size.
 
     """
     batch_size = output.shape[0]
@@ -46,75 +52,22 @@ def pc_energy_fn(
     n_activity_layers = len(activities)-1
     n_layers = len(network)-1
 
-    gen_eL = output - vmap(network[-1])(activities[-2])
-    energy = 0.5 * sum(gen_eL ** 2)
+    eL = output - vmap(network[-1])(activities[-2])
+    energies = [0.5 * sum(eL ** 2)]
 
-    for act_l, gen_l in zip(
+    for act_l, net_l in zip(
             range(start_activity_l, n_activity_layers),
             range(1, n_layers)
     ):
-        gen_err = activities[act_l] - vmap(network[gen_l])(activities[act_l-1])
-        energy += 0.5 * sum(gen_err ** 2)
+        err = activities[act_l] - vmap(network[net_l])(activities[act_l-1])
+        energies.append(0.5 * sum(err ** 2))
 
-    gen_e1 = activities[0] - vmap(network[0])(input) if (
+    e1 = activities[0] - vmap(network[0])(input) if (
             input is not None
     ) else activities[1] - vmap(network[0])(activities[0])
-    energy += 0.5 * sum(gen_e1 ** 2)
+    energies.append(0.5 * sum(e1 ** 2))
 
-    return energy / batch_size
-
-
-def hpc_energy_fn(
-        amortiser: PyTree[Callable],
-        activities: PyTree[ArrayLike],
-        output: ArrayLike,
-        input: ArrayLike
-) -> Scalar:
-    """Computes the free energy for a 'hybrid' predictive coding network.
-
-    ??? cite "Reference"
-
-        ```bibtex
-        @article{tscshantz2023hybrid,
-          title={Hybrid predictive coding: Inferring, fast and slow},
-          author={Tscshantz, Alexander and Millidge, Beren and Seth, Anil K and Buckley, Christopher L},
-          journal={PLoS Computational Biology},
-          volume={19},
-          number={8},
-          pages={e1011280},
-          year={2023},
-          publisher={Public Library of Science San Francisco, CA USA}
-        }
-        ```
-
-    !!! note
-
-        Input is required so currently this only supports supervised training.
-
-    **Main arguments:**
-
-    - `amortiser`: List of callable layers for network amortising the inference
-        of the generative model.
-    - `activities`: List of activities for each layer free to vary.
-    - `output`: Observation of the generative model (or input of the amortiser).
-    - `input`: Prior of the generative model (or output of the amortiser).
-
-    **Returns:**
-
-    The total energy normalised by batch size.
-
-    """
-    batch_size = output.shape[0]
-    n_hidden = len(amortiser) - 1
-
-    amort_eL = input - vmap(amortiser[-1])(activities[0])
-    energy = 0.5 * sum(amort_eL ** 2)
-
-    for l, rev_l in zip(range(1, n_hidden), reversed(range(1, n_hidden))):
-        amort_err = activities[rev_l-1] - vmap(amortiser[l])(activities[rev_l])
-        energy += 0.5 * sum(amort_err ** 2)
-
-    amort_e1 = activities[-2] - vmap(amortiser[0])(output)
-    energy += 0.5 * sum(amort_e1 ** 2)
-
-    return energy / batch_size
+    if record_layers:
+        return [energy_l / batch_size for energy_l in energies]
+    else:
+        return sum(array(energies)) / batch_size

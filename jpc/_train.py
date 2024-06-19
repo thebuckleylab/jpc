@@ -1,6 +1,7 @@
 """High-level API to train neural networks with predictive coding."""
 
 import equinox as eqx
+from jax import vmap
 from jax.numpy import mean
 from diffrax import (
     AbstractSolver,
@@ -12,9 +13,7 @@ from jpc import (
     init_activities_with_ffwd,
     init_activities_with_amort,
     solve_pc_activities,
-    compute_pc_param_grads,
-    compute_gen_param_grads,
-    compute_amort_param_grads
+    compute_pc_param_grads
 )
 from optax import GradientTransformationExtraArgs, OptState
 from jaxtyping import PyTree, ArrayLike, Scalar
@@ -174,17 +173,21 @@ def make_hpc_step(
         stepsize_controller=stepsize_controller,
         dt=dt
     )
-    gen_param_grads = compute_gen_param_grads(
-        generator=generator,
+    gen_param_grads = compute_pc_param_grads(
+        network=generator,
         activities=equilib_activities,
         output=output,
         input=input
     )
-    amort_param_grads = compute_amort_param_grads(
-        amortiser=amortiser,
-        activities=equilib_activities,
-        output=output,
-        input=input,
+    activities_for_amort = equilib_activities[::-1][1:]
+    activities_for_amort.append(
+        vmap(amortiser[-1])(equilib_activities[0])
+    )
+    amort_param_grads = compute_pc_param_grads(
+        network=amortiser,
+        activities=activities_for_amort,
+        output=input,
+        input=output,
     )
     gen_updates, gen_opt_state = gen_optim.update(
         updates=gen_param_grads,
