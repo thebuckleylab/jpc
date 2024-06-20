@@ -1,6 +1,5 @@
 """Function to solve activity dynamics of predictive coding networks."""
 
-from jax.numpy import isfinite, where
 from jaxtyping import PyTree, ArrayLike, Array
 from typing import Callable, Optional, Union
 from ._grads import _neg_activity_grad
@@ -76,5 +75,4 @@ def solve_pc_activities(
         stepsize_controller=stepsize_controller,
         saveat=SaveAt(t1=True, steps=record_iters)
     )
-    ts = where(isfinite(sol.ts)) if record_iters else 0
-    return [activity[ts] for activity in sol.ys]
+    return sol.ys
