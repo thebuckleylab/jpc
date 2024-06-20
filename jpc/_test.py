@@ -1,4 +1,4 @@
-"""High-level functions to test predictive coding networks."""
+"""Utility functions to test predictive coding networks."""
 
 import equinox as eqx
 from jpc import (

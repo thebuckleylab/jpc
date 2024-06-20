@@ -104,9 +104,9 @@ nav:
           - 'api/get_fc_network.md'
     - Advanced API:
         - 'api/Initialisation.md'
-        - 'api/Energy functions.md'
+        - 'api/pc_energy_fn.md'
         - 'api/solve_pc_activities.md'
-        - 'api/Gradients.md'
+        - 'api/compute_pc_param_grads.md'
 
 copyright: |
   &copy; 2024 <a href="https://github.com/thebuckleylab"  target="_blank" rel="noopener">thebuckleylab</a>
