@@ -1,5 +1,6 @@
 import jax
 from jax.numpy import tanh, mean, argmax
+import equinox as eqx
 import equinox.nn as nn
 from jpc import pc_energy_fn
 from jaxtyping import PRNGKeyArray, PyTree, ArrayLike, Scalar, Array
@@ -82,6 +83,7 @@ def get_t_max(activities_iters: PyTree[Array]) -> int:
     return int(t_max)
 
 
+@eqx.filter_jit
 def compute_pc_infer_energies(
         network: PyTree[Callable],
         activities_iters: PyTree[Array],
