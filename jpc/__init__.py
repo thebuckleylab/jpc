@@ -10,7 +10,8 @@ from ._core import (
 )
 from ._utils import (
     get_fc_network as get_fc_network,
-    compute_accuracy as compute_accuracy
+    compute_accuracy as compute_accuracy,
+    compute_pc_infer_energies as compute_pc_infer_energies
 )
 from ._train import (
     make_pc_step as make_pc_step,
