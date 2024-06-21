@@ -16,7 +16,7 @@ from jpc import (
     compute_pc_param_grads
 )
 from optax import GradientTransformationExtraArgs, OptState
-from jaxtyping import PyTree, ArrayLike, Scalar
+from jaxtyping import PyTree, ArrayLike, Scalar, Array
 from typing import Callable, Optional, Union, Tuple
 
 
@@ -33,8 +33,23 @@ def make_pc_step(
           rtol=1e-3,
           atol=1e-3
       ),
-      dt: Union[float, int] = None
-) -> Tuple[PyTree[Callable], GradientTransformationExtraArgs, OptState, Scalar]:
+      dt: Union[float, int] = None,
+      record_activities: bool = False
+) -> Union[
+         Tuple[
+             PyTree[Callable],
+             GradientTransformationExtraArgs,
+             OptState,
+             Scalar,
+             PyTree[Array]
+         ],
+         Tuple[
+             PyTree[Callable],
+             GradientTransformationExtraArgs,
+             OptState,
+             Scalar
+         ]
+    ]:
     """Updates network parameters with predictive coding.
 
     **Main arguments:**
@@ -53,10 +68,13 @@ def make_pc_step(
         Defaults to `PIDController`.
     - `dt`: Integration step size. Defaults to None, since step size is
         automatically determined by the default `PIDController`.
+    - `record_activities`: If `True`, returns activities at every inference
+        iteration.
 
     **Returns:**
 
-    Network with updated weights, optimiser, optimiser state and training loss.
+    Network with updated weights, optimiser, optimiser state, training loss and
+    optionally activities during inference.
 
     """
     activities = init_activities_with_ffwd(network=network, input=input)
@@ -69,11 +87,12 @@ def make_pc_step(
         solver=solver,
         n_iters=n_iters,
         stepsize_controller=stepsize_controller,
-        dt=dt
+        dt=dt,
+        record_iters=record_activities
     )
     param_grads = compute_pc_param_grads(
         network=network,
-        activities=equilib_activities,
+        activities=[act[-1] for act in equilib_activities],
         output=output,
         input=input
     )
@@ -83,12 +102,21 @@ def make_pc_step(
         params=network
     )
     network = eqx.apply_updates(model=network, updates=updates)
-    return (
-        network,
-        optim,
-        opt_state,
-        train_mse_loss
-    )
+    if record_activities:
+        return (
+            network,
+            optim,
+            opt_state,
+            train_mse_loss,
+            equilib_activities
+        )
+    else:
+        return (
+            network,
+            optim,
+            opt_state,
+            train_mse_loss
+        )
 
 
 @eqx.filter_jit
