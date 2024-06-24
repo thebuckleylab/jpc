@@ -193,6 +193,7 @@ def make_hpc_step(
         stepsize_controller=stepsize_controller,
         dt=dt
     )
+    equilib_activities = [act[-1] for act in equilib_activities]
     gen_param_grads = compute_pc_param_grads(
         network=generator,
         activities=equilib_activities,

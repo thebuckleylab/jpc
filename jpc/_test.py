@@ -169,7 +169,7 @@ def test_hpc(
         n_iters=n_iters,
         stepsize_controller=stepsize_controller,
         dt=dt
-    )[0]
+    )[0][0]
     activities = init_activities_from_gaussian(
         key=key,
         layer_sizes=layer_sizes,
@@ -185,7 +185,7 @@ def test_hpc(
         n_iters=n_iters,
         stepsize_controller=stepsize_controller,
         dt=dt
-    )[0]
+    )[0][0]
     amort_acc = compute_accuracy(input, amort_preds)
     hpc_acc = compute_accuracy(input, hpc_preds)
     gen_acc = compute_accuracy(input, gen_preds)
