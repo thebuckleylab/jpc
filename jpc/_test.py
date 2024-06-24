@@ -93,7 +93,7 @@ def test_generative_pc(
         batch_size=batch_size,
         sigma=sigma
     )
-    equilib_activities = solve_pc_activities(
+    input_preds = solve_pc_activities(
         network=network,
         activities=activities,
         output=output,
@@ -101,8 +101,8 @@ def test_generative_pc(
         n_iters=n_iters,
         stepsize_controller=stepsize_controller,
         dt=dt
-    )
-    input_acc = compute_accuracy(input, equilib_activities[0])
+    )[0][0]
+    input_acc = compute_accuracy(input, input_preds)
     output_preds = init_activities_with_ffwd(network=network, input=input)[-1]
     return input_acc, output_preds
 
