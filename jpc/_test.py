@@ -11,11 +11,11 @@ from ._utils import compute_accuracy
 from diffrax import (
     AbstractSolver,
     AbstractStepSizeController,
-    Dopri5,
-    PIDController
+    Euler,
+    ConstantStepSize
 )
 from jaxtyping import PRNGKeyArray, PyTree, ArrayLike, Array, Scalar
-from typing import Callable, Union, Tuple
+from typing import Callable, Tuple
 
 
 @eqx.filter_jit
@@ -50,13 +50,10 @@ def test_generative_pc(
         output: ArrayLike,
         input: ArrayLike,
         sigma: Scalar = 0.05,
-        solver: AbstractSolver = Dopri5(),
-        n_iters: int = 300,
-        stepsize_controller: AbstractStepSizeController = PIDController(
-            rtol=1e-3,
-            atol=1e-3
-        ),
-        dt: Union[float, int] = None
+        solver: AbstractSolver = Euler(),
+        dt: float | int = 1,
+        n_iters: int = 20,
+        stepsize_controller: AbstractStepSizeController = ConstantStepSize()
 ) -> Tuple[Scalar, Array]:
     """Computes test metrics for a generative predictive coding network.
 
@@ -78,12 +75,11 @@ def test_generative_pc(
 
     - `sigma`: Standard deviation for Gaussian to sample activities from.
         Defaults to 5e-2.
-    - `solver`: Diffrax (ODE) solver to be used. Default is Dopri5.
-    - `n_iters`: Number of integration steps for inference (300 as default).
-    - `stepsize_controller`: diffrax controllers for inference integration.
-        Defaults to `PIDController`.
-    - `dt`: Integration step size. Defaults to None, since step size is
-        automatically determined by the default `PIDController`.
+    - `solver`: Diffrax (ODE) solver to be used. Default is Euler.
+    - `dt`: Integration step size. Defaults to 1.
+    - `n_iters`: Number of integration steps (20 as default).
+    - `stepsize_controller`: diffrax controller for step size integration.
+        Defaults to `ConstantStepSize`.
 
     **Returns:**
 
@@ -121,13 +117,10 @@ def test_hpc(
       output: ArrayLike,
       input: ArrayLike,
       sigma: Scalar = 0.05,
-      solver: AbstractSolver = Dopri5(),
-      n_iters: int = 300,
-      stepsize_controller: AbstractStepSizeController = PIDController(
-          rtol=1e-3,
-          atol=1e-3
-      ),
-      dt: Union[float, int] = None
+      solver: AbstractSolver = Euler(),
+      dt: float | int = 1,
+      n_iters: int = 20,
+      stepsize_controller: AbstractStepSizeController = ConstantStepSize()
 ) -> Tuple[Scalar, Scalar, Scalar, Array]:
     """Computes test metrics for hybrid predictive coding.
 
@@ -151,12 +144,11 @@ def test_hpc(
 
     - `sigma`: Standard deviation for Gaussian to sample activities from.
         Defaults to 5e-2.
-    - `solver`: Diffrax (ODE) solver to be used. Default is Dopri5.
-    - `n_iters`: Number of integration steps for inference (300 as default).
-    - `stepsize_controller`: diffrax controllers for inference integration.
-        Defaults to `PIDController`.
-    - `dt`: Integration step size. Defaults to None, since step size is
-        automatically determined by the default `PIDController`.
+    - `solver`: Diffrax (ODE) solver to be used. Default is Euler.
+    - `dt`: Integration step size. Defaults to 1.
+    - `n_iters`: Number of integration steps (20 as default).
+    - `stepsize_controller`: diffrax controller for step size integration.
+        Defaults to `ConstantStepSize`.
 
     **Returns:**
 

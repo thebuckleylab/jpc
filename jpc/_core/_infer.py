@@ -1,13 +1,13 @@
 """Function to solve activity dynamics of predictive coding networks."""
 
 from jaxtyping import PyTree, ArrayLike, Array
-from typing import Callable, Optional, Union
+from typing import Callable, Optional
 from ._grads import _neg_activity_grad
 from diffrax import (
     AbstractSolver,
     AbstractStepSizeController,
-    Dopri5,
-    PIDController,
+    Euler,
+    ConstantStepSize,
     diffeqsolve,
     ODETerm,
     SaveAt
@@ -19,13 +19,10 @@ def solve_pc_activities(
         activities: PyTree[ArrayLike],
         output: ArrayLike,
         input: Optional[ArrayLike] = None,
-        solver: AbstractSolver = Dopri5(),
-        n_iters: int = 300,
-        stepsize_controller: AbstractStepSizeController = PIDController(
-            rtol=1e-3,
-            atol=1e-3
-        ),
-        dt: Union[float, int] = None,
+        solver: AbstractSolver = Euler(),
+        dt: float | int = 1,
+        n_iters: int = 20,
+        stepsize_controller: AbstractStepSizeController = ConstantStepSize(),
         record_iters: bool = False
 ) -> PyTree[Array]:
     """Solves the activity (inference) dynamics of a predictive coding network.
@@ -50,12 +47,11 @@ def solve_pc_activities(
 
     **Other arguments:**
 
-    - `solver`: Diffrax (ODE) solver to be used. Default is Dopri5.
-    - `n_iters`: Number of integration steps (300 as default).
-    - `stepsize_controller`: diffrax controllers for step size integration.
-        Defaults to `PIDController`.
-    - `dt`: Integration step size. Defaults to None, since step size is
-        automatically determined by the default `PIDController`.
+    - `solver`: Diffrax (ODE) solver to be used. Default is Euler.
+    - `dt`: Integration step size. Defaults to 1.
+    - `n_iters`: Number of integration steps (20 as default).
+    - `stepsize_controller`: diffrax controller for step size integration.
+        Defaults to `ConstantStepSize`.
     - `record_iters`: If `True`, returns all integration steps. `False` by
         default.
 
