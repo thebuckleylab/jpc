@@ -39,7 +39,7 @@ def _neg_activity_grad(
 
     """
     generator, output, input = args
-    dFdzs = grad(pc_energy_fn, argnums=1)(
+    dFdzs = grad(energy_fn, argnums=1)(
         generator,
         activities,
         output,
