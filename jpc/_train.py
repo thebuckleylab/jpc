@@ -1,7 +1,7 @@
 """High-level API to train neural networks with predictive coding."""
 
 import equinox as eqx
-from jax import vmap, lax
+from jax import vmap
 from jax.tree_util import tree_map
 from jax.numpy import mean, array
 from diffrax import (
@@ -12,13 +12,14 @@ from diffrax import (
 )
 from jpc import (
     init_activities_with_ffwd,
+    init_activities_from_gaussian,
     init_activities_with_amort,
     solve_pc_activities,
     compute_pc_param_grads,
     get_t_max
 )
 from optax import GradientTransformationExtraArgs, OptState
-from jaxtyping import PyTree, ArrayLike, Scalar, Array
+from jaxtyping import PyTree, ArrayLike, Scalar, Array, PRNGKeyArray
 from typing import Callable, Optional, Tuple
 
 
@@ -33,7 +34,11 @@ def make_pc_step(
       dt: float | int = 1,
       n_iters: Optional[int] = 20,
       stepsize_controller: AbstractStepSizeController = ConstantStepSize(),
-      record_activities: bool = False
+      record_activities: bool = False,
+      key: Optional[PRNGKeyArray] = None,
+      layer_sizes: Optional[PyTree[int]] = None,
+      batch_size: Optional[int] = None,
+      sigma: Scalar = 0.05,
 ) -> Tuple[
          PyTree[Callable],
          GradientTransformationExtraArgs,
@@ -52,6 +57,12 @@ def make_pc_step(
     - `output`: Observation or target of the generative model.
     - `input`: Optional prior of the generative model.
 
+    !!! note
+
+        The arguments `key`, `layer_sizes` and `batch_size` must be passed if
+        `input` is None, since unsupervised training will be assumed and
+        activities need to be initialised randomly.
+
     **Other arguments:**
 
     - `solver`: Diffrax (ODE) solver to be used. Default is Euler.
@@ -61,6 +72,11 @@ def make_pc_step(
         Defaults to `ConstantStepSize`.
     - `record_activities`: If `True`, returns activities at every inference
         iteration.
+    - `key`: `jax.random.PRNGKey` for random initialisation of activities.
+    - `layer_sizes`: Dimension of all layers (input, hidden and output).
+    - `batch_size`: Dimension of data batch for activity initialisation.
+    - `sigma`: Standard deviation for Gaussian to sample activities from for
+        random initialisation. Defaults to 5e-2.
 
     **Returns:**
 
@@ -68,8 +84,24 @@ def make_pc_step(
     equilibrated activities and last inference step.
 
     """
-    activities = init_activities_with_ffwd(network=network, input=input)
-    train_mse_loss = mean((output - activities[-1])**2)
+    if input is None and any(x is None for x in (key, layer_sizes, batch_size)):
+        raise ValueError("""
+            If there is no input, then unsupervised training is assumed, and
+            `key`, `layer_sizes` and `batch_size` must be passed for random
+            initialisation of activities.
+        """)
+    if input is None:
+        activities = init_activities_from_gaussian(
+            key=key,
+            layer_sizes=layer_sizes,
+            mode="unsupervised",
+            batch_size=batch_size,
+            sigma=sigma
+        )
+    else:
+        activities = init_activities_with_ffwd(network=network, input=input)
+
+    train_mse_loss = mean((output - activities[-1])**2) if input is not None else None
     equilib_activities = solve_pc_activities(
         network=network,
         activities=activities,
@@ -81,14 +113,13 @@ def make_pc_step(
         dt=dt,
         record_iters=record_activities
     )
-    t_max = lax.cond(
-        record_activities,
-        lambda: get_t_max(equilib_activities),
-        lambda: array(0)
-    )
+    t_max = get_t_max(equilib_activities)
     param_grads = compute_pc_param_grads(
         network=network,
-        activities=tree_map(lambda act: act[t_max], equilib_activities),
+        activities=tree_map(
+            lambda act: act[t_max if record_activities else array(0)],
+            equilib_activities
+        ),
         output=output,
         input=input
     )

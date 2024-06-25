@@ -65,8 +65,7 @@ def test_generative_pc(
 
     - `key`: `jax.random.PRNGKey` for random initialisation of activities.
     - `layer_sizes`: Dimension of all layers (input, hidden and output).
-    - `batch_size`: Dimension of data batch for random initialisation of
-        activities.
+    - `batch_size`: Dimension of data batch for activity initialisation.
     - `network`: List of callable network layers.
     - `output`: Observation or target of the generative model.
     - `input`: Optional prior of the generative model.
@@ -132,9 +131,8 @@ def test_hpc(
 
     - `key`: `jax.random.PRNGKey` for random initialisation of activities.
     - `layer_sizes`: Dimension of all layers (input, hidden and output).
-    - `batch_size`: Dimension of data batch for random initialisation of
-        activities.
-    - `generator`: List of callable layers for the generative network..
+    - `batch_size`: Dimension of data batch for initialisation of activities.
+    - `generator`: List of callable layers for the generative network.
     - `amortiser`: List of callable layers for network amortising the inference
         of the generative model.
     - `output`: Observation or target of the generative model.
