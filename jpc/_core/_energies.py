@@ -69,6 +69,6 @@ def pc_energy_fn(
     energies.append(sum(e1 ** 2))
 
     if record_layers:
-        return tree_map(lambda energy: energy / batch_size, energies)
+        return array(energies) / batch_size
     else:
         return sum(array(energies)) / batch_size

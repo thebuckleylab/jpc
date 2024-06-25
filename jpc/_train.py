@@ -15,12 +15,13 @@ from jpc import (
     init_activities_from_gaussian,
     init_activities_with_amort,
     solve_pc_activities,
-    compute_pc_param_grads,
-    get_t_max
+    get_t_max,
+    compute_infer_energies,
+    compute_pc_param_grads
 )
 from optax import GradientTransformationExtraArgs, OptState
-from jaxtyping import PyTree, ArrayLike, Scalar, Array, PRNGKeyArray
-from typing import Callable, Optional, Tuple
+from jaxtyping import PyTree, ArrayLike, Scalar, PRNGKeyArray
+from typing import Callable, Optional, Tuple, Dict
 
 
 @eqx.filter_jit
@@ -34,19 +35,13 @@ def make_pc_step(
       dt: float | int = 1,
       n_iters: Optional[int] = 20,
       stepsize_controller: AbstractStepSizeController = ConstantStepSize(),
-      record_activities: bool = False,
       key: Optional[PRNGKeyArray] = None,
       layer_sizes: Optional[PyTree[int]] = None,
       batch_size: Optional[int] = None,
       sigma: Scalar = 0.05,
-) -> Tuple[
-         PyTree[Callable],
-         GradientTransformationExtraArgs,
-         OptState,
-         Scalar,
-         PyTree[Array],
-         Array
-]:
+      record_activities: bool = False,
+      record_energies: bool = False
+) -> Dict:
     """Updates network parameters with predictive coding.
 
     **Main arguments:**
@@ -59,9 +54,9 @@ def make_pc_step(
 
     !!! note
 
-        The arguments `key`, `layer_sizes` and `batch_size` must be passed if
-        `input` is None, since unsupervised training will be assumed and
-        activities need to be initialised randomly.
+        `key`, `layer_sizes` and `batch_size` must be passed if `input` is
+        `None`, since unsupervised training will be assumed and activities need
+        to be initialised randomly.
 
     **Other arguments:**
 
@@ -70,18 +65,21 @@ def make_pc_step(
     - `n_iters`: Number of integration steps (20 as default).
     - `stepsize_controller`: diffrax controller for step size integration.
         Defaults to `ConstantStepSize`.
-    - `record_activities`: If `True`, returns activities at every inference
-        iteration.
     - `key`: `jax.random.PRNGKey` for random initialisation of activities.
     - `layer_sizes`: Dimension of all layers (input, hidden and output).
     - `batch_size`: Dimension of data batch for activity initialisation.
     - `sigma`: Standard deviation for Gaussian to sample activities from for
         random initialisation. Defaults to 5e-2.
+    - `record_activities`: If `True`, returns activities at every inference
+        iteration.
+    - `record_energies`: If `True`, returns layer-wise energies at every
+        inference iteration.
 
     **Returns:**
 
-    Network with updated weights, optimiser, optimiser state, training loss,
-    equilibrated activities and last inference step.
+    Dictionary including network with updated weights, optimiser, optimiser
+    state, training loss, equilibrated activities, last inference step, and
+    energies.
 
     """
     if input is None and any(x is None for x in (key, layer_sizes, batch_size)):
@@ -100,6 +98,10 @@ def make_pc_step(
         )
     else:
         activities = init_activities_with_ffwd(network=network, input=input)
+    if record_energies and not record_activities:
+        raise ValueError("""
+            `record_energies` = `True` requires `record_activities` = `True`. 
+        """)
 
     train_mse_loss = mean((output - activities[-1])**2) if input is not None else None
     equilib_activities = solve_pc_activities(
@@ -114,6 +116,13 @@ def make_pc_step(
         record_iters=record_activities
     )
     t_max = get_t_max(equilib_activities)
+    energies = compute_infer_energies(
+        network=network,
+        activities_iters=equilib_activities,
+        t_max=t_max,
+        output=output,
+        input=input
+    ) if record_energies else None
     param_grads = compute_pc_param_grads(
         network=network,
         activities=tree_map(
@@ -129,14 +138,15 @@ def make_pc_step(
         params=network
     )
     network = eqx.apply_updates(model=network, updates=updates)
-    return (
-        network,
-        optim,
-        opt_state,
-        train_mse_loss,
-        equilib_activities,
-        t_max
-    )
+    return {
+        "network": network,
+        "optim": optim,
+        "opt_state": opt_state,
+        "loss": train_mse_loss,
+        "activities": equilib_activities,
+        "t_max": t_max,
+        "energies": energies
+    }
 
 
 @eqx.filter_jit

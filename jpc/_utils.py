@@ -1,7 +1,6 @@
 import jax
-from jax.numpy import tanh, mean, argmax
+from jax.numpy import tanh, mean, argmax, zeros
 from jax.tree_util import tree_map
-import equinox as eqx
 import equinox.nn as nn
 from jpc import pc_energy_fn
 from jaxtyping import PRNGKeyArray, PyTree, ArrayLike, Scalar, Array
@@ -83,14 +82,12 @@ def get_t_max(activities_iters: PyTree[Array]) -> Array:
     return argmax(activities_iters[0][:, 0, 0]) - 1
 
 
-@eqx.filter_jit
 def compute_infer_energies(
         network: PyTree[Callable],
         activities_iters: PyTree[Array],
-        t_max: int,
+        t_max: Array,
         output: ArrayLike,
-        input: Optional[ArrayLike] = None,
-        compute_every: int = 1
+        input: Optional[ArrayLike] = None
 ) -> PyTree[Scalar]:
     """Calculates layer energies during predictive coding inference.
 
@@ -104,27 +101,28 @@ def compute_infer_energies(
     - `output`: Observation or target of the generative model.
     - `input`: Optional prior of the generative model.
 
-    **Other arguments:**
-
-    - `compute_every`: Defaults to 1, calculating the energies at every
-        inference iteration.
-
     **Returns:**
 
     List of layer-wise energies for selected inference iterations.
 
     """
-    energies_iters = [[] for _ in range(len(network))]
-    for t in range(t_max):
-        if t % compute_every == 0:
-            energies = pc_energy_fn(
-                network=network,
-                activities=tree_map(lambda act: act[t], activities_iters),
-                output=output,
-                input=input,
-                record_layers=True
-            )
-            for l in range(len(network)):
-                energies_iters[l].append(energies[l])
+    def loop_body(state):
+        t, energies_iters = state
 
-    return energies_iters[::-1]
+        energies = pc_energy_fn(
+            network=network,
+            activities=tree_map(lambda act: act[t], activities_iters),
+            output=output,
+            input=input,
+            record_layers=True
+        )
+        energies_iters = energies_iters.at[:, t].set(energies)
+        return t + 1, energies_iters
+
+    energies_iters = zeros((len(network), 1000))
+    _, energies_iters = jax.lax.while_loop(
+        lambda state: state[0] < t_max,
+        loop_body,
+        (0, energies_iters)
+    )
+    return energies_iters[::-1, :]
