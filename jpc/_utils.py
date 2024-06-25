@@ -1,5 +1,6 @@
 import jax
 from jax.numpy import tanh, mean, argmax
+from jax.tree_util import tree_map
 import equinox as eqx
 import equinox.nn as nn
 from jpc import pc_energy_fn
@@ -78,13 +79,12 @@ def compute_accuracy(truths: ArrayLike, preds: ArrayLike) -> Scalar:
     )
 
 
-def get_t_max(activities_iters: PyTree[Array]) -> int:
-    t_max = argmax(activities_iters[0][:, 0, 0])-1
-    return int(t_max)
+def get_t_max(activities_iters: PyTree[Array]) -> Array:
+    return argmax(activities_iters[0][:, 0, 0]) - 1
 
 
 @eqx.filter_jit
-def compute_pc_infer_energies(
+def compute_infer_energies(
         network: PyTree[Callable],
         activities_iters: PyTree[Array],
         t_max: int,
@@ -119,7 +119,7 @@ def compute_pc_infer_energies(
         if t % compute_every == 0:
             energies = pc_energy_fn(
                 network=network,
-                activities=[act[t] for act in activities_iters],
+                activities=tree_map(lambda act: act[t], activities_iters),
                 output=output,
                 input=input,
                 record_layers=True
@@ -127,4 +127,4 @@ def compute_pc_infer_energies(
             for l in range(len(network)):
                 energies_iters[l].append(energies[l])
 
-    return energies_iters
+    return energies_iters[::-1]

@@ -2,6 +2,7 @@
 
 from jax.numpy import sum, array
 from jax import vmap
+from jax.tree_util import tree_map
 from jaxtyping import PyTree, ArrayLike, Scalar
 from typing import Callable, Optional, Union
 
@@ -49,25 +50,25 @@ def pc_energy_fn(
     """
     batch_size = output.shape[0]
     start_activity_l = 1 if input is not None else 2
-    n_activity_layers = len(activities)-1
-    n_layers = len(network)-1
+    n_activity_layers = len(activities) - 1
+    n_layers = len(network) - 1
 
     eL = output - vmap(network[-1])(activities[-2])
-    energies = [0.5 * sum(eL ** 2)]
+    energies = [sum(eL ** 2)]
 
     for act_l, net_l in zip(
             range(start_activity_l, n_activity_layers),
             range(1, n_layers)
     ):
         err = activities[act_l] - vmap(network[net_l])(activities[act_l-1])
-        energies.append(0.5 * sum(err ** 2))
+        energies.append(sum(err ** 2))
 
     e1 = activities[0] - vmap(network[0])(input) if (
             input is not None
     ) else activities[1] - vmap(network[0])(activities[0])
-    energies.append(0.5 * sum(e1 ** 2))
+    energies.append(sum(e1 ** 2))
 
     if record_layers:
-        return [energy_l / batch_size for energy_l in energies]
+        return tree_map(lambda energy: energy / batch_size, energies)
     else:
         return sum(array(energies)) / batch_size

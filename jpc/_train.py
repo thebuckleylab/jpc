@@ -1,8 +1,9 @@
 """High-level API to train neural networks with predictive coding."""
 
 import equinox as eqx
-from jax import vmap
-from jax.numpy import mean
+from jax import vmap, lax
+from jax.tree_util import tree_map
+from jax.numpy import mean, array
 from diffrax import (
     AbstractSolver,
     AbstractStepSizeController,
@@ -13,11 +14,12 @@ from jpc import (
     init_activities_with_ffwd,
     init_activities_with_amort,
     solve_pc_activities,
-    compute_pc_param_grads
+    compute_pc_param_grads,
+    get_t_max
 )
 from optax import GradientTransformationExtraArgs, OptState
 from jaxtyping import PyTree, ArrayLike, Scalar, Array
-from typing import Callable, Optional, Union, Tuple
+from typing import Callable, Optional, Tuple
 
 
 @eqx.filter_jit
@@ -32,21 +34,14 @@ def make_pc_step(
       n_iters: Optional[int] = 20,
       stepsize_controller: AbstractStepSizeController = ConstantStepSize(),
       record_activities: bool = False
-) -> Union[
-         Tuple[
-             PyTree[Callable],
-             GradientTransformationExtraArgs,
-             OptState,
-             Scalar,
-             PyTree[Array]
-         ],
-         Tuple[
-             PyTree[Callable],
-             GradientTransformationExtraArgs,
-             OptState,
-             Scalar
-         ]
-    ]:
+) -> Tuple[
+         PyTree[Callable],
+         GradientTransformationExtraArgs,
+         OptState,
+         Scalar,
+         PyTree[Array],
+         Array
+]:
     """Updates network parameters with predictive coding.
 
     **Main arguments:**
@@ -69,8 +64,8 @@ def make_pc_step(
 
     **Returns:**
 
-    Network with updated weights, optimiser, optimiser state, training loss and
-    optionally activities during inference.
+    Network with updated weights, optimiser, optimiser state, training loss,
+    equilibrated activities and last inference step.
 
     """
     activities = init_activities_with_ffwd(network=network, input=input)
@@ -86,9 +81,14 @@ def make_pc_step(
         dt=dt,
         record_iters=record_activities
     )
+    t_max = lax.cond(
+        record_activities,
+        lambda: get_t_max(equilib_activities),
+        lambda: array(0)
+    )
     param_grads = compute_pc_param_grads(
         network=network,
-        activities=[act[-1] for act in equilib_activities],
+        activities=tree_map(lambda act: act[t_max], equilib_activities),
         output=output,
         input=input
     )
@@ -98,21 +98,14 @@ def make_pc_step(
         params=network
     )
     network = eqx.apply_updates(model=network, updates=updates)
-    if record_activities:
-        return (
-            network,
-            optim,
-            opt_state,
-            train_mse_loss,
-            equilib_activities
-        )
-    else:
-        return (
-            network,
-            optim,
-            opt_state,
-            train_mse_loss
-        )
+    return (
+        network,
+        optim,
+        opt_state,
+        train_mse_loss,
+        equilib_activities,
+        t_max
+    )
 
 
 @eqx.filter_jit
