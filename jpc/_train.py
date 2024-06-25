@@ -88,6 +88,12 @@ def make_pc_step(
             `key`, `layer_sizes` and `batch_size` must be passed for random
             initialisation of activities.
         """)
+
+    if record_energies and not record_activities:
+        raise ValueError("""
+            `record_energies` = `True` requires `record_activities` = `True`. 
+        """)
+
     if input is None:
         activities = init_activities_from_gaussian(
             key=key,
@@ -98,12 +104,8 @@ def make_pc_step(
         )
     else:
         activities = init_activities_with_ffwd(network=network, input=input)
-    if record_energies and not record_activities:
-        raise ValueError("""
-            `record_energies` = `True` requires `record_activities` = `True`. 
-        """)
 
-    train_mse_loss = mean((output - activities[-1])**2) if input is not None else None
+    mse_loss = mean((output - activities[-1])**2) if input is not None else None
     equilib_activities = solve_pc_activities(
         network=network,
         activities=activities,
@@ -123,6 +125,7 @@ def make_pc_step(
         output=output,
         input=input
     ) if record_energies else None
+
     param_grads = compute_pc_param_grads(
         network=network,
         activities=tree_map(
@@ -142,7 +145,7 @@ def make_pc_step(
         "network": network,
         "optim": optim,
         "opt_state": opt_state,
-        "loss": train_mse_loss,
+        "loss": mse_loss,
         "activities": equilib_activities,
         "t_max": t_max,
         "energies": energies

@@ -96,7 +96,8 @@ nav:
     - Predictive coding primer: 'pc_overview.md'
     - Examples:
         - Discriminative PC: 'examples/discriminative_pc.ipynb'
-        - Generative PC: 'examples/generative_pc.ipynb'
+        - Supervised generative PC: 'examples/supervised_generative_pc.ipynb'
+        - Unsupervised generative PC: 'examples/unsupervised_generative_pc.ipynb'
         - Hybrid PC: 'examples/hybrid_pc.ipynb'
     - Basic API:
           - 'api/Training.md'
