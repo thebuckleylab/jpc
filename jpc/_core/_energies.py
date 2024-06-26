@@ -7,7 +7,7 @@ from typing import Callable, Optional
 
 
 def pc_energy_fn(
-        network: PyTree[Callable],
+        model: PyTree[Callable],
         activities: PyTree[ArrayLike],
         y: ArrayLike,
         x: Optional[ArrayLike] = None,
@@ -32,7 +32,7 @@ def pc_energy_fn(
 
     **Main arguments:**
 
-    - `network`: List of callable network layers.
+    - `model`: List of callable model (e.g. neural network) layers.
     - `activities`: List of activities for each layer free to vary.
     - `output`: Observation or target of the generative model.
     - `input`: Optional prior of the generative model.
@@ -50,21 +50,21 @@ def pc_energy_fn(
     batch_size = y.shape[0]
     start_activity_l = 1 if input is not None else 2
     n_activity_layers = len(activities) - 1
-    n_layers = len(network) - 1
+    n_layers = len(model) - 1
 
-    eL = y - vmap(network[-1])(activities[-2])
+    eL = y - vmap(model[-1])(activities[-2])
     energies = [sum(eL ** 2)]
 
     for act_l, net_l in zip(
             range(start_activity_l, n_activity_layers),
             range(1, n_layers)
     ):
-        err = activities[act_l] - vmap(network[net_l])(activities[act_l-1])
+        err = activities[act_l] - vmap(model[net_l])(activities[act_l-1])
         energies.append(sum(err ** 2))
 
-    e1 = activities[0] - vmap(network[0])(x) if (
+    e1 = activities[0] - vmap(model[0])(x) if (
             x is not None
-    ) else activities[1] - vmap(network[0])(activities[0])
+    ) else activities[1] - vmap(model[0])(activities[0])
     energies.append(sum(e1 ** 2))
 
     if record_layers:

@@ -6,14 +6,14 @@ from typing import Callable
 
 
 def init_activities_with_ffwd(
-        network: PyTree[Callable],
+        model: PyTree[Callable],
         x: ArrayLike
 ) -> PyTree[Array]:
     """Initialises layers' activity with a feedforward pass.
 
     **Main arguments:**
 
-    - `network`: List of callable network layers.
+    - `model`: List of callable model (e.g. neural network) layers.
     - `x`: input to the network.
 
     **Returns:**
@@ -21,9 +21,9 @@ def init_activities_with_ffwd(
     List with feedforward values of each layer.
 
     """
-    activities = [vmap(network[0])(x)]
-    for l in range(1, len(network)):
-        activities.append(vmap(network[l])(activities[l-1]))
+    activities = [vmap(model[0])(x)]
+    for l in range(1, len(model)):
+        activities.append(vmap(model[l])(activities[l-1]))
 
     return activities
 
@@ -76,8 +76,8 @@ def init_activities_with_amort(
 
     **Main arguments:**
 
-    - `amortiser`: List of callable layers for network amortising the inference
-        of the generative model.
+    - `amortiser`: List of callable layers for model amortising the inference
+        of the `generator`.
     - `generator`: List of callable layers for the generative model.
     - `y`: Input to the amortiser.
 

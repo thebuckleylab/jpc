@@ -15,7 +15,7 @@ from diffrax import (
 
 
 def solve_pc_activities(
-        network: PyTree[Callable],
+        model: PyTree[Callable],
         activities: PyTree[ArrayLike],
         y: ArrayLike,
         x: Optional[ArrayLike] = None,
@@ -40,7 +40,7 @@ def solve_pc_activities(
 
     **Main arguments:**
 
-    - `network`: List of callable layers for the generative model.
+    - `model`: List of callable model (e.g. neural network) layers.
     - `activities`: List of activities for each layer free to vary.
     - `y`: Observation or target of the generative model.
     - `x`: Optional prior of the generative model.
@@ -67,7 +67,7 @@ def solve_pc_activities(
         t1=n_iters,
         dt0=dt,
         y0=activities,
-        args=(network, y, x),
+        args=(model, y, x),
         stepsize_controller=stepsize_controller,
         saveat=SaveAt(t1=True, steps=record_iters)
     )

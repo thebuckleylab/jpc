@@ -26,7 +26,7 @@ from typing import Callable, Optional, Tuple, Dict
 
 @eqx.filter_jit
 def make_pc_step(
-      network: PyTree[Callable],
+      model: PyTree[Callable],
       optim: GradientTransformationExtraArgs,
       opt_state: OptState,
       y: ArrayLike,
@@ -46,7 +46,7 @@ def make_pc_step(
 
     **Main arguments:**
 
-    - `network`: List of callable network layers.
+    - `model`: List of callable model (e.g. neural network) layers.
     - `optim`: Optax optimiser, e.g. `optax.sgd()`.
     - `opt_state`: State of Optax optimiser.
     - `y`: Observation or target of the generative model.
@@ -82,7 +82,7 @@ def make_pc_step(
     energies.
 
     """
-    if x is None and any(x is None for x in (key, layer_sizes, batch_size)):
+    if x is None and any(arg is None for arg in (key, layer_sizes, batch_size)):
         raise ValueError("""
             If there is no input (i.e. `x` is None), then unsupervised training 
             is assumed, and `key`, `layer_sizes` and `batch_size` must be 
@@ -94,20 +94,17 @@ def make_pc_step(
             `record_energies` = `True` requires `record_activities` = `True`. 
         """)
 
-    if x is None:
-        activities = init_activities_from_gaussian(
-            key=key,
-            layer_sizes=layer_sizes,
-            mode="unsupervised",
-            batch_size=batch_size,
-            sigma=sigma
-        )
-    else:
-        activities = init_activities_with_ffwd(network=network, x=x)
+    activities = init_activities_from_gaussian(
+        key=key,
+        layer_sizes=layer_sizes,
+        mode="unsupervised",
+        batch_size=batch_size,
+        sigma=sigma
+    ) if x is None else init_activities_with_ffwd(network=network, x=x)
 
     mse_loss = mean((y - activities[-1])**2) if input is not None else None
     equilib_activities = solve_pc_activities(
-        network=network,
+        model=model,
         activities=activities,
         y=y,
         x=x,
@@ -119,7 +116,7 @@ def make_pc_step(
     )
     t_max = get_t_max(equilib_activities)
     energies = compute_infer_energies(
-        network=network,
+        model=model,
         activities_iters=equilib_activities,
         t_max=t_max,
         y=y,
@@ -127,7 +124,7 @@ def make_pc_step(
     ) if record_energies else None
 
     param_grads = compute_pc_param_grads(
-        network=network,
+        model=model,
         activities=tree_map(
             lambda act: act[t_max if record_activities else array(0)],
             equilib_activities
@@ -138,9 +135,9 @@ def make_pc_step(
     updates, opt_state = optim.update(
         updates=param_grads,
         state=opt_state,
-        params=network
+        params=model
     )
-    network = eqx.apply_updates(model=network, updates=updates)
+    network = eqx.apply_updates(model=model, updates=updates)
     return {
         "network": network,
         "optim": optim,
@@ -190,9 +187,9 @@ def make_hpc_step(
 
     **Main arguments:**
 
-    - `generator`: List of callable layers for the generative network.
-    - `amortiser`: List of callable layers for network amortising the inference
-        of the generative model.
+    - `generator`: List of callable layers for the generative model.
+    - `amortiser`: List of callable layers for model amortising the inference
+        of the `generator`.
     - `optims`: Optax optimisers (e.g. `optax.sgd()`), one for each model.
     - `opt_states`: State of Optax optimisers, one for each model.
     - `y`: Observation of the generator, input to the amortiser.
@@ -221,7 +218,7 @@ def make_hpc_step(
     )
     train_mse_loss = mean((x - amort_activities[0])**2)
     equilib_activities = solve_pc_activities(
-        network=generator,
+        model=generator,
         activities=amort_activities[1:],
         y=y,
         x=x,
@@ -232,7 +229,7 @@ def make_hpc_step(
     )
     equilib_activities = [act[-1] for act in equilib_activities]
     gen_param_grads = compute_pc_param_grads(
-        network=generator,
+        model=generator,
         activities=equilib_activities,
         y=y,
         x=x
@@ -242,7 +239,7 @@ def make_hpc_step(
         vmap(amortiser[-1])(equilib_activities[0])
     )
     amort_param_grads = compute_pc_param_grads(
-        network=amortiser,
+        model=amortiser,
         activities=activities_for_amort,
         y=x,
         x=y,

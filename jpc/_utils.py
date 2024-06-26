@@ -83,7 +83,7 @@ def get_t_max(activities_iters: PyTree[Array]) -> Array:
 
 
 def compute_infer_energies(
-        network: PyTree[Callable],
+        model: PyTree[Callable],
         activities_iters: PyTree[Array],
         t_max: Array,
         y: ArrayLike,
@@ -93,7 +93,7 @@ def compute_infer_energies(
 
     **Main arguments:**
 
-    - `network`: List of callable network layers.
+    - `model`: List of callable model (e.g. neural network) layers.
     - `activities_iters`: Layer-wise activities at every inference iteration.
         Note that each set of activities will have 4096 steps as first
         dimension by diffrax default.
@@ -110,7 +110,7 @@ def compute_infer_energies(
         t, energies_iters = state
 
         energies = pc_energy_fn(
-            network=network,
+            model=model,
             activities=tree_map(lambda act: act[t], activities_iters),
             y=y,
             x=x,
@@ -119,7 +119,7 @@ def compute_infer_energies(
         energies_iters = energies_iters.at[:, t].set(energies)
         return t + 1, energies_iters
 
-    energies_iters = zeros((len(network), 1000))
+    energies_iters = zeros((len(model), 1000))
     _, energies_iters = jax.lax.while_loop(
         lambda state: state[0] < t_max,
         loop_body,

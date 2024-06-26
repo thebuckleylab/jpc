@@ -28,7 +28,7 @@ def _neg_activity_grad(
         `diffrax.diffeqsolve`.
     - `activities`: List of activities for each layer free to vary.
     - `args`: 3-Tuple with
-        (i) list of callable layers of the generative model,
+        (i) list of callable layers for the generative model,
         (ii) network output (observation), and
         (iii) network input (prior).
     - `pc_energy_fn`: Free energy to take the gradient of.
@@ -38,9 +38,9 @@ def _neg_activity_grad(
     List of negative gradients of the energy w.r.t. the activities.
 
     """
-    generator, y, x = args
+    model, y, x = args
     dFdzs = grad(energy_fn, argnums=1)(
-        generator,
+        model,
         activities,
         y,
         x
@@ -49,7 +49,7 @@ def _neg_activity_grad(
 
 
 def compute_pc_param_grads(
-        network: PyTree[Callable],
+        model: PyTree[Callable],
         activities: PyTree[ArrayLike],
         y: ArrayLike,
         x: Optional[ArrayLike] = None
@@ -58,7 +58,7 @@ def compute_pc_param_grads(
 
     **Main arguments:**
 
-    - `network`: List of callable network layers.
+    - `model`: List of callable model (e.g. neural network) layers.
     - `activities`: List of activities for each layer free to vary.
     - `y`: Observation or target of the generative model.
     - `x`: Optional prior of the generative model.
@@ -69,7 +69,7 @@ def compute_pc_param_grads(
 
     """
     return filter_grad(pc_energy_fn)(
-        network,
+        model,
         activities,
         y,
         x

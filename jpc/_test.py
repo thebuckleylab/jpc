@@ -20,7 +20,7 @@ from typing import Callable, Tuple
 
 @eqx.filter_jit
 def test_discriminative_pc(
-        network: PyTree[Callable],
+        model: PyTree[Callable],
         y: ArrayLike,
         x: ArrayLike,
 ) -> Scalar:
@@ -28,7 +28,7 @@ def test_discriminative_pc(
 
     **Main arguments:**
 
-    - `network`: List of callable network layers.
+    - `model`: List of callable model (e.g. neural network) layers.
     - `y`: Observation or target of the generative model.
     - `x`: Optional prior of the generative model.
 
@@ -37,18 +37,18 @@ def test_discriminative_pc(
     Accuracy of output predictions.
 
     """
-    preds = init_activities_with_ffwd(network=network, x=x)[-1]
+    preds = init_activities_with_ffwd(model=model, x=x)[-1]
     return compute_accuracy(y, preds)
 
 
 @eqx.filter_jit
 def test_generative_pc(
+        model: PyTree[Callable],
+        y: ArrayLike,
+        x: ArrayLike,
         key: PRNGKeyArray,
         layer_sizes: PyTree[int],
         batch_size: int,
-        network: PyTree[Callable],
-        y: ArrayLike,
-        x: ArrayLike,
         sigma: Scalar = 0.05,
         solver: AbstractSolver = Euler(),
         dt: float | int = 1,
@@ -63,12 +63,12 @@ def test_generative_pc(
 
     **Main arguments:**
 
+    - `model`: List of callable model (e.g. neural network) layers.
+    - `y`: Observation or target of the generative model.
+    - `x`: Optional prior of the generative model.
     - `key`: `jax.random.PRNGKey` for random initialisation of activities.
     - `layer_sizes`: Dimension of all layers (input, hidden and output).
     - `batch_size`: Dimension of data batch for activity initialisation.
-    - `network`: List of callable network layers.
-    - `y`: Observation or target of the generative model.
-    - `x`: Optional prior of the generative model.
 
     **Other arguments:**
 
@@ -93,7 +93,7 @@ def test_generative_pc(
         sigma=sigma
     )
     input_preds = solve_pc_activities(
-        network=network,
+        model=model,
         activities=activities,
         y=y,
         solver=solver,
@@ -102,19 +102,19 @@ def test_generative_pc(
         dt=dt
     )[0][0]
     input_acc = compute_accuracy(x, input_preds)
-    output_preds = init_activities_with_ffwd(network=network, x=x)[-1]
+    output_preds = init_activities_with_ffwd(model=model, x=x)[-1]
     return input_acc, output_preds
 
 
 @eqx.filter_jit
 def test_hpc(
-      key: PRNGKeyArray,
-      layer_sizes: PyTree[int],
-      batch_size: int,
       generator: PyTree[Callable],
       amortiser: PyTree[Callable],
       y: ArrayLike,
       x: ArrayLike,
+      key: PRNGKeyArray,
+      layer_sizes: PyTree[int],
+      batch_size: int,
       sigma: Scalar = 0.05,
       solver: AbstractSolver = Euler(),
       dt: float | int = 1,
@@ -129,14 +129,14 @@ def test_hpc(
 
     **Main arguments:**
 
+    - `generator`: List of callable layers for the generative model.
+    - `amortiser`: List of callable layers for model amortising the inference
+        of the `generator`.
+    - `y`: Observation or target of the generative model.
+    - `x`: Optional prior of the generative model.
     - `key`: `jax.random.PRNGKey` for random initialisation of activities.
     - `layer_sizes`: Dimension of all layers (input, hidden and output).
     - `batch_size`: Dimension of data batch for initialisation of activities.
-    - `generator`: List of callable layers for the generative network.
-    - `amortiser`: List of callable layers for network amortising the inference
-        of the generative model.
-    - `y`: Observation or target of the generative model.
-    - `x`: Optional prior of the generative model.
 
     **Other arguments:**
 
@@ -160,7 +160,7 @@ def test_hpc(
     )
     amort_preds = amort_activities[0]
     hpc_preds = solve_pc_activities(
-        network=generator,
+        model=generator,
         activities=amort_activities,
         y=y,
         solver=solver,
@@ -176,7 +176,7 @@ def test_hpc(
         sigma=sigma
     )
     gen_preds = solve_pc_activities(
-        network=generator,
+        model=generator,
         activities=activities,
         y=y,
         solver=solver,
@@ -187,5 +187,5 @@ def test_hpc(
     amort_acc = compute_accuracy(x, amort_preds)
     hpc_acc = compute_accuracy(x, hpc_preds)
     gen_acc = compute_accuracy(x, gen_preds)
-    output_preds = init_activities_with_ffwd(network=generator, x=x)[-1]
+    output_preds = init_activities_with_ffwd(model=generator, x=x)[-1]
     return amort_acc, hpc_acc, gen_acc, output_preds
