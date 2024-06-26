@@ -100,7 +100,7 @@ def make_pc_step(
         mode="unsupervised",
         batch_size=batch_size,
         sigma=sigma
-    ) if x is None else init_activities_with_ffwd(network=network, x=x)
+    ) if x is None else init_activities_with_ffwd(model=model, x=x)
 
     mse_loss = mean((y - activities[-1])**2) if input is not None else None
     equilib_activities = solve_pc_activities(
