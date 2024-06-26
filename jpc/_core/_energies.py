@@ -2,18 +2,17 @@
 
 from jax.numpy import sum, array
 from jax import vmap
-from jax.tree_util import tree_map
-from jaxtyping import PyTree, ArrayLike, Scalar
-from typing import Callable, Optional, Union
+from jaxtyping import PyTree, ArrayLike, Scalar, Array
+from typing import Callable, Optional
 
 
 def pc_energy_fn(
         network: PyTree[Callable],
         activities: PyTree[ArrayLike],
-        output: ArrayLike,
-        input: Optional[ArrayLike] = None,
+        y: ArrayLike,
+        x: Optional[ArrayLike] = None,
         record_layers: bool = False
-) -> Union[Scalar, PyTree[Scalar]]:
+) -> Scalar | Array:
     """Computes the free energy for a feedforward neural network of the form
 
     $$
@@ -48,12 +47,12 @@ def pc_energy_fn(
     The total or layer-wise energy normalised by batch size.
 
     """
-    batch_size = output.shape[0]
+    batch_size = y.shape[0]
     start_activity_l = 1 if input is not None else 2
     n_activity_layers = len(activities) - 1
     n_layers = len(network) - 1
 
-    eL = output - vmap(network[-1])(activities[-2])
+    eL = y - vmap(network[-1])(activities[-2])
     energies = [sum(eL ** 2)]
 
     for act_l, net_l in zip(
@@ -63,8 +62,8 @@ def pc_energy_fn(
         err = activities[act_l] - vmap(network[net_l])(activities[act_l-1])
         energies.append(sum(err ** 2))
 
-    e1 = activities[0] - vmap(network[0])(input) if (
-            input is not None
+    e1 = activities[0] - vmap(network[0])(x) if (
+            x is not None
     ) else activities[1] - vmap(network[0])(activities[0])
     energies.append(sum(e1 ** 2))
 

@@ -29,8 +29,8 @@ def make_pc_step(
       network: PyTree[Callable],
       optim: GradientTransformationExtraArgs,
       opt_state: OptState,
-      output: ArrayLike,
-      input: Optional[ArrayLike] = None,
+      y: ArrayLike,
+      x: Optional[ArrayLike] = None,
       solver: AbstractSolver = Euler(),
       dt: float | int = 1,
       n_iters: Optional[int] = 20,
@@ -49,8 +49,8 @@ def make_pc_step(
     - `network`: List of callable network layers.
     - `optim`: Optax optimiser, e.g. `optax.sgd()`.
     - `opt_state`: State of Optax optimiser.
-    - `output`: Observation or target of the generative model.
-    - `input`: Optional prior of the generative model.
+    - `y`: Observation or target of the generative model.
+    - `x`: Optional prior of the generative model.
 
     !!! note
 
@@ -82,11 +82,11 @@ def make_pc_step(
     energies.
 
     """
-    if input is None and any(x is None for x in (key, layer_sizes, batch_size)):
+    if x is None and any(x is None for x in (key, layer_sizes, batch_size)):
         raise ValueError("""
-            If there is no input, then unsupervised training is assumed, and
-            `key`, `layer_sizes` and `batch_size` must be passed for random
-            initialisation of activities.
+            If there is no input (i.e. `x` is None), then unsupervised training 
+            is assumed, and `key`, `layer_sizes` and `batch_size` must be 
+            passed for random initialisation of activities.
         """)
 
     if record_energies and not record_activities:
@@ -94,7 +94,7 @@ def make_pc_step(
             `record_energies` = `True` requires `record_activities` = `True`. 
         """)
 
-    if input is None:
+    if x is None:
         activities = init_activities_from_gaussian(
             key=key,
             layer_sizes=layer_sizes,
@@ -103,14 +103,14 @@ def make_pc_step(
             sigma=sigma
         )
     else:
-        activities = init_activities_with_ffwd(network=network, input=input)
+        activities = init_activities_with_ffwd(network=network, x=x)
 
-    mse_loss = mean((output - activities[-1])**2) if input is not None else None
+    mse_loss = mean((y - activities[-1])**2) if input is not None else None
     equilib_activities = solve_pc_activities(
         network=network,
         activities=activities,
-        output=output,
-        input=input,
+        y=y,
+        x=x,
         solver=solver,
         n_iters=n_iters,
         stepsize_controller=stepsize_controller,
@@ -122,8 +122,8 @@ def make_pc_step(
         network=network,
         activities_iters=equilib_activities,
         t_max=t_max,
-        output=output,
-        input=input
+        y=y,
+        x=x
     ) if record_energies else None
 
     param_grads = compute_pc_param_grads(
@@ -132,8 +132,8 @@ def make_pc_step(
             lambda act: act[t_max if record_activities else array(0)],
             equilib_activities
         ),
-        output=output,
-        input=input
+        y=y,
+        x=x
     )
     updates, opt_state = optim.update(
         updates=param_grads,
@@ -158,8 +158,8 @@ def make_hpc_step(
       amortiser: PyTree[Callable],
       optims: Tuple[GradientTransformationExtraArgs],
       opt_states: Tuple[OptState],
-      output: ArrayLike,
-      input: ArrayLike,
+      y: ArrayLike,
+      x: ArrayLike,
       solver: AbstractSolver = Euler(),
       dt: float | int = 1,
       n_iters: Optional[int] = 20,
@@ -195,8 +195,8 @@ def make_hpc_step(
         of the generative model.
     - `optims`: Optax optimisers (e.g. `optax.sgd()`), one for each model.
     - `opt_states`: State of Optax optimisers, one for each model.
-    - `output`: Observation of the generator, input to the amortiser.
-    - `input`: Prior of the generator, target for the amortiser.
+    - `y`: Observation of the generator, input to the amortiser.
+    - `x`: Prior of the generator, target for the amortiser.
 
     **Other arguments:**
 
@@ -217,14 +217,14 @@ def make_hpc_step(
     amort_activities = init_activities_with_amort(
         amortiser=amortiser,
         generator=generator,
-        output=output
+        y=y
     )
-    train_mse_loss = mean((input - amort_activities[0])**2)
+    train_mse_loss = mean((x - amort_activities[0])**2)
     equilib_activities = solve_pc_activities(
         network=generator,
         activities=amort_activities[1:],
-        output=output,
-        input=input,
+        y=y,
+        x=x,
         solver=solver,
         n_iters=n_iters,
         stepsize_controller=stepsize_controller,
@@ -234,8 +234,8 @@ def make_hpc_step(
     gen_param_grads = compute_pc_param_grads(
         network=generator,
         activities=equilib_activities,
-        output=output,
-        input=input
+        y=y,
+        x=x
     )
     activities_for_amort = equilib_activities[::-1][1:]
     activities_for_amort.append(
@@ -244,8 +244,8 @@ def make_hpc_step(
     amort_param_grads = compute_pc_param_grads(
         network=amortiser,
         activities=activities_for_amort,
-        output=input,
-        input=output,
+        y=x,
+        x=y,
     )
     gen_updates, gen_opt_state = gen_optim.update(
         updates=gen_param_grads,

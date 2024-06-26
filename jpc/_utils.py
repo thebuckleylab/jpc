@@ -86,8 +86,8 @@ def compute_infer_energies(
         network: PyTree[Callable],
         activities_iters: PyTree[Array],
         t_max: Array,
-        output: ArrayLike,
-        input: Optional[ArrayLike] = None
+        y: ArrayLike,
+        x: Optional[ArrayLike] = None
 ) -> PyTree[Scalar]:
     """Calculates layer energies during predictive coding inference.
 
@@ -98,8 +98,8 @@ def compute_infer_energies(
         Note that each set of activities will have 4096 steps as first
         dimension by diffrax default.
     - `t_max`: Maximum number of inference iterations to compute energies for.
-    - `output`: Observation or target of the generative model.
-    - `input`: Optional prior of the generative model.
+    - `y`: Observation or target of the generative model.
+    - `x`: Optional prior of the generative model.
 
     **Returns:**
 
@@ -112,8 +112,8 @@ def compute_infer_energies(
         energies = pc_energy_fn(
             network=network,
             activities=tree_map(lambda act: act[t], activities_iters),
-            output=output,
-            input=input,
+            y=y,
+            x=x,
             record_layers=True
         )
         energies_iters = energies_iters.at[:, t].set(energies)

@@ -35,15 +35,15 @@ def _neg_activity_grad(
 
     **Returns:**
 
-    List of negative gradients of the energy w.r.t the activities.
+    List of negative gradients of the energy w.r.t. the activities.
 
     """
-    generator, output, input = args
+    generator, y, x = args
     dFdzs = grad(energy_fn, argnums=1)(
         generator,
         activities,
-        output,
-        input
+        y,
+        x
     )
     return tree_map(lambda dFdz: -dFdz, dFdzs)
 
@@ -51,8 +51,8 @@ def _neg_activity_grad(
 def compute_pc_param_grads(
         network: PyTree[Callable],
         activities: PyTree[ArrayLike],
-        output: ArrayLike,
-        input: Optional[ArrayLike] = None
+        y: ArrayLike,
+        x: Optional[ArrayLike] = None
 ) -> PyTree[Array]:
     """Computes the gradient of the energy with respect to network parameters $\partial \mathcal{F} / \partial θ$.
 
@@ -60,8 +60,8 @@ def compute_pc_param_grads(
 
     - `network`: List of callable network layers.
     - `activities`: List of activities for each layer free to vary.
-    - `output`: Observation or target of the generative model.
-    - `input`: Optional prior of the generative model.
+    - `y`: Observation or target of the generative model.
+    - `x`: Optional prior of the generative model.
 
     **Returns:**
 
@@ -71,6 +71,6 @@ def compute_pc_param_grads(
     return filter_grad(pc_energy_fn)(
         network,
         activities,
-        output,
-        input
+        y,
+        x
     )

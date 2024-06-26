@@ -7,21 +7,21 @@ from typing import Callable
 
 def init_activities_with_ffwd(
         network: PyTree[Callable],
-        input: ArrayLike
+        x: ArrayLike
 ) -> PyTree[Array]:
     """Initialises layers' activity with a feedforward pass.
 
     **Main arguments:**
 
     - `network`: List of callable network layers.
-    - `input`: for the network.
+    - `x`: input to the network.
 
     **Returns:**
 
     List with feedforward values of each layer.
 
     """
-    activities = [vmap(network[0])(input)]
+    activities = [vmap(network[0])(x)]
     for l in range(1, len(network)):
         activities.append(vmap(network[l])(activities[l-1]))
 
@@ -70,7 +70,7 @@ def init_activities_from_gaussian(
 def init_activities_with_amort(
         amortiser: PyTree[Callable],
         generator: PyTree[Callable],
-        output: ArrayLike
+        y: ArrayLike
 ) -> PyTree[Array]:
     """Initialises layers' activity using an amortised network.
 
@@ -79,14 +79,14 @@ def init_activities_with_amort(
     - `amortiser`: List of callable layers for network amortising the inference
         of the generative model.
     - `generator`: List of callable layers for the generative model.
-    - `output`: Input to the amortiser.
+    - `y`: Input to the amortiser.
 
     **Returns:**
 
     List with amortised initialisation of each layer.
 
     """
-    activities = [vmap(amortiser[0])(output)]
+    activities = [vmap(amortiser[0])(y)]
     for l in range(1, len(amortiser)):
         activities.append(vmap(amortiser[l])(activities[l - 1]))
 
