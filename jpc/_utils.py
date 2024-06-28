@@ -119,7 +119,7 @@ def compute_infer_energies(
         energies_iters = energies_iters.at[:, t].set(energies)
         return t + 1, energies_iters
 
-    energies_iters = zeros((len(model), 1000))
+    energies_iters = zeros((len(model), 4096))
     _, energies_iters = jax.lax.while_loop(
         lambda state: state[0] < t_max,
         loop_body,
