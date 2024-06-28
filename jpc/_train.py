@@ -14,6 +14,7 @@ from jpc import (
     init_activities_with_ffwd,
     init_activities_from_gaussian,
     init_activities_with_amort,
+    pc_energy_fn,
     solve_pc_activities,
     get_t_max,
     compute_infer_energies,
@@ -77,9 +78,12 @@ def make_pc_step(
 
     **Returns:**
 
-    Dictionary including network with updated weights, optimiser, optimiser
-    state, training loss, equilibrated activities, last inference step, and
-    energies.
+    Dict including model with updated parameters, optimiser, updated optimiser
+    state, equilibrated activities, last inference step, MSE loss, and energies.
+
+    **Raises:**
+
+    - `ValueError` for inconsistent inputs.
 
     """
     if x is None and any(arg is None for arg in (key, layer_sizes, batch_size)):
@@ -114,7 +118,7 @@ def make_pc_step(
         dt=dt,
         record_iters=record_activities
     )
-    t_max = get_t_max(equilib_activities)
+    t_max = get_t_max(equilib_activities) if record_activities else None
     energies = compute_infer_energies(
         model=model,
         activities_iters=equilib_activities,
@@ -142,9 +146,9 @@ def make_pc_step(
         "model": model,
         "optim": optim,
         "opt_state": opt_state,
-        "loss": mse_loss,
         "activities": equilib_activities,
         "t_max": t_max,
+        "loss": mse_loss,
         "energies": energies
     }
 
@@ -160,14 +164,10 @@ def make_hpc_step(
       solver: AbstractSolver = Euler(),
       dt: float | int = 1,
       n_iters: Optional[int] = 20,
-      stepsize_controller: AbstractStepSizeController = ConstantStepSize()
-) -> Tuple[
-        PyTree[Callable],
-        PyTree[Callable],
-        Tuple[GradientTransformationExtraArgs],
-        Tuple[OptState],
-        Scalar
-]:
+      stepsize_controller: AbstractStepSizeController = ConstantStepSize(),
+      record_activities: bool = False,
+      record_energies: bool = False
+) -> Dict:
     """Updates parameters of a hybrid predictive coding network.
 
     ??? cite "Reference"
@@ -202,21 +202,39 @@ def make_hpc_step(
     - `n_iters`: Number of integration steps (20 as default).
     - `stepsize_controller`: diffrax controller for step size integration.
         Defaults to `ConstantStepSize`.
+    - `record_activities`: If `True`, returns activities at every inference
+        iteration.
+     - `record_energies`: If `True`, returns layer-wise energies at every
+        inference iteration.
 
     **Returns:**
 
-    Generator and amortiser with updated weights, optimiser and state for each
-    model and training loss.
+    Dict including models with updated parameters, optimiser and state for each
+    model, model activities, last inference step for the generator, MSE losses,
+    and energies.
+
+    **Raises:**
+
+    - `ValueError` for inconsistent inputs.
 
     """
+    if record_energies and not record_activities:
+        raise ValueError("""
+            `record_energies` = `True` requires `record_activities` = `True`. 
+        """)
+
     gen_optim, amort_optim = optims
     gen_opt_state, amort_opt_state = opt_states
+
+    gen_activities = init_activities_with_ffwd(model=generator, x=x)
     amort_activities = init_activities_with_amort(
         amortiser=amortiser,
         generator=generator,
         y=y
     )
-    train_mse_loss = mean((x - amort_activities[0])**2)
+    gen_loss = mean((y - gen_activities[-1]) ** 2)
+    amort_loss = mean((x - amort_activities[0]) ** 2)
+
     equilib_activities = solve_pc_activities(
         model=generator,
         activities=amort_activities[1:],
@@ -225,25 +243,48 @@ def make_hpc_step(
         solver=solver,
         n_iters=n_iters,
         stepsize_controller=stepsize_controller,
-        dt=dt
+        dt=dt,
+        record_iters=record_activities
     )
-    equilib_activities = [act[-1] for act in equilib_activities]
+    t_max = get_t_max(equilib_activities) if record_activities else None
+
+    gen_energies = compute_infer_energies(
+        model=generator,
+        activities_iters=equilib_activities,
+        t_max=t_max,
+        y=y,
+        x=x
+    ) if record_energies else None
+    equilib_activities_for_amort = tree_map(
+        lambda act: act[t_max if record_activities else array(0)],
+        equilib_activities[::-1][1:]
+    )
+    equilib_activities_for_amort.append(
+        vmap(amortiser[-1])(equilib_activities_for_amort[0])
+    )
+    amort_energies = pc_energy_fn(
+        model=amortiser,
+        activities=equilib_activities_for_amort,
+        y=x,
+        x=y
+    ) if record_energies else None
+
     gen_param_grads = compute_pc_param_grads(
         model=generator,
-        activities=equilib_activities,
+        activities=tree_map(
+            lambda act: act[t_max if record_activities else array(0)],
+            equilib_activities
+        ),
         y=y,
         x=x
     )
-    activities_for_amort = equilib_activities[::-1][1:]
-    activities_for_amort.append(
-        vmap(amortiser[-1])(equilib_activities[0])
-    )
     amort_param_grads = compute_pc_param_grads(
         model=amortiser,
-        activities=activities_for_amort,
+        activities=equilib_activities_for_amort,
         y=x,
-        x=y,
+        x=y
     )
+
     gen_updates, gen_opt_state = gen_optim.update(
         updates=gen_param_grads,
         state=gen_opt_state,
@@ -256,10 +297,12 @@ def make_hpc_step(
     )
     generator = eqx.apply_updates(model=generator, updates=gen_updates)
     amortiser = eqx.apply_updates(model=amortiser, updates=amort_updates)
-    return (
-        generator,
-        amortiser,
-        (gen_optim, amort_optim),
-        (gen_opt_state, amort_opt_state),
-        train_mse_loss
-    )
+    return {
+        "models": (generator, amortiser),
+        "optims": (gen_optim, amort_optim),
+        "opt_states": (gen_opt_state, amort_opt_state),
+        "activities": (amort_activities, equilib_activities),
+        "t_max": t_max,
+        "losses": (gen_loss, amort_loss),
+        "energies": (gen_energies, amort_energies)
+    }
