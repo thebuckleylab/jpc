@@ -119,6 +119,7 @@ def compute_infer_energies(
         energies_iters = energies_iters.at[:, t].set(energies)
         return t + 1, energies_iters
 
+    # 4096 is the max number of steps set in diffrax
     energies_iters = zeros((len(model), 4096))
     _, energies_iters = jax.lax.while_loop(
         lambda state: state[0] < t_max,

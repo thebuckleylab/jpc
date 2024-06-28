@@ -27,15 +27,15 @@ def pc_energy_fn(
 
     !!! note
 
-        The input and output correspond to the prior and observation of
+        The input x and output y correspond to the prior and observation of
         the generative model, respectively.
 
     **Main arguments:**
 
     - `model`: List of callable model (e.g. neural network) layers.
     - `activities`: List of activities for each layer free to vary.
-    - `output`: Observation or target of the generative model.
-    - `input`: Optional prior of the generative model.
+    - `y`: Observation or target of the generative model.
+    - `x`: Optional prior of the generative model.
 
     **Other arguments:**
 
