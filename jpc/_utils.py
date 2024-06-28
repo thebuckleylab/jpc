@@ -72,12 +72,6 @@ def get_fc_network(
     return layers
 
 
-def compute_accuracy(truths: ArrayLike, preds: ArrayLike) -> Scalar:
-    return mean(
-        argmax(truths, axis=1) == argmax(preds, axis=1)
-    )
-
-
 def get_t_max(activities_iters: PyTree[Array]) -> Array:
     return argmax(activities_iters[0][:, 0, 0]) - 1
 
@@ -127,3 +121,9 @@ def compute_infer_energies(
         (0, energies_iters)
     )
     return energies_iters[::-1, :]
+
+
+def compute_accuracy(truths: ArrayLike, preds: ArrayLike) -> Scalar:
+    return mean(
+        argmax(truths, axis=1) == argmax(preds, axis=1)
+    )

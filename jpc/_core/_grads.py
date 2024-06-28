@@ -11,7 +11,7 @@ from ._energies import pc_energy_fn
 def _neg_activity_grad(
         t: float | int,
         activities: PyTree[ArrayLike],
-        args: Tuple[Optional[PyTree[Callable]], ArrayLike, ArrayLike],
+        args: Tuple[PyTree[Callable], ArrayLike, Optional[ArrayLike]],
         energy_fn: Callable = pc_energy_fn,
 ) -> PyTree[Array]:
     """Computes the negative gradient of the energy with respect to the activities.

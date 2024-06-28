@@ -123,8 +123,8 @@ def test_hpc(
 ) -> Tuple[Scalar, Scalar, Scalar, Array]:
     """Computes test metrics for hybrid predictive coding.
 
-    Calculates input accuracy of (i) amortiser, (ii) generative, and (ii)
-    hybrid (amortiser + generative). Also returns output predictions (e.g. of
+    Calculates input accuracy of (i) amortiser, (ii) generator, and (iii)
+    hybrid (amortiser + generator). Also returns output predictions (e.g. of
     an image given a label) with a feedforward pass of the generator.
 
     **Main arguments:**
