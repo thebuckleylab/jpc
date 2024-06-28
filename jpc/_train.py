@@ -102,7 +102,7 @@ def make_pc_step(
         sigma=sigma
     ) if x is None else init_activities_with_ffwd(model=model, x=x)
 
-    mse_loss = mean((y - activities[-1])**2) if input is not None else None
+    mse_loss = mean((y - activities[-1])**2) if x is not None else None
     equilib_activities = solve_pc_activities(
         model=model,
         activities=activities,
@@ -137,9 +137,9 @@ def make_pc_step(
         state=opt_state,
         params=model
     )
-    network = eqx.apply_updates(model=model, updates=updates)
+    model = eqx.apply_updates(model=model, updates=updates)
     return {
-        "network": network,
+        "model": model,
         "optim": optim,
         "opt_state": opt_state,
         "loss": mse_loss,

@@ -48,7 +48,7 @@ def pc_energy_fn(
 
     """
     batch_size = y.shape[0]
-    start_activity_l = 1 if input is not None else 2
+    start_activity_l = 1 if x is not None else 2
     n_activity_layers = len(activities) - 1
     n_layers = len(model) - 1
 
