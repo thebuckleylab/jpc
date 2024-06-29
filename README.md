@@ -1,6 +1,6 @@
 <p align='center'>
   <a href='https://github.com/infer-actively/pymdp'>
-    <img src='docs/_static/logo.svg' />
+    <img src='.github/logo-with-background.svg' />
   </a> 
 </p>
 
