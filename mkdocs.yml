@@ -94,20 +94,20 @@ plugins:
 nav:
     - 'index.md'
     - Predictive coding primer: 'pc_overview.md'
-    - How it works:
+    - ⚙️ How it works:
         - Basic usage: 'basic_usage.md'
         - Advanced usage: 'advanced_usage.md'
         - Extending JPC: 'extending_jpc.md'
-    - Examples:
+    - 📚 Examples:
         - Discriminative PC: 'examples/discriminative_pc.ipynb'
         - Supervised generative PC: 'examples/supervised_generative_pc.ipynb'
         - Unsupervised generative PC: 'examples/unsupervised_generative_pc.ipynb'
         - Hybrid PC: 'examples/hybrid_pc.ipynb'
-    - Basic API:
+    - 🌱 Basic API:
           - 'api/Training.md'
           - 'api/Testing.md'
           - 'api/get_fc_network.md'
-    - Advanced API:
+    - 🚀 Advanced API:
         - 'api/Initialisation.md'
         - 'api/pc_energy_fn.md'
         - 'api/solve_pc_activities.md'

@@ -4,15 +4,15 @@
   </a> 
 </p>
 
-<h2 align='center'>Predictive coding networks in JAX.</h2>
+<h2 align='center'>🧠 Predictive coding networks in JAX ⚡️</h2>
 
 JPC is a [JAX](https://github.com/google/jax) library to train neural networks 
 with predictive coding. It is built on top of three main libraries:
 
 * [Equinox](https://github.com/patrick-kidger/equinox), to define neural 
-networks with PyTorch-like syntax, and
+networks with PyTorch-like syntax,
 * [Diffrax](https://github.com/patrick-kidger/diffrax), to solve the PC 
-activity (inference) dynamics.
+activity (inference) dynamics, and
 * [Optax](https://github.com/google-deepmind/optax), for parameter optimisation.
 
 JPC provides a simple but flexible API for research of PCNs compatible with
@@ -28,7 +28,7 @@ useful JAX transforms such as `vmap` and `jit`.
 * [Basic usage](#basic-usage)
 * [Advanced usage](#advanced-usage)
 
-## Installation
+## ️💻 Installation
 
 ```
 pip install jpc
@@ -39,10 +39,10 @@ Requires Python 3.9+, JAX 0.4.23+, [Equinox](https://github.com/patrick-kidger/e
 [Optax](https://github.com/google-deepmind/optax) 0.2.2+, and 
 [Jaxtyping](https://github.com/patrick-kidger/jaxtyping) 0.2.24+.
 
-## Documentation
+## 📖 Documentation
 Available at https://github.com/thebuckleylab.githhub.io/jpc.
 
-## Quick example
+## ⚡️ Quick example
 
 Given a neural network with callable layers
 ```py

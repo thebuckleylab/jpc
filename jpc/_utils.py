@@ -7,13 +7,13 @@ from jaxtyping import PRNGKeyArray, PyTree, ArrayLike, Scalar, Array
 from typing import Callable, Optional
 
 
-def get_fc_network(
+def make_mlp(
         key: PRNGKeyArray,
         layer_sizes: PyTree[int],
         act_fn: str,
         use_bias: bool = True
 ) -> PyTree[Callable]:
-    """Defines a fully connected network compatible with predictive coding updates.
+    """Creates a multi-layer perceptron compatible with predictive coding updates.
 
     **Main arguments:**
 
