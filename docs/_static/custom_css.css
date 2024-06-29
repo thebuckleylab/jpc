@@ -3,6 +3,16 @@ html {
     scroll-padding-top: 50px;
 }
 
+/* Adjust logo size */
+.md-header__button.md-logo {
+    margin: 0;
+    padding: 0.5;
+}
+.md-header__button.md-logo img, .md-header__button.md-logo svg {
+    height: 2.5rem;
+    width: auto;
+}
+
 /* Fit the Twitter handle alongside the GitHub one in the top right. */
 
 div.md-header__source {

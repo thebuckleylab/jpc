@@ -10,19 +10,19 @@ theme:
         # (a) it looks more professional, and (b) is more obvious about the fact that it offers a (dark mode) toggle.
         - scheme: default
           primary: white
-          accent: amber
+          accent: orange
           toggle:
              icon: material/weather-night
              name: Switch to dark mode
         - scheme: slate
           primary: black
-          accent: amber
+          accent: orange
           toggle:
              icon: material/weather-sunny
              name: Switch to light mode
     icon:
         repo: fontawesome/brands/github  # GitHub logo in top right
-        logo: "material/brain"  # brain logo in top left
+    logo: "_static/logo.svg"  # jpc logo in top left
     favicon: "_static/favicon.png"
     custom_dir: "docs/_overrides"  # Overriding part of the HTML
 
@@ -94,6 +94,10 @@ plugins:
 nav:
     - 'index.md'
     - Predictive coding primer: 'pc_overview.md'
+    - How it works:
+        - Basic usage: 'basic_usage.md'
+        - Advanced usage: 'advanced_usage.md'
+        - Extending JPC: 'extending_jpc.md'
     - Examples:
         - Discriminative PC: 'examples/discriminative_pc.ipynb'
         - Supervised generative PC: 'examples/supervised_generative_pc.ipynb'

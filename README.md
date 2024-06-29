@@ -1,16 +1,32 @@
-<h1 align='center'>JPC</h1>
+<p align='center'>
+  <a href='https://github.com/infer-actively/pymdp'>
+    <img src='docs/_static/logo.svg' />
+  </a> 
+</p>
+
 <h2 align='center'>Predictive coding networks in JAX.</h2>
 
-JPC is a [JAX](https://github.com/google/jax) library for predictive 
-coding networks (PCNs). It is built on top of two main libraries:
+JPC is a [JAX](https://github.com/google/jax) library to train neural networks 
+with predictive coding. It is built on top of three main libraries:
 
 * [Equinox](https://github.com/patrick-kidger/equinox), to define neural 
 networks with PyTorch-like syntax, and
 * [Diffrax](https://github.com/patrick-kidger/diffrax), to solve the PC 
 activity (inference) dynamics.
+* [Optax](https://github.com/google-deepmind/optax), for parameter optimisation.
 
 JPC provides a simple but flexible API for research of PCNs compatible with
 useful JAX transforms such as `vmap` and `jit`.
+
+![status](https://img.shields.io/badge/status-active-green)
+
+## Overview
+
+* [Installation](#installation)
+* [Documentation](#documentation)
+* [Quick example](#quick-example)
+* [Basic usage](#basic-usage)
+* [Advanced usage](#advanced-usage)
 
 ## Installation
 
@@ -24,12 +40,11 @@ Requires Python 3.9+, JAX 0.4.23+, [Equinox](https://github.com/patrick-kidger/e
 [Jaxtyping](https://github.com/patrick-kidger/jaxtyping) 0.2.24+.
 
 ## Documentation
-Available at X.
+Available at https://github.com/thebuckleylab.githhub.io/jpc.
 
-## Quickstart
+## Quick example
 
-Given a neural network with callable layers defined with
-[Equinox](https://github.com/patrick-kidger/equinox)
+Given a neural network with callable layers
 ```py
 import jax
 import jax.numpy as jnp
@@ -72,3 +87,8 @@ pc_param_grads = jpc.compute_pc_param_grads(
 ```
 The gradients can then be fed to your favourite optimiser (e.g. gradient
 descent) to update the network parameters.
+
+## Basic usage
+
+## Advanced usage
+
