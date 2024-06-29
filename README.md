@@ -92,3 +92,17 @@ descent) to update the network parameters.
 
 ## Advanced usage
 
+## 📄 Citation
+
+If you found this library useful in your work, please cite (arXiv link):
+
+```bibtex
+@article{innocenti2024jpc,
+    title={JPC: Predictive Coding Networks in JAX},
+    author={Innocenti, Francesco and Kinghorn, Paul and Singh, Ryan and 
+    De Llanza Varona, Miguel and Buckley, Christopher},
+    journal={arXiv preprint},
+    year={2024}
+}
+```
+Also consider starring the repo! ⭐️ 

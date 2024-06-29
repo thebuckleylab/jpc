@@ -50,7 +50,7 @@ def test_generative_pc(
         layer_sizes: PyTree[int],
         batch_size: int,
         sigma: Scalar = 0.05,
-        solver: AbstractSolver = Euler(),
+        ode_solver: AbstractSolver = Euler(),
         dt: float | int = 1,
         n_iters: int = 20,
         stepsize_controller: AbstractStepSizeController = ConstantStepSize()
@@ -74,7 +74,7 @@ def test_generative_pc(
 
     - `sigma`: Standard deviation for Gaussian to sample activities from.
         Defaults to 5e-2.
-    - `solver`: Diffrax (ODE) solver to be used. Default is Euler.
+    - `ode_solver`: Diffrax ODE solver to be used. Default is Euler.
     - `dt`: Integration step size. Defaults to 1.
     - `n_iters`: Number of integration steps (20 as default).
     - `stepsize_controller`: diffrax controller for step size integration.
@@ -96,7 +96,7 @@ def test_generative_pc(
         model=model,
         activities=activities,
         y=y,
-        solver=solver,
+        solver=ode_solver,
         n_iters=n_iters,
         stepsize_controller=stepsize_controller,
         dt=dt
@@ -116,7 +116,7 @@ def test_hpc(
       layer_sizes: PyTree[int],
       batch_size: int,
       sigma: Scalar = 0.05,
-      solver: AbstractSolver = Euler(),
+      ode_solver: AbstractSolver = Euler(),
       dt: float | int = 1,
       n_iters: int = 20,
       stepsize_controller: AbstractStepSizeController = ConstantStepSize()
@@ -142,7 +142,7 @@ def test_hpc(
 
     - `sigma`: Standard deviation for Gaussian to sample activities from.
         Defaults to 5e-2.
-    - `solver`: Diffrax (ODE) solver to be used. Default is Euler.
+    - `ode_solver`: Diffrax ODE solver to be used. Default is Euler.
     - `dt`: Integration step size. Defaults to 1.
     - `n_iters`: Number of integration steps (20 as default).
     - `stepsize_controller`: diffrax controller for step size integration.
@@ -163,7 +163,7 @@ def test_hpc(
         model=generator,
         activities=amort_activities,
         y=y,
-        solver=solver,
+        solver=ode_solver,
         n_iters=n_iters,
         stepsize_controller=stepsize_controller,
         dt=dt
@@ -179,7 +179,7 @@ def test_hpc(
         model=generator,
         activities=activities,
         y=y,
-        solver=solver,
+        solver=ode_solver,
         n_iters=n_iters,
         stepsize_controller=stepsize_controller,
         dt=dt

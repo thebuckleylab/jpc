@@ -32,7 +32,7 @@ def make_pc_step(
       opt_state: OptState,
       y: ArrayLike,
       x: Optional[ArrayLike] = None,
-      solver: AbstractSolver = Euler(),
+      ode_solver: AbstractSolver = Euler(),
       dt: float | int = 1,
       n_iters: Optional[int] = 20,
       stepsize_controller: AbstractStepSizeController = ConstantStepSize(),
@@ -61,7 +61,7 @@ def make_pc_step(
 
     **Other arguments:**
 
-    - `solver`: Diffrax (ODE) solver to be used. Default is Euler.
+    - `ode_solver`: Diffrax ODE solver to be used. Default is Euler.
     - `dt`: Integration step size. Defaults to 1.
     - `n_iters`: Number of integration steps (20 as default).
     - `stepsize_controller`: diffrax controller for step size integration.
@@ -112,7 +112,7 @@ def make_pc_step(
         activities=activities,
         y=y,
         x=x,
-        solver=solver,
+        solver=ode_solver,
         n_iters=n_iters,
         stepsize_controller=stepsize_controller,
         dt=dt,
@@ -161,7 +161,7 @@ def make_hpc_step(
       opt_states: Tuple[OptState],
       y: ArrayLike,
       x: ArrayLike,
-      solver: AbstractSolver = Euler(),
+      ode_solver: AbstractSolver = Euler(),
       dt: float | int = 1,
       n_iters: Optional[int] = 20,
       stepsize_controller: AbstractStepSizeController = ConstantStepSize(),
@@ -197,7 +197,7 @@ def make_hpc_step(
 
     **Other arguments:**
 
-    - `solver`: Diffrax (ODE) solver to be used. Default is Euler.
+    - `ode_solver`: Diffrax ODE solver to be used. Default is Euler.
     - `dt`: Integration step size. Defaults to 1.
     - `n_iters`: Number of integration steps (20 as default).
     - `stepsize_controller`: diffrax controller for step size integration.
@@ -240,7 +240,7 @@ def make_hpc_step(
         activities=amort_activities[1:],
         y=y,
         x=x,
-        solver=solver,
+        solver=ode_solver,
         n_iters=n_iters,
         stepsize_controller=stepsize_controller,
         dt=dt,
