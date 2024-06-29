@@ -8,13 +8,15 @@ theme:
         # Light mode / dark mode
         # We deliberately don't automatically use `media` to check a user's preferences. We default to light mode as
         # (a) it looks more professional, and (b) is more obvious about the fact that it offers a (dark mode) toggle.
-        - scheme: default
+        - media: "(prefers-color-scheme: default)"
+          scheme: default
           primary: white
           accent: orange
           toggle:
              icon: material/weather-night
              name: Switch to dark mode
-        - scheme: slate
+        - media: "(prefers-color-scheme: slate)"
+          scheme: slate
           primary: black
           accent: orange
           toggle:
@@ -22,7 +24,8 @@ theme:
              name: Switch to light mode
     icon:
         repo: fontawesome/brands/github  # GitHub logo in top right
-    logo: "_static/logo.svg"  # jpc logo in top left
+    logo_light_mode: "_static/logo-light.svg"  # jpc logo in top left
+    logo_dark_mode: "_static/logo-dark.svg"  # jpc logo in top left
     favicon: "_static/favicon.png"
     custom_dir: "docs/_overrides"  # Overriding part of the HTML
 
@@ -106,7 +109,7 @@ nav:
     - 🌱 Basic API:
           - 'api/Training.md'
           - 'api/Testing.md'
-          - 'api/get_fc_network.md'
+          - 'api/make_mlp.md'
     - 🚀 Advanced API:
         - 'api/Initialisation.md'
         - 'api/pc_energy_fn.md'

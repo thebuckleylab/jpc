@@ -1,17 +1,18 @@
 # Getting started
 
-JPC is a [JAX](https://github.com/google/jax) library for predictive 
-coding networks (PCNs). It is built on top of two main libraries:
+JPC is a [JAX](https://github.com/google/jax) library to train neural networks 
+with predictive coding. It is built on top of three main libraries:
 
 * [Equinox](https://github.com/patrick-kidger/equinox), to define neural 
 networks with PyTorch-like syntax, and
 * [Diffrax](https://github.com/patrick-kidger/diffrax), to solve the PC 
 activity (inference) dynamics.
+* [Optax](https://github.com/google-deepmind/optax), for parameter optimisation.
 
 JPC provides a simple but flexible API for research of PCNs compatible with
 useful JAX transforms such as `vmap` and `jit`.
 
-## Installation
+## 💻 Installation
 
 ```
 pip install jpc
@@ -22,10 +23,9 @@ Requires Python 3.9+, JAX 0.4.23+, [Equinox](https://github.com/patrick-kidger/e
 [Optax](https://github.com/google-deepmind/optax) 0.2.2+, and 
 [Jaxtyping](https://github.com/patrick-kidger/jaxtyping) 0.2.24+.
 
-## Quick example
+## ⚡️ Quick example
 
-Given a neural network with callable layers, for example defined with
-[Equinox](https://github.com/patrick-kidger/equinox)
+Given a neural network with callable layers
 ```py
 import jax
 import jax.numpy as jnp
@@ -38,35 +38,49 @@ y = -x
 # network
 key = jax.random.key(0)
 _, *subkeys = jax.random.split(key)
-network = [
-    nn.Sequential(
-        [
-            nn.Linear(3, 100, key=subkeys[0]),
-            nn.Lambda(jax.nn.relu)
-        ],
+network = [nn.Sequential(
+    [
+        nn.Linear(3, 100, key=subkeys[0]), 
+        nn.Lambda(jax.nn.relu)],
     ),
     nn.Linear(100, 3, key=subkeys[1]),
 ]
 ```
-We can train it with predictive coding in a few lines of code 
+we can perform a PC parameter update with a single function call
 ```py
 import jpc
+import optax
+import equinox as eqx
 
-# initialise layer activities with a feedforward pass
-activities = jpc.init_activities_with_ffwd(network, x)
+# optimiser
+optim = optax.adam(1e-3)
+opt_state = optim.init(eqx.filter(network, eqx.is_array))
 
-# run the inference dynamics to equilibrium
-equilib_activities = jpc.solve_pc_activities(network, activities, y, x)
-
-# compute the PC parameter gradients
-pc_param_grads = jpc.compute_pc_param_grads(
-    network, 
-    equilib_activities, 
-    y, 
-    x
+# PC parameter update
+result = jpc.make_pc_step(
+      model=network,
+      optim=optim,
+      opt_state=opt_state,
+      y=y,
+      x=x
 )
-```
-The gradients can then be fed to your favourite optimiser (e.g. gradient
-descent) to update the network parameters.
 
-## Citation
+```
+
+## 📄 Citation
+
+If you found this library useful in your work, please cite (arXiv link):
+
+```bibtex
+@article{innocenti2024jpc,
+    title={JPC: Predictive Coding Networks in JAX},
+    author={Innocenti, Francesco and Kinghorn, Paul and Singh, Ryan and 
+    De Llanza Varona, Miguel and Buckley, Christopher},
+    journal={arXiv preprint},
+    year={2024}
+}
+```
+Also consider starring the project [on GitHub](https://github.com/thebuckleylab/jpc)! ⭐️ 
+
+## ⏭️ Next steps
+

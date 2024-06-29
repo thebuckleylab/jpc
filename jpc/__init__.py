@@ -9,7 +9,7 @@ from ._core import (
     compute_pc_param_grads as compute_pc_param_grads
 )
 from ._utils import (
-    get_fc_network as get_fc_network,
+    make_mlp as make_mlp,
     compute_accuracy as compute_accuracy,
     get_t_max as get_t_max,
     compute_infer_energies as compute_infer_energies
