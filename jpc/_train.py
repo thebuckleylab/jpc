@@ -33,8 +33,8 @@ def make_pc_step(
       y: ArrayLike,
       x: Optional[ArrayLike] = None,
       ode_solver: AbstractSolver = Euler(),
+      t1: int = 20,
       dt: float | int = 1,
-      n_iters: Optional[int] = 20,
       stepsize_controller: AbstractStepSizeController = ConstantStepSize(),
       key: Optional[PRNGKeyArray] = None,
       layer_sizes: Optional[PyTree[int]] = None,
@@ -62,8 +62,9 @@ def make_pc_step(
     **Other arguments:**
 
     - `ode_solver`: Diffrax ODE solver to be used. Default is Euler.
+    - `t1`: End of integration region, 20 by default. Note that start is zero
+        by default.
     - `dt`: Integration step size. Defaults to 1.
-    - `n_iters`: Number of integration steps (20 as default).
     - `stepsize_controller`: diffrax controller for step size integration.
         Defaults to `ConstantStepSize`.
     - `key`: `jax.random.PRNGKey` for random initialisation of activities.
@@ -113,9 +114,9 @@ def make_pc_step(
         y=y,
         x=x,
         solver=ode_solver,
-        n_iters=n_iters,
-        stepsize_controller=stepsize_controller,
+        t1=t1,
         dt=dt,
+        stepsize_controller=stepsize_controller,
         record_iters=record_activities
     )
     t_max = get_t_max(equilib_activities) if record_activities else None
@@ -162,8 +163,8 @@ def make_hpc_step(
       y: ArrayLike,
       x: ArrayLike,
       ode_solver: AbstractSolver = Euler(),
+      t1: int = 20,
       dt: float | int = 1,
-      n_iters: Optional[int] = 20,
       stepsize_controller: AbstractStepSizeController = ConstantStepSize(),
       record_activities: bool = False,
       record_energies: bool = False
@@ -198,8 +199,9 @@ def make_hpc_step(
     **Other arguments:**
 
     - `ode_solver`: Diffrax ODE solver to be used. Default is Euler.
+    - `t1`: End of integration region, 20 by default. Note that start is zero
+        by default.
     - `dt`: Integration step size. Defaults to 1.
-    - `n_iters`: Number of integration steps (20 as default).
     - `stepsize_controller`: diffrax controller for step size integration.
         Defaults to `ConstantStepSize`.
     - `record_activities`: If `True`, returns activities at every inference
@@ -241,9 +243,9 @@ def make_hpc_step(
         y=y,
         x=x,
         solver=ode_solver,
-        n_iters=n_iters,
-        stepsize_controller=stepsize_controller,
+        t1=t1,
         dt=dt,
+        stepsize_controller=stepsize_controller,
         record_iters=record_activities
     )
     t_max = get_t_max(equilib_activities) if record_activities else None

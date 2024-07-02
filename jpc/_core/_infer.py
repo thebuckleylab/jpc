@@ -20,8 +20,8 @@ def solve_pc_activities(
         y: ArrayLike,
         x: Optional[ArrayLike] = None,
         solver: AbstractSolver = Euler(),
+        t1: int = 20,
         dt: float | int = 1,
-        n_iters: int = 20,
         stepsize_controller: AbstractStepSizeController = ConstantStepSize(),
         record_iters: bool = False
 ) -> PyTree[Array]:
@@ -48,8 +48,9 @@ def solve_pc_activities(
     **Other arguments:**
 
     - `solver`: Diffrax (ODE) solver to be used. Default is Euler.
+    - `t1`: End of integration region, 20 by default. Note that start is zero
+        by default.
     - `dt`: Integration step size. Defaults to 1.
-    - `n_iters`: Number of integration steps (20 as default).
     - `stepsize_controller`: diffrax controller for step size integration.
         Defaults to `ConstantStepSize`.
     - `record_iters`: If `True`, returns all integration steps. `False` by
@@ -64,7 +65,7 @@ def solve_pc_activities(
         terms=ODETerm(_neg_activity_grad),
         solver=solver,
         t0=0,
-        t1=n_iters,
+        t1=t1,
         dt0=dt,
         y0=activities,
         args=(model, y, x),
