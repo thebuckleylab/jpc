@@ -11,8 +11,8 @@ from ._utils import compute_accuracy
 from diffrax import (
     AbstractSolver,
     AbstractStepSizeController,
-    Euler,
-    ConstantStepSize
+    Heun,
+    PIDController
 )
 from jaxtyping import PRNGKeyArray, PyTree, ArrayLike, Array, Scalar
 from typing import Callable, Tuple
@@ -50,10 +50,12 @@ def test_generative_pc(
         layer_sizes: PyTree[int],
         batch_size: int,
         sigma: Scalar = 0.05,
-        ode_solver: AbstractSolver = Euler(),
-        dt: float | int = 1,
-        n_iters: int = 20,
-        stepsize_controller: AbstractStepSizeController = ConstantStepSize()
+        ode_solver: AbstractSolver = Heun(),
+        t1: int = 1,
+        dt: float | int = None,
+        stepsize_controller: AbstractStepSizeController = PIDController(
+            rtol=1e-3, atol=1e-3
+        ),
 ) -> Tuple[Scalar, Array]:
     """Computes test metrics for a generative predictive coding network.
 
@@ -74,11 +76,14 @@ def test_generative_pc(
 
     - `sigma`: Standard deviation for Gaussian to sample activities from.
         Defaults to 5e-2.
-    - `ode_solver`: Diffrax ODE solver to be used. Default is Euler.
-    - `dt`: Integration step size. Defaults to 1.
-    - `n_iters`: Number of integration steps (20 as default).
+    - `ode_solver`: Diffrax ODE solver to be used. Default is Heun, a 2nd order
+        explicit Runge--Kutta method.
+    - `t1`: End of integration region, 1 by default. Note that start t0 is zero
+        by default.
+    - `dt`: Integration step size. Defaults to None since the default
+        `stepsize_controller` will automatically determine it.
     - `stepsize_controller`: diffrax controller for step size integration.
-        Defaults to `ConstantStepSize`.
+        Defaults to `PIDController`.
 
     **Returns:**
 
@@ -97,9 +102,9 @@ def test_generative_pc(
         activities=activities,
         y=y,
         solver=ode_solver,
-        n_iters=n_iters,
-        stepsize_controller=stepsize_controller,
-        dt=dt
+        t1=t1,
+        dt=dt,
+        stepsize_controller=stepsize_controller
     )[0][0]
     input_acc = compute_accuracy(x, input_preds)
     output_preds = init_activities_with_ffwd(model=model, x=x)[-1]
@@ -116,10 +121,12 @@ def test_hpc(
       layer_sizes: PyTree[int],
       batch_size: int,
       sigma: Scalar = 0.05,
-      ode_solver: AbstractSolver = Euler(),
-      dt: float | int = 1,
-      n_iters: int = 20,
-      stepsize_controller: AbstractStepSizeController = ConstantStepSize()
+      ode_solver: AbstractSolver = Heun(),
+      t1: int = 1,
+      dt: float | int = None,
+      stepsize_controller: AbstractStepSizeController = PIDController(
+          rtol=1e-3, atol=1e-3
+      ),
 ) -> Tuple[Scalar, Scalar, Scalar, Array]:
     """Computes test metrics for hybrid predictive coding.
 
@@ -142,11 +149,14 @@ def test_hpc(
 
     - `sigma`: Standard deviation for Gaussian to sample activities from.
         Defaults to 5e-2.
-    - `ode_solver`: Diffrax ODE solver to be used. Default is Euler.
-    - `dt`: Integration step size. Defaults to 1.
-    - `n_iters`: Number of integration steps (20 as default).
+    - `ode_solver`: Diffrax ODE solver to be used. Default is Heun, a 2nd order
+        explicit Runge--Kutta method.
+    - `t1`: End of integration region, 1 by default. Note that start t0 is zero
+        by default.
+    - `dt`: Integration step size. Defaults to None since the default
+        `stepsize_controller` will automatically determine it.
     - `stepsize_controller`: diffrax controller for step size integration.
-        Defaults to `ConstantStepSize`.
+        Defaults to `PIDController`.
 
     **Returns:**
 
@@ -164,9 +174,9 @@ def test_hpc(
         activities=amort_activities,
         y=y,
         solver=ode_solver,
-        n_iters=n_iters,
-        stepsize_controller=stepsize_controller,
-        dt=dt
+        t1=t1,
+        dt=dt,
+        stepsize_controller=stepsize_controller
     )[0][0]
     activities = init_activities_from_gaussian(
         key=key,
@@ -180,9 +190,9 @@ def test_hpc(
         activities=activities,
         y=y,
         solver=ode_solver,
-        n_iters=n_iters,
-        stepsize_controller=stepsize_controller,
-        dt=dt
+        t1=t1,
+        dt=dt,
+        stepsize_controller=stepsize_controller
     )[0][0]
     amort_acc = compute_accuracy(x, amort_preds)
     hpc_acc = compute_accuracy(x, hpc_preds)
