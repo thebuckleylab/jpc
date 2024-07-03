@@ -6,8 +6,8 @@ from ._grads import _neg_activity_grad
 from diffrax import (
     AbstractSolver,
     AbstractStepSizeController,
-    Euler,
-    ConstantStepSize,
+    Heun,
+    PIDController,
     diffeqsolve,
     ODETerm,
     SaveAt
@@ -19,10 +19,12 @@ def solve_pc_activities(
         activities: PyTree[ArrayLike],
         y: ArrayLike,
         x: Optional[ArrayLike] = None,
-        solver: AbstractSolver = Euler(),
-        t1: int = 20,
-        dt: float | int = 1,
-        stepsize_controller: AbstractStepSizeController = ConstantStepSize(),
+        solver: AbstractSolver = Heun(),
+        t1: int = 1,
+        dt: float | int = None,
+        stepsize_controller: AbstractStepSizeController = PIDController(
+            rtol=1e-3, atol=1e-3
+        ),
         record_iters: bool = False
 ) -> PyTree[Array]:
     """Solves the activity (inference) dynamics of a predictive coding network.
@@ -47,12 +49,14 @@ def solve_pc_activities(
 
     **Other arguments:**
 
-    - `solver`: Diffrax (ODE) solver to be used. Default is Euler.
-    - `t1`: End of integration region, 20 by default. Note that start is zero
+    - `solver`: Diffrax (ODE) solver to be used. Default is Heun, a 2nd order
+        explicit Runge--Kutta method.
+    - `t1`: End of integration region, 1 by default. Note that start t0 is zero
         by default.
-    - `dt`: Integration step size. Defaults to 1.
+    - `dt`: Integration step size. Defaults to None since the default
+        `stepsize_controller` will automatically determine it.
     - `stepsize_controller`: diffrax controller for step size integration.
-        Defaults to `ConstantStepSize`.
+        Defaults to `PIDController`.
     - `record_iters`: If `True`, returns all integration steps. `False` by
         default.
 

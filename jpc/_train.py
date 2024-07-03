@@ -7,8 +7,8 @@ from jax.numpy import mean, array
 from diffrax import (
     AbstractSolver,
     AbstractStepSizeController,
-    Euler,
-    ConstantStepSize
+    Heun,
+    PIDController
 )
 from jpc import (
     init_activities_with_ffwd,
@@ -20,7 +20,7 @@ from jpc import (
     compute_infer_energies,
     compute_pc_param_grads
 )
-from optax import GradientTransformationExtraArgs, OptState
+from optax import GradientTransformation, GradientTransformationExtraArgs, OptState
 from jaxtyping import PyTree, ArrayLike, Scalar, PRNGKeyArray
 from typing import Callable, Optional, Tuple, Dict
 
@@ -28,14 +28,16 @@ from typing import Callable, Optional, Tuple, Dict
 @eqx.filter_jit
 def make_pc_step(
       model: PyTree[Callable],
-      optim: GradientTransformationExtraArgs,
+      optim: GradientTransformation | GradientTransformationExtraArgs,
       opt_state: OptState,
       y: ArrayLike,
       x: Optional[ArrayLike] = None,
-      ode_solver: AbstractSolver = Euler(),
-      t1: int = 20,
-      dt: float | int = 1,
-      stepsize_controller: AbstractStepSizeController = ConstantStepSize(),
+      ode_solver: AbstractSolver = Heun(),
+      t1: int = 1,
+      dt: float | int = None,
+      stepsize_controller: AbstractStepSizeController = PIDController(
+          rtol=1e-3, atol=1e-3
+      ),
       key: Optional[PRNGKeyArray] = None,
       layer_sizes: Optional[PyTree[int]] = None,
       batch_size: Optional[int] = None,
@@ -61,12 +63,14 @@ def make_pc_step(
 
     **Other arguments:**
 
-    - `ode_solver`: Diffrax ODE solver to be used. Default is Euler.
-    - `t1`: End of integration region, 20 by default. Note that start is zero
+    - `ode_solver`: Diffrax ODE solver to be used. Default is Heun, a 2nd order
+        explicit Runge--Kutta method.
+    - `t1`: End of integration region, 1 by default. Note that start t0 is zero
         by default.
-    - `dt`: Integration step size. Defaults to 1.
+    - `dt`: Integration step size. Defaults to None since the default
+        `stepsize_controller` will automatically determine it.
     - `stepsize_controller`: diffrax controller for step size integration.
-        Defaults to `ConstantStepSize`.
+        Defaults to `PIDController`.
     - `key`: `jax.random.PRNGKey` for random initialisation of activities.
     - `layer_sizes`: Dimension of all layers (input, hidden and output).
     - `batch_size`: Dimension of data batch for activity initialisation.
@@ -162,10 +166,12 @@ def make_hpc_step(
       opt_states: Tuple[OptState],
       y: ArrayLike,
       x: ArrayLike,
-      ode_solver: AbstractSolver = Euler(),
-      t1: int = 20,
-      dt: float | int = 1,
-      stepsize_controller: AbstractStepSizeController = ConstantStepSize(),
+      ode_solver: AbstractSolver = Heun(),
+      t1: int = 1,
+      dt: float | int = None,
+      stepsize_controller: AbstractStepSizeController = PIDController(
+          rtol=1e-3, atol=1e-3
+      ),
       record_activities: bool = False,
       record_energies: bool = False
 ) -> Dict:
@@ -198,12 +204,14 @@ def make_hpc_step(
 
     **Other arguments:**
 
-    - `ode_solver`: Diffrax ODE solver to be used. Default is Euler.
-    - `t1`: End of integration region, 20 by default. Note that start is zero
+    - `ode_solver`: Diffrax ODE solver to be used. Default is Heun, a 2nd order
+        explicit Runge--Kutta method..
+    - `t1`: End of integration region, 1 by default. Note that start t0 is zero
         by default.
-    - `dt`: Integration step size. Defaults to 1.
+    - `dt`: Integration step size. Defaults to None since the default
+        `stepsize_controller` will automatically determine it.
     - `stepsize_controller`: diffrax controller for step size integration.
-        Defaults to `ConstantStepSize`.
+        Defaults to `PIDController`.
     - `record_activities`: If `True`, returns activities at every inference
         iteration.
      - `record_energies`: If `True`, returns layer-wise energies at every
