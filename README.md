@@ -8,8 +8,8 @@
 
 ![status](https://img.shields.io/badge/status-active-green)
 
-JPC is a [JAX](https://github.com/google/jax) library to train neural networks 
-with predictive coding (PC). It is built on top of three main libraries:
+JPC is a [**J**AX](https://github.com/google/jax) library to train neural networks 
+with **P**redictive **C**oding (PC). It is built on top of three main libraries:
 
 * [Equinox](https://github.com/patrick-kidger/equinox), to define neural 
 networks with PyTorch-like syntax,

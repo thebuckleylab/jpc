@@ -1,7 +1,7 @@
 # Getting started
 
-JPC is a [JAX](https://github.com/google/jax) library to train neural networks 
-with predictive coding (PC). It is built on top of three main libraries:
+JPC is a [**J**AX](https://github.com/google/jax) library to train neural networks 
+with **P**redictive **C**oding (PC). It is built on top of three main libraries:
 
 * [Equinox](https://github.com/patrick-kidger/equinox), to define neural 
 networks with PyTorch-like syntax,
@@ -53,7 +53,8 @@ result = jpc.make_pc_step(
     x
 )
 ```
-Under the hood, `jpc.make_pc_step`
+Under the hood, `jpc.make_pc_step`:
+
 1. integrates the activity (inference) dynamics using a [Diffrax](https://github.com/patrick-kidger/diffrax) ODE solver (Euler by default), 
 2. computes the PC gradient w.r.t. the model parameters at the numerical solution of the activities, and 
 3. updates the parameters with the provided [Optax](https://github.com/google-deepmind/optax) optimiser.
