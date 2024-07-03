@@ -62,6 +62,30 @@ def make_mlp(
                     nn.Lambda(jax.nn.relu)
                 ]
             )
+        elif act_fn == "leaky_relu" and not is_last:
+            hidden_layer = nn.Sequential(
+                [
+                    nn.Linear(
+                        layer_sizes[i],
+                        layer_sizes[i+1],
+                        use_bias=use_bias,
+                        key=subkey
+                    ),
+                    nn.Lambda(jax.nn.leaky_relu)
+                ]
+            )
+        elif act_fn == "gelu" and not is_last:
+            hidden_layer = nn.Sequential(
+                [
+                    nn.Linear(
+                        layer_sizes[i],
+                        layer_sizes[i+1],
+                        use_bias=use_bias,
+                        key=subkey
+                    ),
+                    nn.Lambda(jax.nn.gelu)
+                ]
+            )
         else:
             raise ValueError("""
                 Invalid activation function ID. Options are 'linear', 'tanh'
