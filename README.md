@@ -4,7 +4,7 @@
   </a> 
 </p>
 
-<h2 align='center'>🧠 Predictive coding networks in JAX ⚡️</h2>
+<h2 align='center'>🧠 Adaptive Inference for Predictive Coding Networks in JAX ⚡️</h2>
 
 ![status](https://img.shields.io/badge/status-active-green)
 
@@ -80,7 +80,7 @@ Under the hood, `jpc.make_pc_step`
 > **NOTE**: All convenience training and test functions including `make_pc_step` 
 > are already "jitted" (for increased performance) for the user's convenience.
 
-## Advanced usage
+## 🚀 Advanced usage
 More advanced users can access the functionality used by `jpc.make_pc_step`.
 ```py
 import jpc
