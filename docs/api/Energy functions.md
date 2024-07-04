@@ -1,3 +1,3 @@
-# pc_energy_fn
+# Energy functions
 
 ::: jpc.pc_energy_fn

@@ -96,7 +96,6 @@ plugins:
 
 nav:
     - 'index.md'
-    - Predictive coding primer: 'pc_overview.md'
     - ⚙️ How it works:
         - Basic usage: 'basic_usage.md'
         - Advanced usage: 'advanced_usage.md'
@@ -112,9 +111,10 @@ nav:
           - 'api/make_mlp.md'
     - 🚀 Advanced API:
         - 'api/Initialisation.md'
-        - 'api/pc_energy_fn.md'
-        - 'api/solve_pc_activities.md'
-        - 'api/compute_pc_param_grads.md'
+        - 'api/Energy functions.md'
+        - 'api/Inference.md'
+        - 'api/Gradients.md'
+        - 'api/Analytical tools.md'
 
 copyright: |
   &copy; 2024 <a href="https://github.com/thebuckleylab"  target="_blank" rel="noopener">thebuckleylab</a>

@@ -62,6 +62,9 @@ Under the hood, `jpc.make_pc_step`:
 > **NOTE**: All convenience training and test functions including `make_pc_step` 
 > are already "jitted" (for increased performance) for the user's convenience.
 
+## 🧠️ Predictive coding primer
+TODO
+
 ## 🚀 Advanced usage
 More advanced users can access the functionality used by `jpc.make_pc_step`.
 ```py

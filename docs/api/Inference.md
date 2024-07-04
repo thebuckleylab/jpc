@@ -1,3 +1,3 @@
-# solve_pc_activities
+# Inference
 
 ::: jpc.solve_pc_activities
