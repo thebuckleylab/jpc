@@ -16,14 +16,14 @@ def pc_energy_fn(
     """Computes the free energy for a feedforward neural network of the form
 
     $$
-    \mathcal{F}(\mathbf{z}; θ) = \sum_\ell^L || \mathbf{z}_\ell - f_\ell(\mathbf{z}_{\ell-1}; θ) ||^2
+    \mathcal{F}(\mathbf{z}; θ) = 1/N \sum_{\ell=1}^L || \mathbf{z}_\ell - f_\ell(\mathbf{z}_{\ell-1}; θ) ||^2
     $$
 
     given parameters $θ$, free activities $\mathbf{z}$, output
     $\mathbf{z}_L = \mathbf{y}$ and optionally input $\mathbf{z}_0 = \mathbf{x}$.
     The activity of each layer $\mathbf{z}_\ell$ is some function of the previous
-    layer, e.g. $f_\ell(W_\ell \mathbf{z}_{\ell-1} + \mathbf{b}_\ell)$
-    for a fully connected layer.
+    layer, e.g. $\text{ReLU}(W_\ell \mathbf{z}_{\ell-1} + \mathbf{b}_\ell)$
+    for a fully connected layer with biases and ReLU as activation.
 
     !!! note
 
@@ -39,8 +39,7 @@ def pc_energy_fn(
 
     **Other arguments:**
 
-    - `record_layers`: If `True`, returns energies for each layer. Defaults to
-        `False`.
+    - `record_layers`: If `True`, returns energies for each layer.
 
     **Returns:**
 

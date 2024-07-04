@@ -98,10 +98,8 @@ def make_pc_step(
             passed for random initialisation of activities.
         """)
 
-    if record_energies and not record_activities:
-        raise ValueError("""
-            `record_energies` = `True` requires `record_activities` = `True`. 
-        """)
+    if record_energies:
+        record_activities = True
 
     activities = init_activities_from_gaussian(
         key=key,
@@ -223,15 +221,9 @@ def make_hpc_step(
     model, model activities, last inference step for the generator, MSE losses,
     and energies.
 
-    **Raises:**
-
-    - `ValueError` for inconsistent inputs.
-
     """
-    if record_energies and not record_activities:
-        raise ValueError("""
-            `record_energies` = `True` requires `record_activities` = `True`. 
-        """)
+    if record_energies:
+        record_activities = True
 
     gen_optim, amort_optim = optims
     gen_opt_state, amort_opt_state = opt_states

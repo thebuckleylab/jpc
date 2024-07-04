@@ -1,4 +1,4 @@
-"""Function to solve activity dynamics of predictive coding networks."""
+"""Function to solve the activity (inference) dynamics of PC networks."""
 
 from jaxtyping import PyTree, ArrayLike, Array
 from typing import Callable, Optional
@@ -57,8 +57,7 @@ def solve_pc_activities(
         `stepsize_controller` will automatically determine it.
     - `stepsize_controller`: diffrax controller for step size integration.
         Defaults to `PIDController`.
-    - `record_iters`: If `True`, returns all integration steps. `False` by
-        default.
+    - `record_iters`: If `True`, returns all integration steps.
 
     **Returns:**
 

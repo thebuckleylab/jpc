@@ -121,7 +121,7 @@ def compute_infer_energies(
 
     **Returns:**
 
-    List of layer-wise energies for selected inference iterations.
+    List of layer-wise energies at every inference iteration.
 
     """
     def loop_body(state):

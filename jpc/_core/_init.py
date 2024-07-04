@@ -40,9 +40,10 @@ def init_activities_from_gaussian(
     **Main arguments:**
 
     - `key`: `jax.random.PRNGKey` for sampling.
-    - `layer_sizes`: Dimension of all layers (input, hidden and output).
-    - `mode`: If 'supervised', all hidden layers are initialised. If
-        'unsupervised' the input layer is also initialised.
+    - `layer_sizes`: List with dimension of all layers (input, hidden and
+        output).
+    - `mode`: If `supervised`, all hidden layers are initialised. If
+        `unsupervised` the input layer $\mathbf{z}_0$ is also initialised.
     - `batch_size`: Dimension of data batch.
     - `sigma`: Standard deviation for Gaussian to sample activities from.
         Defaults to 5e-2.
