@@ -59,7 +59,7 @@ def linear_equilib_energy_batch(
     Mean total analytical energy across data batch.
 
     """
-    return vmap(lambda y, x: dln_equilib_energy_single(
+    return vmap(lambda y, x: linear_equilib_energy_single(
         network,
         y,
         x
