@@ -6,3 +6,4 @@ from ._init import (
 from ._energies import pc_energy_fn as pc_energy_fn
 from ._infer import solve_pc_activities as solve_pc_activities
 from ._grads import compute_pc_param_grads as compute_pc_param_grads
+from ._analytical import linear_equilib_energy_batch as linear_equilib_energy

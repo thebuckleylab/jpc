@@ -6,7 +6,8 @@ from ._core import (
     init_activities_with_amort as init_activities_with_amort,
     pc_energy_fn as pc_energy_fn,
     solve_pc_activities as solve_pc_activities,
-    compute_pc_param_grads as compute_pc_param_grads
+    compute_pc_param_grads as compute_pc_param_grads,
+    linear_equilib_energy as linear_equilib_energy
 )
 from ._utils import (
     make_mlp as make_mlp,
