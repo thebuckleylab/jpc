@@ -16,7 +16,7 @@ def pc_energy_fn(
     """Computes the free energy for a feedforward neural network of the form
 
     $$
-    \mathcal{F}(\mathbf{z}; θ) = 1/N \sum_{\ell=1}^L || \mathbf{z}_\ell - f_\ell(\mathbf{z}_{\ell-1}; θ) ||^2
+    \mathcal{F}(\mathbf{z}; θ) = 1/N \sum_i^N \sum_{\ell=1}^L || \mathbf{z}_{i, \ell} - f_\ell(\mathbf{z}_{i, \ell-1}; θ) ||^2
     $$
 
     given parameters $θ$, free activities $\mathbf{z}$, output

@@ -14,11 +14,7 @@ def neg_activity_grad(
         args: Tuple[PyTree[Callable], ArrayLike, Optional[ArrayLike]],
         energy_fn: Callable = pc_energy_fn,
 ) -> PyTree[Array]:
-    """Computes the negative gradient of the energy with respect to the activities.
-
-    $$
-    - \partial \mathcal{F} / \partial \mathbf{z}
-    $$
+    """Computes the negative gradient of the energy with respect to the activities $- \partial \mathcal{F} / \partial \mathbf{z}$.
 
     This defines an ODE system to be integrated by `solve_pc_activities`.
 
