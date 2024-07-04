@@ -8,7 +8,7 @@ from typing import Tuple, Callable, Optional
 from ._energies import pc_energy_fn
 
 
-def _neg_activity_grad(
+def neg_activity_grad(
         t: float | int,
         activities: PyTree[ArrayLike],
         args: Tuple[PyTree[Callable], ArrayLike, Optional[ArrayLike]],
@@ -54,7 +54,7 @@ def compute_pc_param_grads(
         y: ArrayLike,
         x: Optional[ArrayLike] = None
 ) -> PyTree[Array]:
-    """Computes the gradient of the energy with respect to network parameters $\partial \mathcal{F} / \partial θ$.
+    """Computes the gradient of the energy with respect to model parameters $\partial \mathcal{F} / \partial θ$.
 
     **Main arguments:**
 

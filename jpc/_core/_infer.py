@@ -2,7 +2,7 @@
 
 from jaxtyping import PyTree, ArrayLike, Array
 from typing import Callable, Optional
-from ._grads import _neg_activity_grad
+from ._grads import neg_activity_grad
 from diffrax import (
     AbstractSolver,
     AbstractStepSizeController,
@@ -65,7 +65,7 @@ def solve_pc_activities(
 
     """
     sol = diffeqsolve(
-        terms=ODETerm(_neg_activity_grad),
+        terms=ODETerm(neg_activity_grad),
         solver=solver,
         t0=0,
         t1=t1,
