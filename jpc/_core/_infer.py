@@ -20,7 +20,7 @@ def solve_pc_activities(
         y: ArrayLike,
         x: Optional[ArrayLike] = None,
         solver: AbstractSolver = Heun(),
-        t1: int = 1,
+        t1: int = 500,
         dt: float | int = None,
         stepsize_controller: AbstractStepSizeController = PIDController(
             rtol=1e-3, atol=1e-3
@@ -51,8 +51,8 @@ def solve_pc_activities(
 
     - `solver`: Diffrax (ODE) solver to be used. Default is Heun, a 2nd order
         explicit Runge--Kutta method.
-    - `t1`: End of integration region, 1 by default. Note that start t0 is zero
-        by default.
+    - `t1`: Maximum end of integration region. Default is 500, the (default)
+        adaptive solver should converge much faster (depending on the problem).
     - `dt`: Integration step size. Defaults to None since the default
         `stepsize_controller` will automatically determine it.
     - `stepsize_controller`: diffrax controller for step size integration.
