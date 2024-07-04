@@ -9,8 +9,8 @@ from jaxtyping import PyTree, ArrayLike, Array
 
 def linear_equilib_energy_single(
         network: PyTree[nn.Linear],
-        y: ArrayLike,
-        x: ArrayLike
+        x: ArrayLike,
+        y: ArrayLike
 ) -> Array:
     """See docs of `dln_equilib_energy_batch`."""
     Ws = [l.weight for l in network]
@@ -36,8 +36,8 @@ def linear_equilib_energy_single(
 @eqx.filter_jit
 def linear_equilib_energy_batch(
         network: PyTree[nn.Linear],
-        y_batch: ArrayLike,
-        x_batch: ArrayLike
+        x: ArrayLike,
+        y: ArrayLike
 ) -> Array:
     """Computes the theoretical equilibrated PC energy for a deep linear network (DLN).
 
@@ -51,16 +51,16 @@ def linear_equilib_energy_batch(
     **Main arguments:**
 
     - `network`: Linear network defined as a list of Equinox Linear layers.
-    - `y`: Network output.
     - `x`: Network input.
+    - `y`: Network output.
 
     **Returns:**
 
     Mean total analytical energy across data batch.
 
     """
-    return vmap(lambda y, x: linear_equilib_energy_single(
+    return vmap(lambda x, y: linear_equilib_energy_single(
         network,
-        y,
-        x
-    ))(y_batch, x_batch).mean()
+        x,
+        y
+    ))(x, y).mean()
