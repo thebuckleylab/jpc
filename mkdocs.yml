@@ -101,10 +101,13 @@ nav:
         - Advanced usage: 'advanced_usage.md'
         - Extending JPC: 'extending_jpc.md'
     - 📚 Examples:
-        - Discriminative PC: 'examples/discriminative_pc.ipynb'
-        - Supervised generative PC: 'examples/supervised_generative_pc.ipynb'
-        - Unsupervised generative PC: 'examples/unsupervised_generative_pc.ipynb'
-        - Hybrid PC: 'examples/hybrid_pc.ipynb'
+        - Introductory:
+            - Discriminative PC: 'examples/discriminative_pc.ipynb'
+            - Supervised generative PC: 'examples/supervised_generative_pc.ipynb'
+            - Unsupervised generative PC: 'examples/unsupervised_generative_pc.ipynb'
+        - Advanced:
+            - Hybrid PC: 'examples/hybrid_pc.ipynb'
+            - Linear theoretical energy: 'examples/linear_net_theoretical_energy.ipynb'
     - 🌱 Basic API:
           - 'api/Training.md'
           - 'api/Testing.md'
