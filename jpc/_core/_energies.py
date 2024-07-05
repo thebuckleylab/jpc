@@ -22,7 +22,7 @@ def pc_energy_fn(
     given parameters $θ$, free activities $\mathbf{z}$, output
     $\mathbf{z}_L = \mathbf{y}$ and optionally input $\mathbf{z}_0 = \mathbf{x}$.
     The activity of each layer $\mathbf{z}_\ell$ is some function of the previous
-    layer, e.g. $\text{ReLU}(W_\ell \mathbf{z}_{\ell-1} + \mathbf{b}_\ell)$
+    layer, e.g. ReLU$(W_\ell \mathbf{z}_{\ell-1} + \mathbf{b}_\ell)$
     for a fully connected layer with biases and ReLU as activation.
 
     !!! note
