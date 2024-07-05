@@ -51,7 +51,7 @@ def test_generative_pc(
         batch_size: int,
         sigma: Scalar = 0.05,
         ode_solver: AbstractSolver = Heun(),
-        t1: int = 500,
+        t1: int = 20,
         dt: float | int = None,
         stepsize_controller: AbstractStepSizeController = PIDController(
             rtol=1e-3, atol=1e-3
@@ -78,8 +78,7 @@ def test_generative_pc(
         Defaults to 5e-2.
     - `ode_solver`: Diffrax ODE solver to be used. Default is Heun, a 2nd order
         explicit Runge--Kutta method.
-    - `t1`: Maximum end of integration region. Default is 500, the (default)
-        adaptive solver should converge much faster (depending on the problem).
+    - `t1`: Maximum end of integration region (20 by default).
     - `dt`: Integration step size. Defaults to None since the default
         `stepsize_controller` will automatically determine it.
     - `stepsize_controller`: diffrax controller for step size integration.
@@ -122,7 +121,7 @@ def test_hpc(
       batch_size: int,
       sigma: Scalar = 0.05,
       ode_solver: AbstractSolver = Heun(),
-      t1: int = 500,
+      t1: int = 20,
       dt: float | int = None,
       stepsize_controller: AbstractStepSizeController = PIDController(
           rtol=1e-3, atol=1e-3
@@ -151,8 +150,7 @@ def test_hpc(
         Defaults to 5e-2.
     - `ode_solver`: Diffrax ODE solver to be used. Default is Heun, a 2nd order
         explicit Runge--Kutta method.
-    - `t1`: Maximum end of integration region. Default is 500, the (default)
-        adaptive solver should converge much faster (depending on the problem).
+    - `t1`: Maximum end of integration region (20 by default).
     - `dt`: Integration step size. Defaults to None since the default
         `stepsize_controller` will automatically determine it.
     - `stepsize_controller`: diffrax controller for step size integration.
