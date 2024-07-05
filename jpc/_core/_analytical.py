@@ -1,4 +1,4 @@
-"""Analytical tools for predictive coding networks."""
+"""Theoretical tools for predictive coding networks."""
 
 from jax import vmap
 import jax.numpy as jnp
@@ -46,7 +46,11 @@ def linear_equilib_energy_batch(
     $$
 
     where the rescaling is $S = I_{d_y} + \sum_{\ell=2}^L (W_{L:\ell})(W_{L:\ell})^T$,
-    and we use the shorthand $W_{L:\ell} = W_L W_{L-1} \dots W_{\ell+1} W_\ell$.
+    and we use the shorthand $W_{L:\ell} = W_L W_{L-1} \dots W_\ell$.
+
+    !!! note
+
+        This expression assumes no biases.
 
     **Main arguments:**
 
