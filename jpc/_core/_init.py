@@ -28,7 +28,7 @@ def init_activities_with_ffwd(
     return activities
 
 
-def init_activities_from_gaussian(
+def init_activities_from_normal(
         key: PRNGKeyArray,
         layer_sizes: PyTree[int],
         mode: str,
