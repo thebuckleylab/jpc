@@ -89,7 +89,7 @@ def test_generative_pc(
     Tuple with accuracy and output predictions.
 
     """
-    activities = init_activities_from_gaussian(
+    activities = init_activities_from_normal(
         key=key,
         layer_sizes=layer_sizes,
         mode="unsupervised",
@@ -176,7 +176,7 @@ def test_hpc(
         dt=dt,
         stepsize_controller=stepsize_controller
     )[0][0]
-    activities = init_activities_from_gaussian(
+    activities = init_activities_from_normal(
         key=key,
         layer_sizes=layer_sizes,
         mode="unsupervised",

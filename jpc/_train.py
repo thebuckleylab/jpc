@@ -100,7 +100,7 @@ def make_pc_step(
     if record_energies:
         record_activities = True
 
-    activities = init_activities_from_gaussian(
+    activities = init_activities_from_normal(
         key=key,
         layer_sizes=layer_sizes,
         mode="unsupervised",
