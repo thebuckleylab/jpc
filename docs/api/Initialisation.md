@@ -4,7 +4,7 @@
 
 ---
 
-::: jpc.init_activities_from_gaussian
+::: jpc.init_activities_from_normal
 
 ---
 
