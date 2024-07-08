@@ -2,7 +2,7 @@
 
 import equinox as eqx
 from jpc import (
-    init_activities_from_gaussian,
+    init_activities_from_normal,
     init_activities_with_ffwd,
     init_activities_with_amort,
     solve_pc_activities

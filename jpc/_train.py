@@ -12,7 +12,7 @@ from diffrax import (
 )
 from jpc import (
     init_activities_with_ffwd,
-    init_activities_from_gaussian,
+    init_activities_from_normal,
     init_activities_with_amort,
     pc_energy_fn,
     solve_pc_activities,
