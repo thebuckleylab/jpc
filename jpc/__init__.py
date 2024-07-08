@@ -2,7 +2,7 @@ import importlib.metadata
 
 from ._core import (
     init_activities_with_ffwd as init_activities_with_ffwd,
-    init_activities_from_gaussian as init_activities_from_gaussian,
+    init_activities_from_normal as init_activities_from_normal,
     init_activities_with_amort as init_activities_with_amort,
     pc_energy_fn as pc_energy_fn,
     neg_activity_grad as neg_activity_grad,
