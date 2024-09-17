@@ -21,31 +21,31 @@ from typing import Callable, Tuple
 @eqx.filter_jit
 def test_discriminative_pc(
         model: PyTree[Callable],
-        y: ArrayLike,
-        x: ArrayLike,
+        output: ArrayLike,
+        input: ArrayLike,
 ) -> Scalar:
     """Computes prediction accuracy of a discriminative predictive coding network.
 
     **Main arguments:**
 
     - `model`: List of callable model (e.g. neural network) layers.
-    - `y`: Observation or target of the generative model.
-    - `x`: Optional prior of the generative model.
+    - `output`: Observation or target of the generative model.
+    - `input`: Optional prior of the generative model.
 
     **Returns:**
 
     Accuracy of output predictions.
 
     """
-    preds = init_activities_with_ffwd(model=model, x=x)[-1]
-    return compute_accuracy(y, preds)
+    preds = init_activities_with_ffwd(model=model, x=input)[-1]
+    return compute_accuracy(output, preds)
 
 
 @eqx.filter_jit
 def test_generative_pc(
         model: PyTree[Callable],
-        y: ArrayLike,
-        x: ArrayLike,
+        output: ArrayLike,
+        input: ArrayLike,
         key: PRNGKeyArray,
         layer_sizes: PyTree[int],
         batch_size: int,
@@ -66,8 +66,8 @@ def test_generative_pc(
     **Main arguments:**
 
     - `model`: List of callable model (e.g. neural network) layers.
-    - `y`: Observation or target of the generative model.
-    - `x`: Optional prior of the generative model.
+    - `output`: Observation or target of the generative model.
+    - `input`: Optional prior of the generative model.
     - `key`: `jax.random.PRNGKey` for random initialisation of activities.
     - `layer_sizes`: Dimension of all layers (input, hidden and output).
     - `batch_size`: Dimension of data batch for activity initialisation.
@@ -99,14 +99,14 @@ def test_generative_pc(
     input_preds = solve_pc_activities(
         model=model,
         activities=activities,
-        y=y,
+        y=output,
         solver=ode_solver,
         t1=t1,
         dt=dt,
         stepsize_controller=stepsize_controller
     )[0][0]
-    input_acc = compute_accuracy(x, input_preds)
-    output_preds = init_activities_with_ffwd(model=model, x=x)[-1]
+    input_acc = compute_accuracy(input, input_preds)
+    output_preds = init_activities_with_ffwd(model=model, x=input)[-1]
     return input_acc, output_preds
 
 
@@ -114,8 +114,8 @@ def test_generative_pc(
 def test_hpc(
       generator: PyTree[Callable],
       amortiser: PyTree[Callable],
-      y: ArrayLike,
-      x: ArrayLike,
+      output: ArrayLike,
+      input: ArrayLike,
       key: PRNGKeyArray,
       layer_sizes: PyTree[int],
       batch_size: int,
@@ -138,8 +138,8 @@ def test_hpc(
     - `generator`: List of callable layers for the generative model.
     - `amortiser`: List of callable layers for model amortising the inference
         of the `generator`.
-    - `y`: Observation or target of the generative model.
-    - `x`: Optional prior of the generative model.
+    - `output`: Observation or target of the generative model.
+    - `input`: Optional prior of the generative model.
     - `key`: `jax.random.PRNGKey` for random initialisation of activities.
     - `layer_sizes`: Dimension of all layers (input, hidden and output).
     - `batch_size`: Dimension of data batch for initialisation of activities.
@@ -164,13 +164,13 @@ def test_hpc(
     amort_activities = init_activities_with_amort(
         amortiser=amortiser,
         generator=generator,
-        y=y
+        y=output
     )
     amort_preds = amort_activities[0]
     hpc_preds = solve_pc_activities(
         model=generator,
         activities=amort_activities,
-        y=y,
+        y=output,
         solver=ode_solver,
         t1=t1,
         dt=dt,
@@ -186,14 +186,14 @@ def test_hpc(
     gen_preds = solve_pc_activities(
         model=generator,
         activities=activities,
-        y=y,
+        y=output,
         solver=ode_solver,
         t1=t1,
         dt=dt,
         stepsize_controller=stepsize_controller
     )[0][0]
-    amort_acc = compute_accuracy(x, amort_preds)
-    hpc_acc = compute_accuracy(x, hpc_preds)
-    gen_acc = compute_accuracy(x, gen_preds)
-    output_preds = init_activities_with_ffwd(model=generator, x=x)[-1]
+    amort_acc = compute_accuracy(input, amort_preds)
+    hpc_acc = compute_accuracy(input, hpc_preds)
+    gen_acc = compute_accuracy(input, gen_preds)
+    output_preds = init_activities_with_ffwd(model=generator, x=input)[-1]
     return amort_acc, hpc_acc, gen_acc, output_preds

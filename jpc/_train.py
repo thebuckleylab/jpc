@@ -30,8 +30,8 @@ def make_pc_step(
       model: PyTree[Callable],
       optim: GradientTransformation | GradientTransformationExtraArgs,
       opt_state: OptState,
-      y: ArrayLike,
-      x: Optional[ArrayLike] = None,
+      output: ArrayLike,
+      input: Optional[ArrayLike] = None,
       ode_solver: AbstractSolver = Heun(),
       t1: int = 20,
       dt: float | int = None,
@@ -52,8 +52,8 @@ def make_pc_step(
     - `model`: List of callable model (e.g. neural network) layers.
     - `optim`: Optax optimiser, e.g. `optax.sgd()`.
     - `opt_state`: State of Optax optimiser.
-    - `y`: Observation or target of the generative model.
-    - `x`: Optional prior of the generative model.
+    - `output`: Observation or target of the generative model.
+    - `input`: Optional prior of the generative model.
 
     !!! note
 
@@ -90,7 +90,7 @@ def make_pc_step(
     - `ValueError` for inconsistent inputs.
 
     """
-    if x is None and any(arg is None for arg in (key, layer_sizes, batch_size)):
+    if input is None and any(arg is None for arg in (key, layer_sizes, batch_size)):
         raise ValueError("""
             If there is no input (i.e. `x` is None), then unsupervised training 
             is assumed, and `key`, `layer_sizes` and `batch_size` must be 
@@ -106,14 +106,14 @@ def make_pc_step(
         mode="unsupervised",
         batch_size=batch_size,
         sigma=sigma
-    ) if x is None else init_activities_with_ffwd(model=model, x=x)
+    ) if input is None else init_activities_with_ffwd(model=model, x=input)
 
-    mse_loss = mean((y - activities[-1])**2) if x is not None else None
+    mse_loss = mean((output - activities[-1])**2) if input is not None else None
     equilib_activities = solve_pc_activities(
         model=model,
         activities=activities,
-        y=y,
-        x=x,
+        y=output,
+        x=input,
         solver=ode_solver,
         t1=t1,
         dt=dt,
@@ -125,8 +125,8 @@ def make_pc_step(
         model=model,
         activities_iters=equilib_activities,
         t_max=t_max,
-        y=y,
-        x=x
+        y=output,
+        x=input
     ) if record_energies else None
 
     param_grads = compute_pc_param_grads(
@@ -135,8 +135,8 @@ def make_pc_step(
             lambda act: act[t_max if record_activities else array(0)],
             equilib_activities
         ),
-        y=y,
-        x=x
+        y=output,
+        x=input
     )
     updates, opt_state = optim.update(
         updates=param_grads,
@@ -161,8 +161,8 @@ def make_hpc_step(
       amortiser: PyTree[Callable],
       optims: Tuple[GradientTransformationExtraArgs],
       opt_states: Tuple[OptState],
-      y: ArrayLike,
-      x: ArrayLike,
+      output: ArrayLike,
+      input: ArrayLike,
       ode_solver: AbstractSolver = Heun(),
       t1: int = 20,
       dt: float | int = None,
@@ -196,8 +196,8 @@ def make_hpc_step(
         of the `generator`.
     - `optims`: Optax optimisers (e.g. `optax.sgd()`), one for each model.
     - `opt_states`: State of Optax optimisers, one for each model.
-    - `y`: Observation of the generator, input to the amortiser.
-    - `x`: Prior of the generator, target for the amortiser.
+    - `output`: Observation of the generator, input to the amortiser.
+    - `input`: Prior of the generator, target for the amortiser.
 
     **Other arguments:**
 
@@ -226,20 +226,20 @@ def make_hpc_step(
     gen_optim, amort_optim = optims
     gen_opt_state, amort_opt_state = opt_states
 
-    gen_activities = init_activities_with_ffwd(model=generator, x=x)
+    gen_activities = init_activities_with_ffwd(model=generator, x=input)
     amort_activities = init_activities_with_amort(
         amortiser=amortiser,
         generator=generator,
-        y=y
+        y=output
     )
-    gen_loss = mean((y - gen_activities[-1]) ** 2)
-    amort_loss = mean((x - amort_activities[0]) ** 2)
+    gen_loss = mean((output - gen_activities[-1]) ** 2)
+    amort_loss = mean((input - amort_activities[0]) ** 2)
 
     equilib_activities = solve_pc_activities(
         model=generator,
         activities=amort_activities[1:],
-        y=y,
-        x=x,
+        y=output,
+        x=input,
         solver=ode_solver,
         t1=t1,
         dt=dt,
@@ -252,8 +252,8 @@ def make_hpc_step(
         model=generator,
         activities_iters=equilib_activities,
         t_max=t_max,
-        y=y,
-        x=x
+        y=output,
+        x=input
     ) if record_energies else None
     equilib_activities_for_amort = tree_map(
         lambda act: act[t_max if record_activities else array(0)],
@@ -265,8 +265,8 @@ def make_hpc_step(
     amort_energies = pc_energy_fn(
         model=amortiser,
         activities=equilib_activities_for_amort,
-        y=x,
-        x=y
+        y=input,
+        x=output
     ) if record_energies else None
 
     gen_param_grads = compute_pc_param_grads(
@@ -275,14 +275,14 @@ def make_hpc_step(
             lambda act: act[t_max if record_activities else array(0)],
             equilib_activities
         ),
-        y=y,
-        x=x
+        y=output,
+        x=input
     )
     amort_param_grads = compute_pc_param_grads(
         model=amortiser,
         activities=equilib_activities_for_amort,
-        y=x,
-        x=y
+        y=input,
+        x=output
     )
 
     gen_updates, gen_opt_state = gen_optim.update(
