@@ -16,19 +16,19 @@ def linear_equilib_energy_single(
     Ws = [l.weight for l in network]
     L = len(Ws)
 
-    # compute product of weight matrices
+    # Compute product of weight matrices
     WLto1 = jnp.eye(Ws[-1].shape[0])
     for i in range(L - 1, -1, -1):
         WLto1 = WLto1 @ Ws[i]
 
-    # compute rescaling
+    # Compute rescaling
     S = jnp.eye(Ws[-1].shape[0])
     cumulative_prod = jnp.eye(Ws[-1].shape[0])
     for i in range(L - 1, 0, -1):
         cumulative_prod = cumulative_prod @ Ws[i]
         S += cumulative_prod @ cumulative_prod.T
 
-    # compute full expression
+    # Compute full expression
     r = y - WLto1 @ x
     return r.T @ jnp.linalg.inv(S) @ r
 
@@ -47,10 +47,22 @@ def linear_equilib_energy_batch(
 
     where the rescaling is $S = I_{d_y} + \sum_{\ell=2}^L (W_{L:\ell})(W_{L:\ell})^T$,
     and we use the shorthand $W_{L:\ell} = W_L W_{L-1} \dots W_\ell$.
+    See reference below.
 
     !!! note
 
         This expression assumes no biases.
+
+    ??? cite "Reference"
+
+        ```bibtex
+        @article{innocenti2024only,
+          title={Only Strict Saddles in the Energy Landscape of Predictive Coding Networks?},
+          author={Innocenti, Francesco and Achour, El Mehdi and Singh, Ryan and Buckley, Christopher L},
+          journal={arXiv preprint arXiv:2408.11979},
+          year={2024}
+        }
+        ```
 
     **Main arguments:**
 
