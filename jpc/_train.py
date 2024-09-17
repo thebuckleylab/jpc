@@ -15,7 +15,7 @@ from jpc import (
     init_activities_from_normal,
     init_activities_with_amort,
     pc_energy_fn,
-    solve_pc_activities,
+    solve_pc_inference,
     get_t_max,
     compute_infer_energies,
     compute_pc_param_grads
@@ -109,7 +109,7 @@ def make_pc_step(
     ) if input is None else init_activities_with_ffwd(model=model, x=input)
 
     mse_loss = mean((output - activities[-1])**2) if input is not None else None
-    equilib_activities = solve_pc_activities(
+    equilib_activities = solve_pc_inference(
         model=model,
         activities=activities,
         y=output,
@@ -235,11 +235,10 @@ def make_hpc_step(
     gen_loss = mean((output - gen_activities[-1]) ** 2)
     amort_loss = mean((input - amort_activities[0]) ** 2)
 
-    equilib_activities = solve_pc_activities(
+    equilib_activities = solve_pc_inference(
         model=generator,
         activities=amort_activities[1:],
-        y=output,
-        x=input,
+        y=output, x=input,
         solver=ode_solver,
         t1=t1,
         dt=dt,

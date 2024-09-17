@@ -58,7 +58,7 @@ x = jnp.array([1., 1., 1.])
 y = -x
 
 # define model and optimiser
-key = jax.random.key(0)
+key = jax.random.PRNGKey(0)
 model = jpc.make_mlp(key, layer_sizes=[3, 5, 5, 3], act_fn="relu")
 optim = optax.adam(1e-3)
 opt_state = optim.init(eqx.filter(model, eqx.is_array))
@@ -82,6 +82,7 @@ Under the hood, `jpc.make_pc_step`
 
 ## 🚀 Advanced usage
 More advanced users can access the functionality used by `jpc.make_pc_step`.
+
 ```py
 import jpc
 
@@ -89,18 +90,13 @@ import jpc
 activities0 = jpc.init_activities_with_ffwd(model, x)
 
 # 2. run the inference dynamics to equilibrium
-equilib_activities = jpc.solve_pc_activities(
-    model, 
-    activities0, 
-    y, 
-    x
-)
+equilib_activities = jpc.solve_pc_inference(model, activities0, y, x)
 
 # 3. compute PC parameter gradients
 param_grads = jpc.compute_pc_param_grads(
-    model, 
-    equilib_activities, 
-    y, 
+    model,
+    equilib_activities,
+    y,
     x
 )
 

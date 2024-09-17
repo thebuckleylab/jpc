@@ -5,7 +5,7 @@ from jpc import (
     init_activities_from_normal,
     init_activities_with_ffwd,
     init_activities_with_amort,
-    solve_pc_activities
+    solve_pc_inference
 )
 from ._utils import compute_accuracy
 from diffrax import (
@@ -96,7 +96,7 @@ def test_generative_pc(
         batch_size=batch_size,
         sigma=sigma
     )
-    input_preds = solve_pc_activities(
+    input_preds = solve_pc_inference(
         model=model,
         activities=activities,
         y=output,
@@ -167,7 +167,7 @@ def test_hpc(
         y=output
     )
     amort_preds = amort_activities[0]
-    hpc_preds = solve_pc_activities(
+    hpc_preds = solve_pc_inference(
         model=generator,
         activities=amort_activities,
         y=output,
@@ -183,7 +183,7 @@ def test_hpc(
         batch_size=batch_size,
         sigma=sigma
     )
-    gen_preds = solve_pc_activities(
+    gen_preds = solve_pc_inference(
         model=generator,
         activities=activities,
         y=output,

@@ -14,7 +14,7 @@ from diffrax import (
 )
 
 
-def solve_pc_activities(
+def solve_pc_inference(
         model: PyTree[Callable],
         activities: PyTree[ArrayLike],
         y: ArrayLike,

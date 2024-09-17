@@ -8,5 +8,5 @@ from ._grads import (
     neg_activity_grad as neg_activity_grad,
     compute_pc_param_grads as compute_pc_param_grads
 )
-from ._infer import solve_pc_activities as solve_pc_activities
+from ._infer import solve_pc_inference as solve_pc_inference
 from ._analytical import linear_equilib_energy_batch as linear_equilib_energy
