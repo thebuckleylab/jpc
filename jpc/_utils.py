@@ -88,8 +88,8 @@ def make_mlp(
             )
         else:
             raise ValueError("""
-                Invalid activation function ID. Options are 'linear', 'tanh'
-                and 'relu'.
+                Invalid activation function ID. Options are 'linear', 'tanh', 
+                'relu', 'leaky_relu' and 'gelu'.
             """)
         layers.append(hidden_layer)
 
