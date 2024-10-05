@@ -5,7 +5,7 @@ from jax.tree_util import tree_map
 from equinox import filter_grad
 from jaxtyping import PyTree, ArrayLike, Array
 from typing import Tuple, Callable, Optional
-from ._energies import pc_energy_fn
+from ._energies import pc_energy_fn, hpc_energy_fn
 
 
 def neg_activity_grad(
@@ -69,4 +69,44 @@ def compute_pc_param_grads(
         activities,
         y,
         x
+    )
+
+
+def compute_hpc_param_grads(
+        model: PyTree[Callable],
+        equilib_activities: PyTree[ArrayLike],
+        amort_activities: PyTree[ArrayLike],
+        x: ArrayLike,
+        y: Optional[ArrayLike] = None,
+) -> PyTree[Array]:
+    """Computes the gradient of the energy with respect to an amortiser's parameters $\partial \mathcal{F} / \partial θ$.
+
+    **Main arguments:**
+
+    - `model`: List of callable model (e.g. neural network) layers.
+    - `equilib_activities`: List of equilibrated activities reached by the
+        generator and target for the amortiser.
+    - `amort_activities`: List of amortiser's feedforward guesses
+        (initialisation) for the network activities.
+    - `x`: Input to the amortiser.
+    - `y`: Optional target of the amortiser (for supervised training).
+
+    !!! note
+
+        The input $x$ and output $y$ are reversed compared to `compute_pc_param_grads`
+        ($x$ is the generator's target and $y$ is its optional input or prior).
+        Just think of $x$ and $y$ as the actual input and output of the
+        amortiser, respectively.
+
+    **Returns:**
+
+    List of parameter gradients for each network layer.
+
+    """
+    return filter_grad(hpc_energy_fn)(
+        model,
+        equilib_activities,
+        amort_activities,
+        x,
+        y
     )

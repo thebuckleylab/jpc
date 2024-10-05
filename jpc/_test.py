@@ -15,7 +15,7 @@ from diffrax import (
     PIDController
 )
 from jaxtyping import PRNGKeyArray, PyTree, ArrayLike, Array, Scalar
-from typing import Callable, Tuple
+from typing import Callable, Tuple, Optional
 
 
 @eqx.filter_jit
@@ -37,7 +37,7 @@ def test_discriminative_pc(
     Accuracy of output predictions.
 
     """
-    preds = init_activities_with_ffwd(model=model, x=input)[-1]
+    preds = init_activities_with_ffwd(model=model, input=input)[-1]
     return compute_accuracy(output, preds)
 
 
@@ -127,11 +127,16 @@ def test_hpc(
           rtol=1e-3, atol=1e-3
       ),
 ) -> Tuple[Scalar, Scalar, Scalar, Array]:
-    """Computes test metrics for hybrid predictive coding.
+    """Computes test metrics for hybrid predictive coding trained in a supervised manner.
 
     Calculates input accuracy of (i) amortiser, (ii) generator, and (iii)
     hybrid (amortiser + generator). Also returns output predictions (e.g. of
     an image given a label) with a feedforward pass of the generator.
+
+    !!! note
+
+        The input and output of the generator are the output and input of the
+        amortiser, respectively.
 
     **Main arguments:**
 
@@ -139,7 +144,7 @@ def test_hpc(
     - `amortiser`: List of callable layers for model amortising the inference
         of the `generator`.
     - `output`: Observation or target of the generative model.
-    - `input`: Optional prior of the generative model.
+    - `input`: Optional prior of the generator, target for the amortiser.
     - `key`: `jax.random.PRNGKey` for random initialisation of activities.
     - `layer_sizes`: Dimension of all layers (input, hidden and output).
     - `batch_size`: Dimension of data batch for initialisation of activities.
@@ -164,7 +169,7 @@ def test_hpc(
     amort_activities = init_activities_with_amort(
         amortiser=amortiser,
         generator=generator,
-        y=output
+        input=output
     )
     amort_preds = amort_activities[0]
     hpc_preds = solve_pc_inference(
@@ -195,5 +200,5 @@ def test_hpc(
     amort_acc = compute_accuracy(input, amort_preds)
     hpc_acc = compute_accuracy(input, hpc_preds)
     gen_acc = compute_accuracy(input, gen_preds)
-    output_preds = init_activities_with_ffwd(model=generator, x=input)[-1]
+    output_preds = init_activities_with_ffwd(model=generator, input=input)[-1]
     return amort_acc, hpc_acc, gen_acc, output_preds

@@ -1,7 +1,6 @@
 """High-level API to train neural networks with predictive coding."""
 
 import equinox as eqx
-from jax import vmap
 from jax.tree_util import tree_map
 from jax.numpy import mean, array
 from diffrax import (
@@ -14,11 +13,12 @@ from jpc import (
     init_activities_with_ffwd,
     init_activities_from_normal,
     init_activities_with_amort,
-    pc_energy_fn,
+    hpc_energy_fn,
     solve_pc_inference,
     get_t_max,
     compute_infer_energies,
-    compute_pc_param_grads
+    compute_pc_param_grads,
+    compute_hpc_param_grads
 )
 from optax import GradientTransformation, GradientTransformationExtraArgs, OptState
 from jaxtyping import PyTree, ArrayLike, Scalar, PRNGKeyArray
@@ -106,7 +106,7 @@ def make_pc_step(
         mode="unsupervised",
         batch_size=batch_size,
         sigma=sigma
-    ) if input is None else init_activities_with_ffwd(model=model, x=input)
+    ) if input is None else init_activities_with_ffwd(model=model, input=input)
 
     mse_loss = mean((output - activities[-1])**2) if input is not None else None
     equilib_activities = solve_pc_inference(
@@ -162,7 +162,7 @@ def make_hpc_step(
       optims: Tuple[GradientTransformationExtraArgs],
       opt_states: Tuple[OptState],
       output: ArrayLike,
-      input: ArrayLike,
+      input: Optional[ArrayLike] = None,
       ode_solver: AbstractSolver = Heun(),
       t1: int = 20,
       dt: float | int = None,
@@ -189,6 +189,11 @@ def make_hpc_step(
         }
         ```
 
+    !!! note
+
+        The input and output of the generator are the output and input of the
+        amortiser, respectively.
+
     **Main arguments:**
 
     - `generator`: List of callable layers for the generative model.
@@ -197,7 +202,7 @@ def make_hpc_step(
     - `optims`: Optax optimisers (e.g. `optax.sgd()`), one for each model.
     - `opt_states`: State of Optax optimisers, one for each model.
     - `output`: Observation of the generator, input to the amortiser.
-    - `input`: Prior of the generator, target for the amortiser.
+    - `input`: Optional prior of the generator, target for the amortiser.
 
     **Other arguments:**
 
@@ -226,19 +231,22 @@ def make_hpc_step(
     gen_optim, amort_optim = optims
     gen_opt_state, amort_opt_state = opt_states
 
-    gen_activities = init_activities_with_ffwd(model=generator, x=input)
+    if input is not None:
+        gen_activities = init_activities_with_ffwd(model=generator, input=input)
+        gen_loss = mean((output - gen_activities[-1]) ** 2)
+    else:
+        gen_loss = None
+
     amort_activities = init_activities_with_amort(
         amortiser=amortiser,
         generator=generator,
-        y=output
+        input=output
     )
-    gen_loss = mean((output - gen_activities[-1]) ** 2)
-    amort_loss = mean((input - amort_activities[0]) ** 2)
-
     equilib_activities = solve_pc_inference(
         model=generator,
-        activities=amort_activities[1:],
-        y=output, x=input,
+        activities=amort_activities[1:] if input is not None else amort_activities,
+        y=output,
+        x=input,
         solver=ode_solver,
         t1=t1,
         dt=dt,
@@ -254,18 +262,21 @@ def make_hpc_step(
         y=output,
         x=input
     ) if record_energies else None
+    # remove target prediction of the generator
     equilib_activities_for_amort = tree_map(
         lambda act: act[t_max if record_activities else array(0)],
         equilib_activities[::-1][1:]
     )
-    equilib_activities_for_amort.append(
-        vmap(amortiser[-1])(equilib_activities_for_amort[0])
-    )
-    amort_energies = pc_energy_fn(
+    amort_loss = mean((input - amort_activities[0]) ** 2) if (
+        input is not None
+    ) else mean((equilib_activities_for_amort[-1] - amort_activities[0]) ** 2)
+
+    amort_energies = hpc_energy_fn(
         model=amortiser,
-        activities=equilib_activities_for_amort,
-        y=input,
-        x=output
+        equilib_activities=equilib_activities_for_amort,
+        amort_activities=amort_activities,
+        x=output,
+        y=input
     ) if record_energies else None
 
     gen_param_grads = compute_pc_param_grads(
@@ -274,14 +285,15 @@ def make_hpc_step(
             lambda act: act[t_max if record_activities else array(0)],
             equilib_activities
         ),
-        y=output,
-        x=input
+        x=input,
+        y=output
     )
-    amort_param_grads = compute_pc_param_grads(
+    amort_param_grads = compute_hpc_param_grads(
         model=amortiser,
-        activities=equilib_activities_for_amort,
-        y=input,
-        x=output
+        equilib_activities=equilib_activities_for_amort,
+        amort_activities=amort_activities,
+        x=output,
+        y=input
     )
 
     gen_updates, gen_opt_state = gen_optim.update(

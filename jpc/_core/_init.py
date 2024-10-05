@@ -7,21 +7,21 @@ from typing import Callable
 
 def init_activities_with_ffwd(
         model: PyTree[Callable],
-        x: ArrayLike
+        input: ArrayLike
 ) -> PyTree[Array]:
     """Initialises layers' activity with a feedforward pass.
 
     **Main arguments:**
 
     - `model`: List of callable model (e.g. neural network) layers.
-    - `x`: input to the network.
+    - `input`: input to the model.
 
     **Returns:**
 
     List with feedforward values of each layer.
 
     """
-    activities = [vmap(model[0])(x)]
+    activities = [vmap(model[0])(input)]
     for l in range(1, len(model)):
         activities.append(vmap(model[l])(activities[l-1]))
 
@@ -71,7 +71,7 @@ def init_activities_from_normal(
 def init_activities_with_amort(
         amortiser: PyTree[Callable],
         generator: PyTree[Callable],
-        y: ArrayLike
+        input: ArrayLike
 ) -> PyTree[Array]:
     """Initialises layers' activity using an amortised network.
 
@@ -80,18 +80,19 @@ def init_activities_with_amort(
     - `amortiser`: List of callable layers for model amortising the inference
         of the `generator`.
     - `generator`: List of callable layers for the generative model.
-    - `y`: Input to the amortiser.
+    - `input`: Input to the amortiser.
 
     **Returns:**
 
     List with amortised initialisation of each layer.
 
     """
-    activities = [vmap(amortiser[0])(y)]
+    activities = [vmap(amortiser[0])(input)]
     for l in range(1, len(amortiser)):
         activities.append(vmap(amortiser[l])(activities[l - 1]))
 
     activities = activities[::-1]
+    # add generator's target prediction
     activities.append(
         vmap(generator[-1])(activities[-1])
     )
