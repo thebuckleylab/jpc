@@ -16,7 +16,7 @@ def neg_activity_grad(
 ) -> PyTree[Array]:
     """Computes the negative gradient of the energy with respect to the activities $- \partial \mathcal{F} / \partial \mathbf{z}$.
 
-    This defines an ODE system to be integrated by `solve_pc_activities`.
+    This defines an ODE system to be integrated by `solve_pc_inference`.
 
     **Main arguments:**
 
@@ -50,7 +50,7 @@ def compute_pc_param_grads(
         y: ArrayLike,
         x: Optional[ArrayLike] = None
 ) -> PyTree[Array]:
-    """Computes the gradient of the energy with respect to model parameters $\partial \mathcal{F} / \partial θ$.
+    """Computes the gradient of the PC energy with respect to model parameters $\partial \mathcal{F} / \partial θ$.
 
     **Main arguments:**
 
@@ -79,7 +79,7 @@ def compute_hpc_param_grads(
         x: ArrayLike,
         y: Optional[ArrayLike] = None,
 ) -> PyTree[Array]:
-    """Computes the gradient of the energy with respect to an amortiser's parameters $\partial \mathcal{F} / \partial θ$.
+    """Computes the gradient of the hybrid energy with respect to an amortiser's parameters $\partial \mathcal{F} / \partial θ$.
 
     **Main arguments:**
 

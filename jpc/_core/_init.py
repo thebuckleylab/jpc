@@ -10,7 +10,7 @@ def init_activities_with_ffwd(
         input: ArrayLike
 ) -> PyTree[Array]:
     """Initialises layers' activity with a feedforward pass
-    $\{ f_\ell(\mathbf{z}_{\ell-1}) \}_{\ell=1}^L$ where $\mathbf{z}_0 = x$ is
+    $\{ f_\ell(\mathbf{z}_{\ell-1}) \}_{\ell=1}^L$ where $\mathbf{z}_0 = \mathbf{x}$ is
     the input.
 
     **Main arguments:**
@@ -76,7 +76,7 @@ def init_activities_with_amort(
         input: ArrayLike
 ) -> PyTree[Array]:
     """Initialises layers' activity with an amortised network
-    $\{ f_{L-\ell+1}(\mathbf{z}_{L-\ell}) \}_{\ell=1}^L$ where $\mathbf{z}_0 = y$ is
+    $\{ f_{L-\ell+1}(\mathbf{z}_{L-\ell}) \}_{\ell=1}^L$ where $\mathbf{z}_0 = \mathbf{y}$ is
     the input or generator's target.
 
     !!! note
