@@ -20,7 +20,7 @@ def pc_energy_fn(
     $$
 
     given parameters $θ$, free activities $\mathbf{z}$, output
-    $\mathbf{z}_L = \mathbf{y}$ and optionally input $\mathbf{z}_0 = \mathbf{x}$
+    $\mathbf{z}_L = \mathbf{y}$ and optional input $\mathbf{z}_0 = \mathbf{x}$
     for supervised training. The activity of each layer $\mathbf{z}_\ell$ is
     some function of the previous layer, e.g.
     ReLU$(W_\ell \mathbf{z}_{\ell-1} + \mathbf{b}_\ell)$ for a fully connected
@@ -28,7 +28,7 @@ def pc_energy_fn(
 
     !!! note
 
-        The input x and output y correspond to the prior and observation of
+        The input $x$ and output $y$ correspond to the prior and observation of
         the generative model, respectively.
 
     **Main arguments:**
@@ -36,7 +36,7 @@ def pc_energy_fn(
     - `model`: List of callable model (e.g. neural network) layers.
     - `activities`: List of activities for each layer free to vary.
     - `y`: Observation or target of the generative model.
-    - `x`: Optional prior of the generative model.
+    - `x`: Optional prior of the generative model (for supervised training).
 
     **Other arguments:**
 
@@ -87,10 +87,10 @@ def hpc_energy_fn(
     \mathcal{F}(\mathbf{z}^*, \hat{\mathbf{z}}; θ) = 1/N \sum_i^N \sum_{\ell=1}^L || \mathbf{z}^*_{i, \ell} - f_\ell(\hat{\mathbf{z}}_{i, \ell-1}; θ) ||^2
     $$
 
-    given the equilibrated activities of the generator (target
-    for the amortiser) $\mathbf{z}^*$, the feedforward guesses of the
-    amortiser $\hat{\mathbf{z}}$ are, the amortiser's parameters $θ$,
-    input $\mathbf{z}_0 = \mathbf{x}$, and optional output
+    given the equilibrated activities of the generator $\mathbf{z}^*$ (target
+    for the amortiser), the feedforward guesses of the amortiser
+    $\hat{\mathbf{z}}$, the amortiser's parameters $θ$, input
+    $\mathbf{z}_0 = \mathbf{x}$, and optional output
     $\mathbf{z}_L = \mathbf{y}$ for supervised training.
 
     !!! note
