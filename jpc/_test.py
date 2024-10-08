@@ -15,7 +15,7 @@ from diffrax import (
     PIDController
 )
 from jaxtyping import PRNGKeyArray, PyTree, ArrayLike, Array, Scalar
-from typing import Callable, Tuple, Optional
+from typing import Callable, Tuple
 
 
 @eqx.filter_jit
@@ -106,7 +106,7 @@ def test_generative_pc(
         stepsize_controller=stepsize_controller
     )[0][0]
     input_acc = compute_accuracy(input, input_preds)
-    output_preds = init_activities_with_ffwd(model=model, x=input)[-1]
+    output_preds = init_activities_with_ffwd(model=model, input=input)[-1]
     return input_acc, output_preds
 
 
