@@ -40,10 +40,10 @@ def make_pc_step(
       input: Optional[ArrayLike] = None,
       loss_id: str = "MSE",
       ode_solver: AbstractSolver = Heun(),
-      max_t1: int = 500,
-      dt: float | int = None,
+      max_t1: int = 20,
+      dt: Scalar | int = None,
       stepsize_controller: AbstractStepSizeController = PIDController(
-          rtol=1e-4, atol=1e-4
+          rtol=1e-3, atol=1e-3
       ),
       skip_model: Optional[PyTree[Callable]] = None,
       key: Optional[PRNGKeyArray] = None,
@@ -79,7 +79,7 @@ def make_pc_step(
         'MSE' vs cross-entropy 'CE').
     - `ode_solver`: Diffrax ODE solver to be used. Default is Heun, a 2nd order
         explicit Runge--Kutta method.
-    - `max_t1`: Maximum end of integration region (500 by default).
+    - `max_t1`: Maximum end of integration region (20 by default).
     - `dt`: Integration step size. Defaults to None since the default
         `stepsize_controller` will automatically determine it.
     - `stepsize_controller`: diffrax controller for step size integration.
@@ -193,20 +193,22 @@ def make_pc_step(
         state=opt_state,
         params=(model, skip_model)
     )
-    params = eqx.apply_updates(model=(model, skip_model), updates=updates)
-
+    model, skip_model = eqx.apply_updates(
+        model=(model, skip_model),
+        updates=updates
+    )
     acc = compute_accuracy(
         output,
         init_activities_with_ffwd(
-            model=params[0],
+            model=model,
             input=input,
             skip_model=skip_model
         )[-1]
     ) if calculate_accuracy else None
 
     return {
-        "model": params[0],
-        "skip_model": params[1],
+        "model": model,
+        "skip_model": skip_model,
         "optim": optim,
         "opt_state": opt_state,
         "loss": loss,
@@ -229,8 +231,8 @@ def make_hpc_step(
       output: ArrayLike,
       input: Optional[ArrayLike] = None,
       ode_solver: AbstractSolver = Heun(),
-      max_t1: int = 500,
-      dt: float | int = None,
+      max_t1: int = 300,
+      dt: Scalar | int = None,
       stepsize_controller: AbstractStepSizeController = PIDController(
           rtol=1e-3, atol=1e-3
       ),
@@ -273,7 +275,7 @@ def make_hpc_step(
 
     - `ode_solver`: Diffrax ODE solver to be used. Default is Heun, a 2nd order
         explicit Runge--Kutta method..
-    - `max_t1`: Maximum end of integration region (20 by default).
+    - `max_t1`: Maximum end of integration region (300 by default).
     - `dt`: Integration step size. Defaults to None since the default
         `stepsize_controller` will automatically determine it.
     - `stepsize_controller`: diffrax controller for step size integration.
@@ -381,7 +383,7 @@ def make_hpc_step(
     updated_generator = eqx.apply_updates(model=gen_params, updates=gen_updates)
     updated_amortiser = eqx.apply_updates(model=amortiser, updates=amort_updates)
     return {
-        "generator": updated_generator,
+        "generator": updated_generator[0],
         "amortiser": updated_amortiser,
         "optims": (gen_optim, amort_optim),
         "opt_states": (gen_opt_state, amort_opt_state),

@@ -73,7 +73,7 @@ def test_generative_pc(
         sigma: Scalar = 0.05,
         ode_solver: AbstractSolver = Heun(),
         max_t1: int = 500,
-        dt: float | int = None,
+        dt: Scalar | int = None,
         stepsize_controller: AbstractStepSizeController = PIDController(
             rtol=1e-3, atol=1e-3
         ),
@@ -151,7 +151,7 @@ def test_hpc(
       sigma: Scalar = 0.05,
       ode_solver: AbstractSolver = Heun(),
       max_t1: int = 500,
-      dt: float | int = None,
+      dt: Scalar | int = None,
       stepsize_controller: AbstractStepSizeController = PIDController(
           rtol=1e-3, atol=1e-3
       )
@@ -184,7 +184,7 @@ def test_hpc(
         Defaults to 5e-2.
     - `ode_solver`: Diffrax ODE solver to be used. Default is Heun, a 2nd order
         explicit Runge--Kutta method.
-    - `max_t1`: Maximum end of integration region (20 by default).
+    - `max_t1`: Maximum end of integration region (500 by default).
     - `dt`: Integration step size. Defaults to None since the default
         `stepsize_controller` will automatically determine it.
     - `stepsize_controller`: diffrax controller for step size integration.
