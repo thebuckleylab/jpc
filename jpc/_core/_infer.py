@@ -31,7 +31,7 @@ def solve_pc_inference(
         ),
         steady_state_tols: Tuple[Optional[float], Optional[float]] = (None, None),
         record_iters: bool = False,
-        record_every: int = 1
+        record_every: int = None
 ) -> PyTree[Array]:
     """Solves the inference (activity) dynamics of a predictive coding network.
 
@@ -69,7 +69,7 @@ def solve_pc_inference(
         tolerances of the `stepsize_controller`.
     - `record_iters`: If `True`, returns all integration steps.
     - `record_every`: int determining the sampling frequency the integration
-        steps if `record_iters=True`. Defaults to 1.
+        steps.
 
     **Returns:**
 

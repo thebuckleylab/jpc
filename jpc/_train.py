@@ -53,7 +53,7 @@ def make_pc_step(
       loss_id: str = "MSE",
       record_activities: bool = False,
       record_energies: bool = False,
-      record_every: int = 1,
+      record_every: int = None,
       activity_norms: bool = False,
       grad_norms: bool = False,
       calculate_accuracy: bool = False
@@ -97,8 +97,7 @@ def make_pc_step(
     - `record_energies`: If `True`, returns layer-wise energies at every
         inference iteration.
     - `record_every`: int determining the sampling frequency the integration
-        steps if `record_activities` or `record_energies` is True`. Defaults to
-        1.
+        steps.
     - `activity_norms`: If `True`, computes norm of the activities.
     - `grad_norms`: If `True`, computes norm of parameter gradients.
     - `calculate_accuracy`: If `True`, computes the training accuracy.
@@ -124,6 +123,7 @@ def make_pc_step(
     if record_energies:
         record_activities = True
 
+    params = (model, skip_model)
     activities = init_activities_from_normal(
         key=key,
         layer_sizes=layer_sizes,
@@ -131,7 +131,7 @@ def make_pc_step(
         batch_size=batch_size,
         sigma=sigma
     ) if input is None else init_activities_with_ffwd(
-        params=(model, skip_model),
+        params=params,
         input=input
     )
 
@@ -142,9 +142,8 @@ def make_pc_step(
     else:
         raise ValueError("'MSE' and 'CE' are the only valid losses.")
 
-    params = (model, skip_model)
     equilib_activities = solve_pc_inference(
-        params=(model, skip_model),
+        params=params,
         activities=activities,
         y=output,
         x=input,
