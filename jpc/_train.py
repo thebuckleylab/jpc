@@ -142,8 +142,9 @@ def make_pc_step(
     else:
         raise ValueError("'MSE' and 'CE' are the only valid losses.")
 
+    params = (model, skip_model)
     equilib_activities = solve_pc_inference(
-        params=(model, skip_model),
+        params=params,
         activities=activities,
         y=output,
         x=input,
@@ -160,14 +161,14 @@ def make_pc_step(
                       if activity_norms else None)
     t_max = get_t_max(equilib_activities) if record_activities else None
     energies = compute_infer_energies(
-        params=(model, skip_model),
+        params=params,
         activities_iters=equilib_activities,
         t_max=t_max,
         y=output,
         x=input,
         loss=loss_id
     ) if record_energies else pc_energy_fn(
-        params=(model, skip_model),
+        params=params,
         activities=tree_map(
             lambda act: act[t_max if record_activities else array(0)],
             equilib_activities
@@ -179,7 +180,7 @@ def make_pc_step(
     )
 
     param_grads = compute_pc_param_grads(
-        params=(model, skip_model),
+        params=params,
         activities=tree_map(
             lambda act: act[t_max if record_activities else array(0)],
             equilib_activities
@@ -192,13 +193,13 @@ def make_pc_step(
     updates, opt_state = optim.update(
         updates=param_grads,
         state=opt_state,
-        params=(model, skip_model)
+        params=params
     )
-    params = eqx.apply_updates(model=(model, skip_model), updates=updates)
+    params = eqx.apply_updates(model=params, updates=updates)
 
     acc = compute_accuracy(
         output,
-        init_activities_with_ffwd(params=(model, skip_model), input=input)[-1]
+        init_activities_with_ffwd(params=params, input=input)[-1]
     ) if calculate_accuracy else None
 
     return {
@@ -226,11 +227,12 @@ def make_hpc_step(
       output: ArrayLike,
       input: Optional[ArrayLike] = None,
       ode_solver: AbstractSolver = Heun(),
-      t1: int = 20,
+      max_t1: int = 500,
       dt: float | int = None,
       stepsize_controller: AbstractStepSizeController = PIDController(
           rtol=1e-3, atol=1e-3
       ),
+      steady_state_tols: Optional[Tuple[float]] = (None, None),
       record_activities: bool = False,
       record_energies: bool = False
 ) -> Dict:
@@ -270,11 +272,14 @@ def make_hpc_step(
 
     - `ode_solver`: Diffrax ODE solver to be used. Default is Heun, a 2nd order
         explicit Runge--Kutta method..
-    - `t1`: Maximum end of integration region (20 by default).
+    - `max_t1`: Maximum end of integration region (20 by default).
     - `dt`: Integration step size. Defaults to None since the default
         `stepsize_controller` will automatically determine it.
     - `stepsize_controller`: diffrax controller for step size integration.
         Defaults to `PIDController`.
+    - `steady_state_tols`: Optional relative and absolute tolerances for
+        determining a steady state to terminate the inference solver. Defaults
+        to the tolerances of the `stepsize_controller`.
     - `record_activities`: If `True`, returns activities at every inference
         iteration.
      - `record_energies`: If `True`, returns layer-wise energies at every
@@ -290,11 +295,15 @@ def make_hpc_step(
     if record_energies:
         record_activities = True
 
+    gen_params = (generator, None)
     gen_optim, amort_optim = optims
     gen_opt_state, amort_opt_state = opt_states
 
     if input is not None:
-        gen_activities = init_activities_with_ffwd(model=generator, input=input)
+        gen_activities = init_activities_with_ffwd(
+            params=(generator, None),
+            input=input
+        )
         gen_loss = mean((output - gen_activities[-1]) ** 2)
     else:
         gen_loss = None
@@ -305,20 +314,21 @@ def make_hpc_step(
         input=output
     )
     equilib_activities = solve_pc_inference(
-        model=generator,
+        params=gen_params,
         activities=amort_activities[1:] if input is not None else amort_activities,
         y=output,
         x=input,
         solver=ode_solver,
-        t1=t1,
+        max_t1=max_t1,
         dt=dt,
         stepsize_controller=stepsize_controller,
+        steady_state_tols=steady_state_tols,
         record_iters=record_activities
     )
     t_max = get_t_max(equilib_activities) if record_activities else None
 
     gen_energies = compute_infer_energies(
-        model=generator,
+        params=gen_params,
         activities_iters=equilib_activities,
         t_max=t_max,
         y=output,
@@ -342,7 +352,7 @@ def make_hpc_step(
     ) if record_energies else None
 
     gen_param_grads = compute_pc_param_grads(
-        model=generator,
+        params=gen_params,
         activities=tree_map(
             lambda act: act[t_max if record_activities else array(0)],
             equilib_activities
