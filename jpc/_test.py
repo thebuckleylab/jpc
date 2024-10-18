@@ -76,7 +76,6 @@ def test_generative_pc(
         stepsize_controller: AbstractStepSizeController = PIDController(
             rtol=1e-3, atol=1e-3
         ),
-        steady_state_tols: Optional[Tuple[float]] = (None, None),
         skip_model: Optional[PyTree[Callable]] = None
 ) -> Tuple[Scalar, Array]:
     """Computes test metrics for a generative predictive coding network.
@@ -129,8 +128,7 @@ def test_generative_pc(
         solver=ode_solver,
         max_t1=max_t1,
         dt=dt,
-        stepsize_controller=stepsize_controller,
-        steady_state_tols=steady_state_tols
+        stepsize_controller=stepsize_controller
     )[0][0]
     input_acc = compute_accuracy(input, input_preds)
     output_preds = init_activities_with_ffwd(params=params, input=input)[-1]
