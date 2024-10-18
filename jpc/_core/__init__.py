@@ -13,4 +13,8 @@ from ._grads import (
     compute_hpc_param_grads as compute_hpc_param_grads
 )
 from ._infer import solve_pc_inference as solve_pc_inference
-from ._analytical import linear_equilib_energy_batch as linear_equilib_energy
+from ._analytical import (
+    linear_equilib_energy_batch as linear_equilib_energy,
+    linear_activities_coeff_matrix as linear_activities_coeff_matrix,
+    linear_activities_solution_batch as linear_activities_solution
+)
