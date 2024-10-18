@@ -48,8 +48,9 @@ def test_discriminative_pc(
 
     """
     preds = init_activities_with_ffwd(
-        params=(model, skip_model),
-        input=input
+        model=model,
+        input=input,
+        skip_model=skip_model
     )[-1]
 
     if loss == "MSE":
@@ -130,7 +131,11 @@ def test_generative_pc(
         stepsize_controller=stepsize_controller
     )[0][0]
     input_acc = compute_accuracy(input, input_preds)
-    output_preds = init_activities_with_ffwd(params=params, input=input)[-1]
+    output_preds = init_activities_with_ffwd(
+        model=model,
+        input=input,
+        skip_model=skip_model
+    )[-1]
     return input_acc, output_preds
 
 
@@ -227,5 +232,9 @@ def test_hpc(
     amort_acc = compute_accuracy(input, amort_preds)
     hpc_acc = compute_accuracy(input, hpc_preds)
     gen_acc = compute_accuracy(input, gen_preds)
-    output_preds = init_activities_with_ffwd(params=gen_params, input=input)[-1]
+    output_preds = init_activities_with_ffwd(
+        model=generator,
+        input=input,
+        skip_model=None
+    )[-1]
     return amort_acc, hpc_acc, gen_acc, output_preds

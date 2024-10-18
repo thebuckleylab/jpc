@@ -130,8 +130,9 @@ def make_pc_step(
         batch_size=batch_size,
         sigma=sigma
     ) if input is None else init_activities_with_ffwd(
-        params=(model, skip_model),
-        input=input
+        model=model,
+        input=input,
+        skip_model=skip_model
     )
 
     if loss_id == "MSE":
@@ -196,7 +197,11 @@ def make_pc_step(
 
     acc = compute_accuracy(
         output,
-        init_activities_with_ffwd(params=params, input=input)[-1]
+        init_activities_with_ffwd(
+            model=params[0],
+            input=input,
+            skip_model=skip_model
+        )[-1]
     ) if calculate_accuracy else None
 
     return {
@@ -229,7 +234,6 @@ def make_hpc_step(
       stepsize_controller: AbstractStepSizeController = PIDController(
           rtol=1e-3, atol=1e-3
       ),
-      steady_state_tols: Optional[Tuple[float]] = (None, None),
       record_activities: bool = False,
       record_energies: bool = False
 ) -> Dict:
@@ -273,10 +277,9 @@ def make_hpc_step(
     - `dt`: Integration step size. Defaults to None since the default
         `stepsize_controller` will automatically determine it.
     - `stepsize_controller`: diffrax controller for step size integration.
-        Defaults to `PIDController`.
-    - `steady_state_tols`: Optional relative and absolute tolerances for
-        determining a steady state to terminate the inference solver. Defaults
-        to the tolerances of the `stepsize_controller`.
+        Defaults to `PIDController`. Note that the relative and absolute
+        tolerances of the controller will also determine the steady state to
+        terminate the solver.
     - `record_activities`: If `True`, returns activities at every inference
         iteration.
      - `record_energies`: If `True`, returns layer-wise energies at every
@@ -298,8 +301,9 @@ def make_hpc_step(
 
     if input is not None:
         gen_activities = init_activities_with_ffwd(
-            params=(generator, None),
-            input=input
+            model=generator,
+            input=input,
+            skip_model=None
         )
         gen_loss = mean((output - gen_activities[-1]) ** 2)
     else:
@@ -319,7 +323,6 @@ def make_hpc_step(
         max_t1=max_t1,
         dt=dt,
         stepsize_controller=stepsize_controller,
-        steady_state_tols=steady_state_tols,
         record_iters=record_activities
     )
     t_max = get_t_max(equilib_activities) if record_activities else None
@@ -368,17 +371,18 @@ def make_hpc_step(
     gen_updates, gen_opt_state = gen_optim.update(
         updates=gen_param_grads,
         state=gen_opt_state,
-        params=generator
+        params=gen_params
     )
     amort_updates, amort_opt_state = amort_optim.update(
         updates=amort_param_grads,
         state=amort_opt_state,
         params=amortiser
     )
-    updated_generator = eqx.apply_updates(model=generator, updates=gen_updates)
+    updated_generator = eqx.apply_updates(model=gen_params, updates=gen_updates)
     updated_amortiser = eqx.apply_updates(model=amortiser, updates=amort_updates)
     return {
-        "models": (updated_generator, updated_amortiser),
+        "generator": updated_generator,
+        "amortiser": updated_amortiser,
         "optims": (gen_optim, amort_optim),
         "opt_states": (gen_opt_state, amort_opt_state),
         "activities": (amort_activities, equilib_activities),
