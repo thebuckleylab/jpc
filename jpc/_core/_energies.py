@@ -44,7 +44,7 @@ def pc_energy_fn(
     **Other arguments:**
 
     - `loss`: Loss function to use at the output layer (mean squared error
-        'MSE' vs cross entropy 'CE').
+        'MSE' vs cross-entropy 'CE').
     - `record_layers`: If `True`, returns energies for each layer.
 
     **Returns:**

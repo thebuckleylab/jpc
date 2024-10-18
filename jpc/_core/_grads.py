@@ -29,7 +29,7 @@ def neg_activity_grad(
         `diffrax.diffeqsolve`.
     - `activities`: List of activities for each layer free to vary.
     - `args`: 4-Tuple with
-        (i) Tuple with callable model and optional skip connections,
+        (i) Tuple with callable model layers and optional skip connections,
         (ii) network output (observation),
         (iii) network input (prior), and
         (iv) Loss specified at the output layer (MSE vs cross-entropy).
@@ -62,7 +62,7 @@ def compute_pc_param_grads(
 
     **Main arguments:**
 
-    - `params`: Tuple with callable model and optional skip connections.
+    - `params`: Tuple with callable model layers and optional skip connections.
     - `activities`: List of activities for each layer free to vary.
     - `y`: Observation or target of the generative model.
     - `x`: Optional prior of the generative model.
