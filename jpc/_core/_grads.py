@@ -11,7 +11,12 @@ from ._energies import pc_energy_fn, hpc_energy_fn
 def neg_activity_grad(
         t: float | int,
         activities: PyTree[ArrayLike],
-        args: Tuple[PyTree[Callable], ArrayLike, Optional[ArrayLike]],
+        args: Tuple[
+            Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
+            ArrayLike,
+            Optional[ArrayLike],
+            str
+        ],
         energy_fn: Callable = pc_energy_fn,
 ) -> PyTree[Array]:
     """Computes the negative gradient of the energy with respect to the activities $- \partial \mathcal{F} / \partial \mathbf{z}$.
@@ -23,10 +28,11 @@ def neg_activity_grad(
     - `t`: Time step of the ODE system, used for downstream integration by
         `diffrax.diffeqsolve`.
     - `activities`: List of activities for each layer free to vary.
-    - `args`: 3-Tuple with
-        (i) list of callable layers for the generative model,
-        (ii) network output (observation), and
-        (iii) network input (prior).
+    - `args`: 4-Tuple with
+        (i) Tuple with callable model and optional skip connections,
+        (ii) network output (observation),
+        (iii) network input (prior), and
+        (iv) Loss specified at the output layer (MSE vs cross-entropy).
     - `pc_energy_fn`: Free energy to take the gradient of.
 
     **Returns:**
@@ -34,30 +40,37 @@ def neg_activity_grad(
     List of negative gradients of the energy w.r.t. the activities.
 
     """
-    model, y, x = args
+    params, y, x, loss = args
     dFdzs = grad(energy_fn, argnums=1)(
-        model,
+        params,
         activities,
         y,
-        x
+        x,
+        loss
     )
     return tree_map(lambda dFdz: -dFdz, dFdzs)
 
 
 def compute_pc_param_grads(
-        model: PyTree[Callable],
+        params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
         activities: PyTree[ArrayLike],
         y: ArrayLike,
-        x: Optional[ArrayLike] = None
-) -> PyTree[Array]:
+        x: Optional[ArrayLike] = None,
+        loss: str = "MSE"
+) -> Tuple[PyTree[Array], PyTree[Array]]:
     """Computes the gradient of the PC energy with respect to model parameters $\partial \mathcal{F} / \partial θ$.
 
     **Main arguments:**
 
-    - `model`: List of callable model (e.g. neural network) layers.
+    - `params`: Tuple with callable model and optional skip connections.
     - `activities`: List of activities for each layer free to vary.
     - `y`: Observation or target of the generative model.
     - `x`: Optional prior of the generative model.
+
+    **Other arguments:**
+
+    - `loss`: Loss function specified at the output layer (mean squared error
+        'MSE' vs cross-entropy 'CE').
 
     **Returns:**
 
@@ -65,10 +78,11 @@ def compute_pc_param_grads(
 
     """
     return filter_grad(pc_energy_fn)(
-        model,
+        params,
         activities,
         y,
-        x
+        x,
+        loss
     )
 
 
@@ -77,7 +91,7 @@ def compute_hpc_param_grads(
         equilib_activities: PyTree[ArrayLike],
         amort_activities: PyTree[ArrayLike],
         x: ArrayLike,
-        y: Optional[ArrayLike] = None,
+        y: Optional[ArrayLike] = None
 ) -> PyTree[Array]:
     """Computes the gradient of the hybrid energy with respect to an amortiser's parameters $\partial \mathcal{F} / \partial θ$.
 
