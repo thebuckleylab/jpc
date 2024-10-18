@@ -5,9 +5,11 @@ from jpc import (
     init_activities_from_normal,
     init_activities_with_ffwd,
     init_activities_with_amort,
+    mse_loss,
+    cross_entropy_loss,
+    compute_accuracy,
     solve_pc_inference
 )
-from ._utils import compute_accuracy
 from diffrax import (
     AbstractSolver,
     AbstractStepSizeController,
@@ -15,7 +17,7 @@ from diffrax import (
     PIDController
 )
 from jaxtyping import PRNGKeyArray, PyTree, ArrayLike, Array, Scalar
-from typing import Callable, Tuple
+from typing import Callable, Tuple, Optional
 
 
 @eqx.filter_jit
@@ -23,8 +25,10 @@ def test_discriminative_pc(
         model: PyTree[Callable],
         output: ArrayLike,
         input: ArrayLike,
-) -> Scalar:
-    """Computes prediction accuracy of a discriminative predictive coding network.
+        loss: str = "MSE",
+        skip_model: Optional[PyTree[Callable]] = None
+) -> Tuple[Scalar, Scalar]:
+    """Computes test metrics for a discriminative predictive coding network.
 
     **Main arguments:**
 
@@ -32,13 +36,29 @@ def test_discriminative_pc(
     - `output`: Observation or target of the generative model.
     - `input`: Optional prior of the generative model.
 
+    **Other arguments:**
+
+    - `loss`: - `loss`: Loss function to use at the output layer (mean
+        squared error 'MSE' vs cross-entropy 'CE').
+    - `skip_model`: Optional list of callable skip connection functions.
+
     **Returns:**
 
-    Accuracy of output predictions.
+    Test loss and accuracy of output predictions.
 
     """
-    preds = init_activities_with_ffwd(model=model, input=input)[-1]
-    return compute_accuracy(output, preds)
+    preds = init_activities_with_ffwd(
+        params=(model, skip_model),
+        input=input
+    )[-1]
+
+    if loss == "MSE":
+        loss = mse_loss(preds, output)
+    elif loss == "CE":
+        loss = cross_entropy_loss(preds, output)
+
+    acc = compute_accuracy(output, preds)
+    return loss, acc
 
 
 @eqx.filter_jit
@@ -51,11 +71,13 @@ def test_generative_pc(
         batch_size: int,
         sigma: Scalar = 0.05,
         ode_solver: AbstractSolver = Heun(),
-        t1: int = 20,
+        max_t1: int = 500,
         dt: float | int = None,
         stepsize_controller: AbstractStepSizeController = PIDController(
             rtol=1e-3, atol=1e-3
         ),
+        steady_state_tols: Optional[Tuple[float]] = (None, None),
+        skip_model: Optional[PyTree[Callable]] = None
 ) -> Tuple[Scalar, Array]:
     """Computes test metrics for a generative predictive coding network.
 
@@ -78,17 +100,21 @@ def test_generative_pc(
         Defaults to 5e-2.
     - `ode_solver`: Diffrax ODE solver to be used. Default is Heun, a 2nd order
         explicit Runge--Kutta method.
-    - `t1`: Maximum end of integration region (20 by default).
+    - `max_t1`: Maximum end of integration region (500 by default).
     - `dt`: Integration step size. Defaults to None since the default
         `stepsize_controller` will automatically determine it.
     - `stepsize_controller`: diffrax controller for step size integration.
         Defaults to `PIDController`.
+    - `steady_state_tols`: Optional relative and absolute tolerances for
+        determining a steady state to terminate the inference solver. Defaults
+        to the tolerances of the `stepsize_controller`.
 
     **Returns:**
 
-    Tuple with accuracy and output predictions.
+    Accuracy and output predictions.
 
     """
+    params = model, skip_model
     activities = init_activities_from_normal(
         key=key,
         layer_sizes=layer_sizes,
@@ -97,16 +123,17 @@ def test_generative_pc(
         sigma=sigma
     )
     input_preds = solve_pc_inference(
-        model=model,
+        params=params,
         activities=activities,
         y=output,
         solver=ode_solver,
-        t1=t1,
+        max_t1=max_t1,
         dt=dt,
-        stepsize_controller=stepsize_controller
+        stepsize_controller=stepsize_controller,
+        steady_state_tols=steady_state_tols
     )[0][0]
     input_acc = compute_accuracy(input, input_preds)
-    output_preds = init_activities_with_ffwd(model=model, input=input)[-1]
+    output_preds = init_activities_with_ffwd(params=params, input=input)[-1]
     return input_acc, output_preds
 
 
@@ -121,11 +148,12 @@ def test_hpc(
       batch_size: int,
       sigma: Scalar = 0.05,
       ode_solver: AbstractSolver = Heun(),
-      t1: int = 20,
+      max_t1: int = 500,
       dt: float | int = None,
       stepsize_controller: AbstractStepSizeController = PIDController(
           rtol=1e-3, atol=1e-3
       ),
+      steady_state_tols: Optional[Tuple[float]] = (None, None)
 ) -> Tuple[Scalar, Scalar, Scalar, Array]:
     """Computes test metrics for hybrid predictive coding trained in a supervised manner.
 
@@ -155,17 +183,21 @@ def test_hpc(
         Defaults to 5e-2.
     - `ode_solver`: Diffrax ODE solver to be used. Default is Heun, a 2nd order
         explicit Runge--Kutta method.
-    - `t1`: Maximum end of integration region (20 by default).
+    - `max_t1`: Maximum end of integration region (20 by default).
     - `dt`: Integration step size. Defaults to None since the default
         `stepsize_controller` will automatically determine it.
     - `stepsize_controller`: diffrax controller for step size integration.
         Defaults to `PIDController`.
+    - `steady_state_tols`: Optional relative and absolute tolerances for
+        determining a steady state to terminate the inference solver. Defaults
+        to the tolerances of the `stepsize_controller`.
 
     **Returns:**
 
     Accuracies of all models and output predictions.
 
     """
+    gen_params = (generator, None)
     amort_activities = init_activities_with_amort(
         amortiser=amortiser,
         generator=generator,
@@ -173,13 +205,14 @@ def test_hpc(
     )
     amort_preds = amort_activities[0]
     hpc_preds = solve_pc_inference(
-        model=generator,
+        params=gen_params,
         activities=amort_activities,
         y=output,
         solver=ode_solver,
-        t1=t1,
+        max_t1=max_t1,
         dt=dt,
-        stepsize_controller=stepsize_controller
+        stepsize_controller=stepsize_controller,
+        steady_state_tols=steady_state_tols
     )[0][0]
     activities = init_activities_from_normal(
         key=key,
@@ -189,16 +222,17 @@ def test_hpc(
         sigma=sigma
     )
     gen_preds = solve_pc_inference(
-        model=generator,
+        params=gen_params,
         activities=activities,
         y=output,
         solver=ode_solver,
-        t1=t1,
+        max_t1=max_t1,
         dt=dt,
-        stepsize_controller=stepsize_controller
+        stepsize_controller=stepsize_controller,
+        steady_state_tols=steady_state_tols
     )[0][0]
     amort_acc = compute_accuracy(input, amort_preds)
     hpc_acc = compute_accuracy(input, hpc_preds)
     gen_acc = compute_accuracy(input, gen_preds)
-    output_preds = init_activities_with_ffwd(model=generator, input=input)[-1]
+    output_preds = init_activities_with_ffwd(params=gen_params, input=input)[-1]
     return amort_acc, hpc_acc, gen_acc, output_preds
