@@ -24,18 +24,16 @@ def init_activities_with_ffwd(
 
     """
     model, skip_model = params
-    if skip_model is None:
-        skip_model = [None] * len(model)
 
     first_layer_output = vmap(model[0])(input)
-    if skip_model[0] is not None:
+    if skip_model is not None:
         first_layer_output += vmap(skip_model[0])(input)
 
     activities = [first_layer_output]
     for l in range(1, len(model)):
         layer_output = vmap(model[l])(activities[l - 1])
 
-        if skip_model[l] is not None:
+        if skip_model is not None:
             skip_output = vmap(skip_model[l])(activities[l - 1])
             layer_output += skip_output
 

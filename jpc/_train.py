@@ -38,19 +38,18 @@ def make_pc_step(
       opt_state: OptState,
       output: ArrayLike,
       input: Optional[ArrayLike] = None,
+      loss_id: str = "MSE",
       ode_solver: AbstractSolver = Heun(),
       max_t1: int = 500,
       dt: float | int = None,
       stepsize_controller: AbstractStepSizeController = PIDController(
-          rtol=1e-3, atol=1e-3
+          rtol=1e-4, atol=1e-4
       ),
-      steady_state_tols: Optional[Tuple[float]] = (None, None),
       skip_model: Optional[PyTree[Callable]] = None,
       key: Optional[PRNGKeyArray] = None,
       layer_sizes: Optional[PyTree[int]] = None,
       batch_size: Optional[int] = None,
       sigma: Scalar = 0.05,
-      loss_id: str = "MSE",
       record_activities: bool = False,
       record_energies: bool = False,
       record_every: int = None,
@@ -76,16 +75,17 @@ def make_pc_step(
 
     **Other arguments:**
 
+    - `loss`: Loss function to use at the output layer (mean squared error
+        'MSE' vs cross-entropy 'CE').
     - `ode_solver`: Diffrax ODE solver to be used. Default is Heun, a 2nd order
         explicit Runge--Kutta method.
     - `max_t1`: Maximum end of integration region (500 by default).
     - `dt`: Integration step size. Defaults to None since the default
         `stepsize_controller` will automatically determine it.
     - `stepsize_controller`: diffrax controller for step size integration.
-        Defaults to `PIDController`.
-    - `steady_state_tols`: Optional relative and absolute tolerances for
-        determining a steady state to terminate the inference solver. Defaults
-        to the tolerances of the `stepsize_controller`.
+        Defaults to `PIDController`. Note that the relative and absolute
+        tolerances of the controller will also determine the steady state to
+        terminate the solver.
     - `skip_model`: Optional list of callable skip connection functions.
     - `key`: `jax.random.PRNGKey` for random initialisation of activities.
     - `layer_sizes`: Dimension of all layers (input, hidden and output).
@@ -123,7 +123,6 @@ def make_pc_step(
     if record_energies:
         record_activities = True
 
-    params = (model, skip_model)
     activities = init_activities_from_normal(
         key=key,
         layer_sizes=layer_sizes,
@@ -131,7 +130,7 @@ def make_pc_step(
         batch_size=batch_size,
         sigma=sigma
     ) if input is None else init_activities_with_ffwd(
-        params=params,
+        params=(model, skip_model),
         input=input
     )
 
@@ -143,7 +142,7 @@ def make_pc_step(
         raise ValueError("'MSE' and 'CE' are the only valid losses.")
 
     equilib_activities = solve_pc_inference(
-        params=params,
+        params=(model, skip_model),
         activities=activities,
         y=output,
         x=input,
@@ -152,7 +151,6 @@ def make_pc_step(
         max_t1=max_t1,
         dt=dt,
         stepsize_controller=stepsize_controller,
-        steady_state_tols=steady_state_tols,
         record_iters=record_activities,
         record_every=record_every
     )
@@ -160,14 +158,14 @@ def make_pc_step(
                       if activity_norms else None)
     t_max = get_t_max(equilib_activities) if record_activities else None
     energies = compute_infer_energies(
-        params=params,
+        params=(model, skip_model),
         activities_iters=equilib_activities,
         t_max=t_max,
         y=output,
         x=input,
         loss=loss_id
     ) if record_energies else pc_energy_fn(
-        params=params,
+        params=(model, skip_model),
         activities=tree_map(
             lambda act: act[t_max if record_activities else array(0)],
             equilib_activities
@@ -179,7 +177,7 @@ def make_pc_step(
     )
 
     param_grads = compute_pc_param_grads(
-        params=params,
+        params=(model, skip_model),
         activities=tree_map(
             lambda act: act[t_max if record_activities else array(0)],
             equilib_activities
@@ -192,9 +190,9 @@ def make_pc_step(
     updates, opt_state = optim.update(
         updates=param_grads,
         state=opt_state,
-        params=params
+        params=(model, skip_model)
     )
-    updated_models = eqx.apply_updates(model=params, updates=updates)
+    params = eqx.apply_updates(model=(model, skip_model), updates=updates)
 
     acc = compute_accuracy(
         output,
@@ -202,8 +200,8 @@ def make_pc_step(
     ) if calculate_accuracy else None
 
     return {
-        "model": updated_models[0],
-        "skip_model": updated_models[1],
+        "model": params[0],
+        "skip_model": params[1],
         "optim": optim,
         "opt_state": opt_state,
         "loss": loss,

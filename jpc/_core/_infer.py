@@ -27,9 +27,8 @@ def solve_pc_inference(
         max_t1: int = 500,
         dt: float | int = None,
         stepsize_controller: AbstractStepSizeController = PIDController(
-            rtol=1e-3, atol=1e-3
+            rtol=1e-4, atol=1e-4
         ),
-        steady_state_tols: Tuple[Optional[float], Optional[float]] = (None, None),
         record_iters: bool = False,
         record_every: int = None
 ) -> PyTree[Array]:
@@ -63,10 +62,9 @@ def solve_pc_inference(
     - `dt`: Integration step size. Defaults to `None` since the default
         `stepsize_controller` will automatically determine it.
     - `stepsize_controller`: diffrax controller for step size integration.
-        Defaults to `PIDController`.
-    - `steady_state_tols`: Optional relative and absolute tolerances for
-        determining a steady state to terminate the solver. Defaults to the
-        tolerances of the `stepsize_controller`.
+        Defaults to `PIDController`. Note that the relative and absolute
+        tolerances of the controller will also determine the steady state to
+        terminate the solver.
     - `record_iters`: If `True`, returns all integration steps.
     - `record_every`: int determining the sampling frequency the integration
         steps.
@@ -91,12 +89,7 @@ def solve_pc_inference(
         y0=activities,
         args=(params, y, x, loss),
         stepsize_controller=stepsize_controller,
-        event=Event(
-            steady_state_event(
-                rtol=steady_state_tols[0],
-                atol=steady_state_tols[1]
-            )
-        ),
+        event=Event(steady_state_event()),
         saveat=saveat
     )
     return sol.ys
