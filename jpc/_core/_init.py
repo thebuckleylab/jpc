@@ -2,11 +2,11 @@
 
 from jax import vmap, random
 from jaxtyping import PyTree, ArrayLike, Array, PRNGKeyArray, Scalar
-from typing import Callable
+from typing import Tuple, Callable, Optional
 
 
 def init_activities_with_ffwd(
-        model: PyTree[Callable],
+        params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
         input: ArrayLike
 ) -> PyTree[Array]:
     """Initialises layers' activity with a feedforward pass
@@ -15,7 +15,7 @@ def init_activities_with_ffwd(
 
     **Main arguments:**
 
-    - `model`: List of callable model (e.g. neural network) layers.
+    - `params`: Tuple with callable model layers and optional skip connections.
     - `input`: input to the model.
 
     **Returns:**
@@ -23,9 +23,23 @@ def init_activities_with_ffwd(
     List with feedforward values of each layer.
 
     """
-    activities = [vmap(model[0])(input)]
+    model, skip_model = params
+    if skip_model is None:
+        skip_model = [None] * len(model)
+
+    first_layer_output = vmap(model[0])(input)
+    if skip_model[0] is not None:
+        first_layer_output += vmap(skip_model[0])(input)
+
+    activities = [first_layer_output]
     for l in range(1, len(model)):
-        activities.append(vmap(model[l])(activities[l-1]))
+        layer_output = vmap(model[l])(activities[l - 1])
+
+        if skip_model[l] is not None:
+            skip_output = vmap(skip_model[l])(activities[l - 1])
+            layer_output += skip_output
+
+        activities.append(layer_output)
 
     return activities
 
