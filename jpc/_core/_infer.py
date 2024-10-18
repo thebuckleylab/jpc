@@ -1,7 +1,7 @@
 """Function to solve the inference (activity) dynamics of PC networks."""
 
 from jaxtyping import PyTree, ArrayLike, Array
-from jax.numpy import arange
+import jax.numpy as jnp
 from typing import Tuple, Callable, Optional
 from ._grads import neg_activity_grad
 from diffrax import (
@@ -12,7 +12,6 @@ from diffrax import (
     diffeqsolve,
     ODETerm,
     Event,
-    steady_state_event,
     SaveAt
 )
 
@@ -24,10 +23,10 @@ def solve_pc_inference(
         x: Optional[ArrayLike] = None,
         loss: str = "MSE",
         solver: AbstractSolver = Heun(),
-        max_t1: int = 500,
+        max_t1: int = 20,
         dt: float | int = None,
         stepsize_controller: AbstractStepSizeController = PIDController(
-            rtol=1e-4, atol=1e-4
+            rtol=1e-3, atol=1e-3
         ),
         record_iters: bool = False,
         record_every: int = None
@@ -75,7 +74,7 @@ def solve_pc_inference(
 
     """
     if record_every is not None:
-        ts = arange(0, max_t1, record_every)
+        ts = jnp.arange(0, max_t1, record_every)
         saveat = SaveAt(t1=True, ts=ts)
     else:
         saveat = SaveAt(t1=True, steps=record_iters)
@@ -87,9 +86,19 @@ def solve_pc_inference(
         t1=max_t1,
         dt0=dt,
         y0=activities,
-        args=(params, y, x, loss),
+        args=(params, y, x, loss, stepsize_controller),
         stepsize_controller=stepsize_controller,
-        event=Event(steady_state_event()),
+        event=Event(steady_state_event_with_timeout),
         saveat=saveat
     )
     return sol.ys
+
+
+def steady_state_event_with_timeout(t, y, args, **kwargs):
+    _stepsize_controller = args[-1]
+    _norm = _stepsize_controller.norm
+    _atol = _stepsize_controller.atol
+    _rtol = _stepsize_controller.rtol
+    steady_state_reached = _norm(y) < _atol + _rtol * _norm(y)
+    timeout_reached = jnp.array(t >= 4096, dtype=jnp.bool_)
+    return jnp.logical_or(steady_state_reached, timeout_reached)

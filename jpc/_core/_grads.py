@@ -15,9 +15,10 @@ def neg_activity_grad(
             Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
             ArrayLike,
             Optional[ArrayLike],
-            str
+            str,
+            int
         ],
-        energy_fn: Callable = pc_energy_fn,
+        energy_fn: Callable = pc_energy_fn
 ) -> PyTree[Array]:
     """Computes the negative gradient of the energy with respect to the activities $- \partial \mathcal{F} / \partial \mathbf{z}$.
 
@@ -31,8 +32,9 @@ def neg_activity_grad(
     - `args`: 4-Tuple with
         (i) Tuple with callable model layers and optional skip connections,
         (ii) network output (observation),
-        (iii) network input (prior), and
-        (iv) Loss specified at the output layer (MSE vs cross-entropy).
+        (iii) network input (prior),
+        (iv) Loss specified at the output layer (MSE vs cross-entropy), and
+        (v) diffrax controller for step size integration.
     - `pc_energy_fn`: Free energy to take the gradient of.
 
     **Returns:**
@@ -40,7 +42,7 @@ def neg_activity_grad(
     List of negative gradients of the energy w.r.t. the activities.
 
     """
-    params, y, x, loss = args
+    params, y, x, loss, stepsize_controller = args
     dFdzs = grad(energy_fn, argnums=1)(
         params,
         activities,
