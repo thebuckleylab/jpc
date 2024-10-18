@@ -1,16 +1,18 @@
 """Energy functions for predictive coding networks."""
 
-from jax.numpy import sum, array
 from jax import vmap
+from jax.numpy import sum, array, log
+from jax.nn import softmax
 from jaxtyping import PyTree, ArrayLike, Scalar, Array
-from typing import Callable, Optional
+from typing import Tuple, Callable, Optional
 
 
 def pc_energy_fn(
-        model: PyTree[Callable],
+        params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
         activities: PyTree[ArrayLike],
         y: ArrayLike,
         x: Optional[ArrayLike] = None,
+        loss: str = "MSE",
         record_layers: bool = False
 ) -> Scalar | Array:
     """Computes the free energy for a feedforward neural network of the form
@@ -33,38 +35,60 @@ def pc_energy_fn(
 
     **Main arguments:**
 
-    - `model`: List of callable model (e.g. neural network) layers.
+    - `params`: Tuple with callable model (e.g. neural network) layers and
+        optional skip connections.
     - `activities`: List of activities for each layer free to vary.
     - `y`: Observation or target of the generative model.
     - `x`: Optional prior of the generative model (for supervised training).
 
     **Other arguments:**
 
+    - `loss`: Loss function to use at the output layer (mean squared error
+        'MSE' vs cross entropy 'CE').
     - `record_layers`: If `True`, returns energies for each layer.
 
     **Returns:**
 
-    The total or layer-wise energy normalised by batch size.
+    The total or layer-wise energy normalised by the batch size.
 
     """
+    model, skip_model = params
     batch_size = y.shape[0]
     start_activity_l = 1 if x is not None else 2
     n_activity_layers = len(activities) - 1
     n_layers = len(model) - 1
+    if skip_model is None:
+        skip_model = [None] * len(model)
 
-    eL = y - vmap(model[-1])(activities[-2])
+    if loss == "MSE":
+        eL = y - vmap(model[-1])(activities[-2])
+    elif loss == "CE":
+        logits = vmap(model[-1])(activities[-2])
+        probs = softmax(logits, axis=-1)
+        eL = - sum(y * log(probs + 1e-10), axis=-1)
+
     energies = [sum(eL ** 2)]
 
     for act_l, net_l in zip(
             range(start_activity_l, n_activity_layers),
             range(1, n_layers)
     ):
-        err = activities[act_l] - vmap(model[net_l])(activities[act_l-1])
+        err = activities[act_l] - vmap(model[net_l])(activities[act_l - 1])
+        if skip_model[net_l] is not None:
+            err -= vmap(skip_model[net_l])(activities[act_l - 1])
+
         energies.append(sum(err ** 2))
 
-    e1 = activities[0] - vmap(model[0])(x) if (
-            x is not None
-    ) else activities[1] - vmap(model[0])(activities[0])
+    if x is not None:
+        main_pred = vmap(model[0])(x)
+        skip_pred = vmap(skip_model[0])(x) if skip_model[0] is not None else 0
+        e1 = activities[0] - main_pred - skip_pred
+    else:
+        main_pred = vmap(model[0])(activities[0])
+        skip_pred = (vmap(skip_model[0])(activities[0])
+                     if skip_model[0] is not None else 0)
+        e1 = activities[1] - main_pred - skip_pred
+
     energies.append(sum(e1 ** 2))
 
     if record_layers:
