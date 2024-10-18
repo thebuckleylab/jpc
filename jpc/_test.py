@@ -103,10 +103,9 @@ def test_generative_pc(
     - `dt`: Integration step size. Defaults to None since the default
         `stepsize_controller` will automatically determine it.
     - `stepsize_controller`: diffrax controller for step size integration.
-        Defaults to `PIDController`.
-    - `steady_state_tols`: Optional relative and absolute tolerances for
-        determining a steady state to terminate the inference solver. Defaults
-        to the tolerances of the `stepsize_controller`.
+        Defaults to `PIDController`. Note that the relative and absolute
+        tolerances of the controller will also determine the steady state to
+        terminate the solver.
 
     **Returns:**
 
@@ -150,8 +149,7 @@ def test_hpc(
       dt: float | int = None,
       stepsize_controller: AbstractStepSizeController = PIDController(
           rtol=1e-3, atol=1e-3
-      ),
-      steady_state_tols: Optional[Tuple[float]] = (None, None)
+      )
 ) -> Tuple[Scalar, Scalar, Scalar, Array]:
     """Computes test metrics for hybrid predictive coding trained in a supervised manner.
 
@@ -185,10 +183,9 @@ def test_hpc(
     - `dt`: Integration step size. Defaults to None since the default
         `stepsize_controller` will automatically determine it.
     - `stepsize_controller`: diffrax controller for step size integration.
-        Defaults to `PIDController`.
-    - `steady_state_tols`: Optional relative and absolute tolerances for
-        determining a steady state to terminate the inference solver. Defaults
-        to the tolerances of the `stepsize_controller`.
+        Defaults to `PIDController`. Note that the relative and absolute
+        tolerances of the controller will also determine the steady state to
+        terminate the solver.
 
     **Returns:**
 
@@ -209,8 +206,7 @@ def test_hpc(
         solver=ode_solver,
         max_t1=max_t1,
         dt=dt,
-        stepsize_controller=stepsize_controller,
-        steady_state_tols=steady_state_tols
+        stepsize_controller=stepsize_controller
     )[0][0]
     activities = init_activities_from_normal(
         key=key,
@@ -226,8 +222,7 @@ def test_hpc(
         solver=ode_solver,
         max_t1=max_t1,
         dt=dt,
-        stepsize_controller=stepsize_controller,
-        steady_state_tols=steady_state_tols
+        stepsize_controller=stepsize_controller
     )[0][0]
     amort_acc = compute_accuracy(input, amort_preds)
     hpc_acc = compute_accuracy(input, hpc_preds)
