@@ -13,11 +13,17 @@ from jpc import (
     init_activities_with_ffwd,
     init_activities_from_normal,
     init_activities_with_amort,
-    hpc_energy_fn,
+    mse_loss,
+    cross_entropy_loss,
     solve_pc_inference,
     get_t_max,
+    compute_activity_norms,
+    pc_energy_fn,
     compute_infer_energies,
     compute_pc_param_grads,
+    compute_grad_norms,
+    compute_accuracy,
+    hpc_energy_fn,
     compute_hpc_param_grads
 )
 from optax import GradientTransformation, GradientTransformationExtraArgs, OptState
@@ -33,17 +39,24 @@ def make_pc_step(
       output: ArrayLike,
       input: Optional[ArrayLike] = None,
       ode_solver: AbstractSolver = Heun(),
-      t1: int = 20,
+      max_t1: int = 500,
       dt: float | int = None,
       stepsize_controller: AbstractStepSizeController = PIDController(
           rtol=1e-3, atol=1e-3
       ),
+      steady_state_tols: Optional[Tuple[float]] = (None, None),
+      skip_model: Optional[PyTree[Callable]] = None,
       key: Optional[PRNGKeyArray] = None,
       layer_sizes: Optional[PyTree[int]] = None,
       batch_size: Optional[int] = None,
       sigma: Scalar = 0.05,
+      loss_id: str = "MSE",
       record_activities: bool = False,
-      record_energies: bool = False
+      record_energies: bool = False,
+      record_every: int = None,
+      activity_norms: bool = False,
+      grad_norms: bool = False,
+      calculate_accuracy: bool = False
 ) -> Dict:
     """Updates network parameters with predictive coding.
 
@@ -65,11 +78,15 @@ def make_pc_step(
 
     - `ode_solver`: Diffrax ODE solver to be used. Default is Heun, a 2nd order
         explicit Runge--Kutta method.
-    - `t1`: Maximum end of integration region (20 by default).
+    - `max_t1`: Maximum end of integration region (500 by default).
     - `dt`: Integration step size. Defaults to None since the default
         `stepsize_controller` will automatically determine it.
     - `stepsize_controller`: diffrax controller for step size integration.
         Defaults to `PIDController`.
+    - `steady_state_tols`: Optional relative and absolute tolerances for
+        determining a steady state to terminate the inference solver. Defaults
+        to the tolerances of the `stepsize_controller`.
+    - `skip_model`: Optional list of callable skip connection functions.
     - `key`: `jax.random.PRNGKey` for random initialisation of activities.
     - `layer_sizes`: Dimension of all layers (input, hidden and output).
     - `batch_size`: Dimension of data batch for activity initialisation.
@@ -79,15 +96,22 @@ def make_pc_step(
         iteration.
     - `record_energies`: If `True`, returns layer-wise energies at every
         inference iteration.
+    - `record_every`: int determining the sampling frequency the integration
+        steps if `record_activities` or `record_energies` is True`. Defaults to
+        1.
+    - `activity_norms`: If `True`, computes norm of the activities.
+    - `grad_norms`: If `True`, computes norm of parameter gradients.
+    - `calculate_accuracy`: If `True`, computes the training accuracy.
 
     **Returns:**
 
     Dict including model with updated parameters, optimiser, updated optimiser
-    state, equilibrated activities, last inference step, MSE loss, and energies.
+    state, loss, energies, equilibrated activities, and optionally other
+    metrics.
 
     **Raises:**
 
-    - `ValueError` for inconsistent inputs.
+    - `ValueError` for inconsistent inputs and invalid losses.
 
     """
     if input is None and any(arg is None for arg in (key, layer_sizes, batch_size)):
@@ -106,52 +130,90 @@ def make_pc_step(
         mode="unsupervised",
         batch_size=batch_size,
         sigma=sigma
-    ) if input is None else init_activities_with_ffwd(model=model, input=input)
+    ) if input is None else init_activities_with_ffwd(
+        params=(model, skip_model),
+        input=input
+    )
 
-    mse_loss = mean((output - activities[-1])**2) if input is not None else None
+    if loss_id == "MSE":
+        loss = mse_loss(activities[-1], output) if input is not None else None
+    elif loss_id == "CE":
+        loss = cross_entropy_loss(activities[-1], output) if input is not None else None
+    else:
+        raise ValueError("'MSE' and 'CE' are the only valid losses.")
+
     equilib_activities = solve_pc_inference(
-        model=model,
+        params=(model, skip_model),
         activities=activities,
         y=output,
         x=input,
+        loss=loss_id,
         solver=ode_solver,
-        t1=t1,
+        max_t1=max_t1,
         dt=dt,
         stepsize_controller=stepsize_controller,
-        record_iters=record_activities
+        steady_state_tols=steady_state_tols,
+        record_iters=record_activities,
+        record_every=record_every
     )
+    activity_norms = (compute_activity_norms(equilib_activities)
+                      if activity_norms else None)
     t_max = get_t_max(equilib_activities) if record_activities else None
     energies = compute_infer_energies(
-        model=model,
+        params=(model, skip_model),
         activities_iters=equilib_activities,
         t_max=t_max,
         y=output,
-        x=input
-    ) if record_energies else None
-
-    param_grads = compute_pc_param_grads(
-        model=model,
+        x=input,
+        loss=loss_id
+    ) if record_energies else pc_energy_fn(
+        params=(model, skip_model),
         activities=tree_map(
             lambda act: act[t_max if record_activities else array(0)],
             equilib_activities
         ),
         y=output,
-        x=input
+        x=input,
+        loss=loss_id,
+        record_layers=True
     )
+
+    param_grads = compute_pc_param_grads(
+        params=(model, skip_model),
+        activities=tree_map(
+            lambda act: act[t_max if record_activities else array(0)],
+            equilib_activities
+        ),
+        y=output,
+        x=input,
+        loss=loss_id
+    )
+    grad_norms = compute_grad_norms(param_grads) if grad_norms else (None, None)
     updates, opt_state = optim.update(
         updates=param_grads,
         state=opt_state,
-        params=model
+        params=(model, skip_model)
     )
-    model = eqx.apply_updates(model=model, updates=updates)
+    params = eqx.apply_updates(model=(model, skip_model), updates=updates)
+
+    acc = compute_accuracy(
+        output,
+        init_activities_with_ffwd(params=(model, skip_model), input=input)[-1]
+    ) if calculate_accuracy else None
+
     return {
-        "model": model,
+        "model": params[0],
+        "skip_model": params[1],
         "optim": optim,
         "opt_state": opt_state,
+        "loss": loss,
+        "acc": acc,
         "activities": equilib_activities,
         "t_max": t_max,
-        "loss": mse_loss,
-        "energies": energies
+        "energies": energies,
+        "activity_norms": activity_norms,
+        "model_grad_norms": grad_norms[0],
+        "skip_model_grad_norms": grad_norms[1]
     }
 
 
