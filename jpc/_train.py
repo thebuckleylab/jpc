@@ -53,7 +53,7 @@ def make_pc_step(
       loss_id: str = "MSE",
       record_activities: bool = False,
       record_energies: bool = False,
-      record_every: int = None,
+      record_every: int = 1,
       activity_norms: bool = False,
       grad_norms: bool = False,
       calculate_accuracy: bool = False
@@ -144,7 +144,7 @@ def make_pc_step(
 
     params = (model, skip_model)
     equilib_activities = solve_pc_inference(
-        params=params,
+        params=(model, skip_model),
         activities=activities,
         y=output,
         x=input,
@@ -195,7 +195,7 @@ def make_pc_step(
         state=opt_state,
         params=params
     )
-    params = eqx.apply_updates(model=params, updates=updates)
+    updated_models = eqx.apply_updates(model=params, updates=updates)
 
     acc = compute_accuracy(
         output,
@@ -203,8 +203,8 @@ def make_pc_step(
     ) if calculate_accuracy else None
 
     return {
-        "model": params[0],
-        "skip_model": params[1],
+        "model": updated_models[0],
+        "skip_model": updated_models[1],
         "optim": optim,
         "opt_state": opt_state,
         "loss": loss,
@@ -378,10 +378,10 @@ def make_hpc_step(
         state=amort_opt_state,
         params=amortiser
     )
-    generator = eqx.apply_updates(model=generator, updates=gen_updates)
-    amortiser = eqx.apply_updates(model=amortiser, updates=amort_updates)
+    updated_generator = eqx.apply_updates(model=generator, updates=gen_updates)
+    updated_amortiser = eqx.apply_updates(model=amortiser, updates=amort_updates)
     return {
-        "models": (generator, amortiser),
+        "models": (updated_generator, updated_amortiser),
         "optims": (gen_optim, amort_optim),
         "opt_states": (gen_opt_state, amort_opt_state),
         "activities": (amort_activities, equilib_activities),
