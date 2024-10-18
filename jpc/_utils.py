@@ -1,10 +1,38 @@
 import jax
-from jax.numpy import tanh, mean, argmax, zeros
-from jax.tree_util import tree_map
+import jax.numpy as jnp
+from jax.tree_util import tree_map, tree_leaves
 import equinox.nn as nn
 from jpc import pc_energy_fn
 from jaxtyping import PRNGKeyArray, PyTree, ArrayLike, Scalar, Array
-from typing import Callable, Optional
+from typing import Callable, Optional, Tuple
+
+
+ACT_FNS = [
+    "linear", "tanh", "hard_tanh", "relu", "leaky_relu", "gelu", "selu", "silu"
+]
+
+
+def get_act_fn(name: str) -> Callable:
+    if name == "linear":
+        return nn.Identity()
+    elif name == "tanh":
+        return jnp.tanh
+    elif name == "hard_tanh":
+        return jax.nn.hard_tanh
+    elif name == "relu":
+        return jax.nn.relu
+    elif name == "leaky_relu":
+        return jax.nn.leaky_relu
+    elif name == "gelu":
+        return jax.nn.gelu
+    elif name == "selu":
+        return jax.nn.selu
+    elif name == "silu":
+        return jax.nn.silu
+    else:
+        raise ValueError(f"""
+                Invalid activation function ID. Options are {ACT_FNS}.
+        """)
 
 
 def make_mlp(
@@ -28,90 +56,66 @@ def make_mlp(
     List of callable fully connected layers.
 
     """
+    act_fn = get_act_fn(act_fn)
     layers = []
     for i, subkey in enumerate(jax.random.split(key, len(layer_sizes)-1)):
-        is_last = i+1 == len(layer_sizes)-1
-        if act_fn == "linear" or is_last:
-            hidden_layer = nn.Linear(
-                layer_sizes[i],
-                layer_sizes[i+1],
-                use_bias=use_bias,
-                key=subkey
-            )
-        elif act_fn == "tanh" and not is_last:
-            hidden_layer = nn.Sequential(
-                [
-                    nn.Linear(
-                        layer_sizes[i],
-                        layer_sizes[i+1],
-                        use_bias=use_bias,
-                        key=subkey
-                    ),
-                    nn.Lambda(tanh)
-                ]
-            )
-        elif act_fn == "relu" and not is_last:
-            hidden_layer = nn.Sequential(
-                [
-                    nn.Linear(
-                        layer_sizes[i],
-                        layer_sizes[i+1],
-                        use_bias=use_bias,
-                        key=subkey
-                    ),
-                    nn.Lambda(jax.nn.relu)
-                ]
-            )
-        elif act_fn == "leaky_relu" and not is_last:
-            hidden_layer = nn.Sequential(
-                [
-                    nn.Linear(
-                        layer_sizes[i],
-                        layer_sizes[i+1],
-                        use_bias=use_bias,
-                        key=subkey
-                    ),
-                    nn.Lambda(jax.nn.leaky_relu)
-                ]
-            )
-        elif act_fn == "gelu" and not is_last:
-            hidden_layer = nn.Sequential(
-                [
-                    nn.Linear(
-                        layer_sizes[i],
-                        layer_sizes[i+1],
-                        use_bias=use_bias,
-                        key=subkey
-                    ),
-                    nn.Lambda(jax.nn.gelu)
-                ]
-            )
-        else:
-            raise ValueError("""
-                Invalid activation function ID. Options are 'linear', 'tanh', 
-                'relu', 'leaky_relu' and 'gelu'.
-            """)
+        is_last = (i+1) == len(layer_sizes)-1
+        act_fn_l = nn.Identity() if is_last else act_fn
+        hidden_layer = nn.Sequential(
+            [
+                nn.Linear(
+                    layer_sizes[i],
+                    layer_sizes[i+1],
+                    use_bias=use_bias,
+                    key=subkey
+                ),
+                nn.Lambda(act_fn_l)
+            ]
+        )
         layers.append(hidden_layer)
 
     return layers
 
 
+def mse_loss(preds: ArrayLike, labels: ArrayLike) -> Scalar:
+    return jnp.mean((labels - preds)**2)
+
+
+def cross_entropy_loss(logits: ArrayLike, labels: ArrayLike) -> Scalar:
+    probs = jax.nn.softmax(logits, axis=-1)
+    log_probs = jnp.log(probs)
+    return - jnp.mean(jnp.sum(labels * log_probs, axis=-1))
+
+
+def compute_activity_norms(activities: PyTree[Array]) -> Array:
+    return jnp.array([
+        jnp.mean(
+            jnp.linalg.norm(
+                a[0].reshape(a.shape[0], -1),
+                axis=-1
+            )
+        ) if a is not None else 0.
+        for a in tree_leaves(activities)
+    ])
+
+
 def get_t_max(activities_iters: PyTree[Array]) -> Array:
-    return argmax(activities_iters[0][:, 0, 0]) - 1
+    return jnp.argmax(activities_iters[0][:, 0, 0]) - 1
 
 
 def compute_infer_energies(
-        model: PyTree[Callable],
+        params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
         activities_iters: PyTree[Array],
         t_max: Array,
         y: ArrayLike,
-        x: Optional[ArrayLike] = None
+        x: Optional[ArrayLike] = None,
+        loss: str = "MSE"
 ) -> PyTree[Scalar]:
     """Calculates layer energies during predictive coding inference.
 
     **Main arguments:**
 
-    - `model`: List of callable model (e.g. neural network) layers.
+    - `params`: Tuple with callable model layers and optional skip connections.
     - `activities_iters`: Layer-wise activities at every inference iteration.
         Note that each set of activities will have 4096 steps as first
         dimension by diffrax default.
@@ -119,26 +123,34 @@ def compute_infer_energies(
     - `y`: Observation or target of the generative model.
     - `x`: Optional prior of the generative model.
 
+    **Other arguments:**
+
+    - `loss`: Loss function specified at the output layer (mean squared error
+        'MSE' vs cross-entropy 'CE').
+
     **Returns:**
 
     List of layer-wise energies at every inference iteration.
 
     """
+    model, skip_model = params
+
     def loop_body(state):
         t, energies_iters = state
 
         energies = pc_energy_fn(
-            model=model,
+            params=params,
             activities=tree_map(lambda act: act[t], activities_iters),
             y=y,
             x=x,
+            loss=loss,
             record_layers=True
         )
         energies_iters = energies_iters.at[:, t].set(energies)
         return t + 1, energies_iters
 
     # 4096 is the max number of steps set in diffrax
-    energies_iters = zeros((len(model), 4096))
+    energies_iters = jnp.zeros((len(model), 500))
     _, energies_iters = jax.lax.while_loop(
         lambda state: state[0] < t_max,
         loop_body,
@@ -147,7 +159,26 @@ def compute_infer_energies(
     return energies_iters[::-1, :]
 
 
+def compute_grad_norms(grads):
+    def process_model_grads(model_grads):
+        return jnp.array([
+            jnp.linalg.norm(
+                jnp.ravel(g),
+                ord=2
+            ) if g is not None else 0.
+            for g in tree_leaves(model_grads)
+        ])
+    if isinstance(grads, tuple) and len(grads) == 2:
+        model_grads, skip_model_grads = grads
+        model_norms = process_model_grads(model_grads)
+        skip_model_norms = (process_model_grads(skip_model_grads) if
+                            skip_model_grads is not None else None)
+        return model_norms, skip_model_norms
+    else:
+        return process_model_grads(grads), None
+
+
 def compute_accuracy(truths: ArrayLike, preds: ArrayLike) -> Scalar:
-    return mean(
-        argmax(truths, axis=1) == argmax(preds, axis=1)
-    )
+    return jnp.mean(
+        jnp.argmax(truths, axis=1) == jnp.argmax(preds, axis=1)
+    ) * 100
