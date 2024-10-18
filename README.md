@@ -36,7 +36,7 @@ pip install jpc
 ```
 
 Requires Python 3.9+, JAX 0.4.23+, [Equinox](https://github.com/patrick-kidger/equinox) 
-0.11.2+, [Diffrax](https://github.com/patrick-kidger/diffrax) 0.5.1+, 
+0.11.2+, [Diffrax](https://github.com/patrick-kidger/diffrax) 0.6.0+, 
 [Optax](https://github.com/google-deepmind/optax) 0.2.2+, and 
 [Jaxtyping](https://github.com/patrick-kidger/jaxtyping) 0.2.24+.
 
