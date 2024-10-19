@@ -28,6 +28,8 @@ def init_activities_with_ffwd(
     List with activity values of each layer.
 
     """
+    if skip_model is None:
+        skip_model = [None] * len(model)
 
     first_layer_output = vmap(model[0])(input)
     if skip_model[0] is not None:
