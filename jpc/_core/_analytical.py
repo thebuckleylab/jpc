@@ -14,7 +14,9 @@ def linear_equilib_energy_single(
         y: ArrayLike
 ) -> Array:
     """See docs of `dln_equilib_energy_batch`."""
-    Ws = [l.weight for l in network]
+    Ws = [
+        layer.weight for seq in network for layer in seq if hasattr(layer, "weight")
+    ]
     L = len(Ws)
 
     # Compute product of weight matrices
@@ -88,7 +90,8 @@ def linear_activities_coeff_matrix(Ws: PyTree[Array]) -> Array:
     L = len(Ws)
 
     # Get layer dimensions
-    dims = [Ws[0].shape[1]] + [W.shape[0] for W in Ws]
+    nonunit_width = 0 if len(Ws[0].shape) == 1 else 1
+    dims = [Ws[0].shape[nonunit_width]] + [W.shape[0] for W in Ws]
 
     # Dimension of A (excluding input and output)
     n_activities = np.sum(dims[1:-1])
@@ -122,13 +125,16 @@ def linear_activities_solution_single(
 ) -> PyTree[Array]:
     """See docs of `linear_activities_solution_batch`."""
     # Extract all weight matrices from the network
-    Ws = [l.weight for l in network]
+    Ws = [
+        layer.weight for seq in network for layer in seq if hasattr(layer, 'weight')
+    ]
 
     # Construct matrix of the linear system
     A = linear_activities_coeff_matrix(Ws)
 
     # Get layer dimensions
-    dims = [Ws[0].shape[1]] + [W.shape[0] for W in Ws]
+    nonunit_width = 0 if len(Ws[0].shape) == 1 else 1
+    dims = [Ws[0].shape[nonunit_width]] + [W.shape[0] for W in Ws]
 
     # Compute activities solution
     b = jnp.zeros(len(A))

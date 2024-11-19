@@ -4,6 +4,7 @@ from jaxtyping import PyTree, ArrayLike, Array
 import jax.numpy as jnp
 from typing import Tuple, Callable, Optional
 from ._grads import neg_activity_grad
+from optimistix import rms_norm
 from diffrax import (
     AbstractSolver,
     AbstractStepSizeController,
@@ -21,7 +22,7 @@ def solve_pc_inference(
         activities: PyTree[ArrayLike],
         y: ArrayLike,
         x: Optional[ArrayLike] = None,
-        loss: str = "MSE",
+        loss_id: str = "MSE",
         solver: AbstractSolver = Heun(),
         max_t1: int = 20,
         dt: float | int = None,
@@ -79,26 +80,28 @@ def solve_pc_inference(
     else:
         saveat = SaveAt(t1=True, steps=record_iters)
 
-    sol = diffeqsolve(
+    solution = diffeqsolve(
         terms=ODETerm(neg_activity_grad),
         solver=solver,
         t0=0,
         t1=max_t1,
         dt0=dt,
         y0=activities,
-        args=(params, y, x, loss, stepsize_controller),
+        args=(params, y, x, loss_id, stepsize_controller),
         stepsize_controller=stepsize_controller,
         event=Event(steady_state_event_with_timeout),
         saveat=saveat
     )
-    return sol.ys
+    return solution.ys
 
 
 def steady_state_event_with_timeout(t, y, args, **kwargs):
     _stepsize_controller = args[-1]
-    _norm = _stepsize_controller.norm
-    _atol = _stepsize_controller.atol
-    _rtol = _stepsize_controller.rtol
-    steady_state_reached = _norm(y) < _atol + _rtol * _norm(y)
+    try:
+        _atol = _stepsize_controller.atol
+        _rtol = _stepsize_controller.rtol
+    except:
+        _atol, _rtol = 1e-3, 1e-3
+    steady_state_reached = rms_norm(y) < _atol + _rtol * rms_norm(y)
     timeout_reached = jnp.array(t >= 4096, dtype=jnp.bool_)
     return jnp.logical_or(steady_state_reached, timeout_reached)
