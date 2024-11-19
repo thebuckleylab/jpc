@@ -9,10 +9,15 @@ from ._energies import (
 )
 from ._grads import (
     neg_activity_grad as neg_activity_grad,
+    compute_activity_grad as compute_activity_grad,
     compute_pc_param_grads as compute_pc_param_grads,
     compute_hpc_param_grads as compute_hpc_param_grads
 )
 from ._infer import solve_pc_inference as solve_pc_inference
+from ._updates import (
+    update_activities as update_activities,
+    update_params as update_params
+)
 from ._analytical import (
     linear_equilib_energy_batch as linear_equilib_energy,
     linear_activities_coeff_matrix as linear_activities_coeff_matrix,

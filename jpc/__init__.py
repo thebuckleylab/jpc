@@ -8,8 +8,11 @@ from ._core import (
     hpc_energy_fn as hpc_energy_fn,
     neg_activity_grad as neg_activity_grad,
     solve_pc_inference as solve_pc_inference,
+    compute_activity_grad as compute_activity_grad,
     compute_pc_param_grads as compute_pc_param_grads,
     compute_hpc_param_grads as compute_hpc_param_grads,
+    update_activities as update_activities,
+    update_params as update_params,
     linear_equilib_energy as linear_equilib_energy,
     linear_activities_coeff_matrix as linear_activities_coeff_matrix,
     linear_activities_solution as linear_activities_solution
@@ -23,7 +26,7 @@ from ._utils import (
     get_t_max as get_t_max,
     compute_activity_norms as compute_activity_norms,
     compute_infer_energies as compute_infer_energies,
-    compute_grad_norms as compute_grad_norms
+    compute_param_norms as compute_param_norms
 )
 from ._train import (
     make_pc_step as make_pc_step,
