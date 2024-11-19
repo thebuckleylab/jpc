@@ -1,10 +1,11 @@
-"""Functions to compute gradients of the free energy."""
+"""Functions to compute gradients of the PC energy."""
 
-from jax import grad
+from jax import grad, value_and_grad
 from jax.tree_util import tree_map
 from equinox import filter_grad
 from jaxtyping import PyTree, ArrayLike, Array
 from typing import Tuple, Callable, Optional
+from diffrax import AbstractStepSizeController
 from ._energies import pc_energy_fn, hpc_energy_fn
 
 
@@ -16,7 +17,7 @@ def neg_activity_grad(
             ArrayLike,
             Optional[ArrayLike],
             str,
-            int
+            AbstractStepSizeController
         ],
         energy_fn: Callable = pc_energy_fn
 ) -> PyTree[Array]:
@@ -29,28 +30,75 @@ def neg_activity_grad(
     - `t`: Time step of the ODE system, used for downstream integration by
         `diffrax.diffeqsolve`.
     - `activities`: List of activities for each layer free to vary.
-    - `args`: 4-Tuple with
+    - `args`: 5-Tuple with
         (i) Tuple with callable model layers and optional skip connections,
         (ii) network output (observation),
         (iii) network input (prior),
         (iv) Loss specified at the output layer (MSE vs cross-entropy), and
         (v) diffrax controller for step size integration.
-    - `pc_energy_fn`: Free energy to take the gradient of.
+
+    **Other arguments:**
+
+    - `energy_fn`: Free energy to take the gradient of.
 
     **Returns:**
 
     List of negative gradients of the energy w.r.t. the activities.
 
     """
-    params, y, x, loss, stepsize_controller = args
+    params, y, x, loss_id, _ = args
     dFdzs = grad(energy_fn, argnums=1)(
         params,
         activities,
         y,
         x,
-        loss
+        loss_id
     )
     return tree_map(lambda dFdz: -dFdz, dFdzs)
+
+
+def compute_activity_grad(
+        params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
+        activities: PyTree[ArrayLike],
+        y: ArrayLike,
+        x: Optional[ArrayLike],
+        loss_id: str = "MSE",
+        energy_fn: Callable = pc_energy_fn
+) -> PyTree[Array]:
+    """Computes the gradient of the energy with respect to the activities $\partial \mathcal{F} / \partial \mathbf{z}$.
+
+    !!! note
+
+        This function differs from `neg_activity_grad`, which computes the
+        negative gradients, and is called in `update_activities` for use of
+        any Optax optimiser.
+
+    **Main arguments:**
+
+    - `params`: Tuple with callable model layers and optional skip connections.
+    - `activities`: List of activities for each layer free to vary.
+    - `y`: Observation or target of the generative model.
+    - `x`: Optional prior of the generative model.
+
+    **Other arguments:**
+
+    - `loss_id`: Loss function for the output layer (mean squared error 'MSE'
+        vs cross-entropy 'CE').
+    - `energy_fn`: Free energy to take the gradient of.
+
+    **Returns:**
+
+    List of negative gradients of the energy w.r.t. the activities.
+
+    """
+    energy, dFdzs = value_and_grad(energy_fn, argnums=1)(
+        params,
+        activities,
+        y,
+        x,
+        loss_id
+    )
+    return energy, dFdzs
 
 
 def compute_pc_param_grads(
@@ -58,7 +106,7 @@ def compute_pc_param_grads(
         activities: PyTree[ArrayLike],
         y: ArrayLike,
         x: Optional[ArrayLike] = None,
-        loss: str = "MSE"
+        loss_id: str = "MSE"
 ) -> Tuple[PyTree[Array], PyTree[Array]]:
     """Computes the gradient of the PC energy with respect to model parameters $\partial \mathcal{F} / \partial θ$.
 
@@ -71,8 +119,8 @@ def compute_pc_param_grads(
 
     **Other arguments:**
 
-    - `loss`: Loss function specified at the output layer (mean squared error
-        'MSE' vs cross-entropy 'CE').
+    - `loss_id`: Loss function for the output layer (mean squared error 'MSE'
+        vs cross-entropy 'CE').
 
     **Returns:**
 
@@ -84,7 +132,7 @@ def compute_pc_param_grads(
         activities,
         y,
         x,
-        loss
+        loss_id
     )
 
 
