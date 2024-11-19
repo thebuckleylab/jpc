@@ -4,6 +4,7 @@ from jax.tree_util import tree_map, tree_leaves
 import equinox.nn as nn
 from jpc import pc_energy_fn
 from jaxtyping import PRNGKeyArray, PyTree, ArrayLike, Scalar, Array
+from jaxlib.xla_extension import PjitFunction
 from typing import Callable, Optional, Tuple
 
 
@@ -88,14 +89,15 @@ def cross_entropy_loss(logits: ArrayLike, labels: ArrayLike) -> Scalar:
 
 
 def compute_activity_norms(activities: PyTree[Array]) -> Array:
+    """Calculates l2 norm of activities at each layer."""
     return jnp.array([
         jnp.mean(
             jnp.linalg.norm(
-                a[0].reshape(a.shape[0], -1),
-                axis=-1
+                a,
+                axis=-1,
+                ord=2
             )
-        ) if a is not None else 0.
-        for a in tree_leaves(activities)
+        ) for a in tree_leaves(activities)
     ])
 
 
@@ -149,7 +151,7 @@ def compute_infer_energies(
         energies_iters = energies_iters.at[:, t].set(energies)
         return t + 1, energies_iters
 
-    # 4096 is the max number of steps set in diffrax
+    # for memory reasons, we set 500 as the max iters to record
     energies_iters = jnp.zeros((len(model), 500))
     _, energies_iters = jax.lax.while_loop(
         lambda state: state[0] < t_max,
@@ -159,23 +161,23 @@ def compute_infer_energies(
     return energies_iters[::-1, :]
 
 
-def compute_grad_norms(grads):
-    def process_model_grads(model_grads):
+def compute_param_norms(params):
+    """Calculates l2 norm of all model parameters."""
+    def process_model_params(model_params):
         return jnp.array([
             jnp.linalg.norm(
-                jnp.ravel(g),
+                jnp.ravel(p),
                 ord=2
-            ) if g is not None else 0.
-            for g in tree_leaves(model_grads)
+            ) if p is not None and not isinstance(p, PjitFunction) else 0.
+            for p in tree_leaves(model_params)
         ])
-    if isinstance(grads, tuple) and len(grads) == 2:
-        model_grads, skip_model_grads = grads
-        model_norms = process_model_grads(model_grads)
-        skip_model_norms = (process_model_grads(skip_model_grads) if
-                            skip_model_grads is not None else None)
-        return model_norms, skip_model_norms
-    else:
-        return process_model_grads(grads), None
+
+    model_params, skip_model_params = params
+    model_norms = process_model_params(model_params)
+    skip_model_norms = (process_model_params(skip_model_params) if
+                        skip_model_params is not None else None)
+
+    return model_norms, skip_model_norms
 
 
 def compute_accuracy(truths: ArrayLike, preds: ArrayLike) -> Scalar:
