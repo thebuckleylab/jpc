@@ -21,12 +21,13 @@ to integrate the inference (activity) dynamics of PC networks, which we find
 can provide significant speed-ups compared to standard optimisers, especially
 for deeper models. 
 
-JPC provides a **simple**, **relatively fast** and **flexible** API. It is 
-simple in that, like JAX, JPC follows a fully functional paradigm, and the core 
-library is <1000 lines of code. It is relatively fast in that higher-order 
-solvers can provide speed-ups compared to standard optimisers, especially on
-deeper models. And JPC is flexible in that it allows training a variety of
-PC networks including discriminative, generative and hybrid models.
+JPC provides a **simple**, **relatively fast** and **flexible** API. 
+1. It is simple in that, like JAX, JPC follows a fully functional paradigm, 
+and the core library is <1000 lines of code. 
+2. It is relatively fast in that higher-order solvers can provide speed-ups 
+compared to standard optimisers, especially on deeper models. 
+3. And it is flexible in that it allows training a variety of PC networks 
+including discriminative, generative and hybrid models.
 
 ## Overview
 * [Installation](#installation)
