@@ -47,7 +47,7 @@ import jax
 import jax.numpy as jnp
 from equinox import nn as nn
 
-# some data
+# some datasets
 x = jnp.array([1., 1., 1.])
 y = -x
 
