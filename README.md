@@ -4,7 +4,7 @@
   </a> 
 </p>
 
-<h2 align='center'>🧠 Adaptive Inference for Predictive Coding Networks in JAX ⚡️</h2>
+<h2 align='center'>🧠 Flexible Inference for Predictive Coding Networks in JAX ⚡️</h2>
 
 ![status](https://img.shields.io/badge/status-active-green)
 
@@ -13,16 +13,14 @@ with **P**redictive **C**oding (PC). It is built on top of three main libraries:
 
 * [Equinox](https://github.com/patrick-kidger/equinox), to define neural 
 networks with PyTorch-like syntax,
-* [Diffrax](https://github.com/patrick-kidger/diffrax), to solve the PC 
-activity (inference) dynamics, and
+* [Diffrax](https://github.com/patrick-kidger/diffrax), to solve the PC inference (activity) dynamics, and
 * [Optax](https://github.com/google-deepmind/optax), for parameter optimisation.
 
-JPC provides a simple, fast and flexible API for research on PCNs compatible 
-with all of JAX and leveraging ODE solvers to integrate the PC inference
-dynamics.
+JPC provides a simple, relatively fast and flexible API to train a variety of
+PC networks including discriminative, generative and hybrid models. It is fully 
+functional, with the core library being <1000 lines of code.
 
 ## Overview
-
 * [Installation](#installation)
 * [Documentation](#documentation)
 * [Quick example](#quick-example)
@@ -30,94 +28,96 @@ dynamics.
 * [Citation](#citation)
 
 ## ️💻 Installation
-
 ```
 pip install jpc
 ```
 
 Requires Python 3.9+, JAX 0.4.23+, [Equinox](https://github.com/patrick-kidger/equinox) 
-0.11.2+, [Diffrax](https://github.com/patrick-kidger/diffrax) 0.6.0+, 
-[Optax](https://github.com/google-deepmind/optax) 0.2.2+, and 
-[Jaxtyping](https://github.com/patrick-kidger/jaxtyping) 0.2.24+.
+0.11.2+, [Diffrax](https://github.com/patrick-kidger/diffrax) 0.6.0+, and 
+[Optax](https://github.com/google-deepmind/optax) 0.2.4+. For GPU usage, upgrade
+jax to the appropriate cuda version (12 as an example here).
+
+```
+pip install --upgrade "jax[cuda12]"
+```
 
 ## 📖 Documentation
 Available at https://github.com/thebuckleylab.githhub.io/jpc.
 
 ## ⚡️ Quick example
-Use `jpc.make_pc_step` to update the parameters of essentially any neural 
-network with PC
+Use `jpc.make_pc_step` to update the parameters of any neural network compatible
+with PC updates (see examples)
 ```py
-import jpc
-import jax
+import jax.random as jr
 import jax.numpy as jnp
 import equinox as eqx
 import optax
+import jpc
 
 # toy data
 x = jnp.array([1., 1., 1.])
 y = -x
 
 # define model and optimiser
-key = jax.random.PRNGKey(0)
+key = jr.PRNGKey(0)
 model = jpc.make_mlp(key, layer_sizes=[3, 5, 5, 3], act_fn="relu")
 optim = optax.adam(1e-3)
-opt_state = optim.init(eqx.filter(model, eqx.is_array))
+opt_state = optim.init(
+    (eqx.filter(model, eqx.is_array), None)
+)
 
-# update model parameters with PC
+# perform one training step with PC
 result = jpc.make_pc_step(
-    model,
-    optim,
-    opt_state,
-    y,
-    x
+    model=model,
+    optim=optim,
+    opt_state=opt_state,
+    output=y,
+    input=x
 )
 ```
 Under the hood, `jpc.make_pc_step`
-1. integrates the activity (inference) dynamics using a [Diffrax](https://github.com/patrick-kidger/diffrax) ODE solver (Euler by default), 
-2. computes the PC gradient w.r.t. the model parameters at the numerical solution of the activities, and 
-3. updates the parameters with the provided [Optax](https://github.com/google-deepmind/optax) optimiser.
+1. integrates the inference (activity) dynamics using a [Diffrax](https://github.com/patrick-kidger/diffrax) ODE solver, and
+2. updates model parameters at the numerical solution of the activities with a given [Optax](https://github.com/google-deepmind/optax) optimiser.
 
 > **NOTE**: All convenience training and test functions including `make_pc_step` 
 > are already "jitted" (for increased performance) for the user's convenience.
 
 ## 🚀 Advanced usage
-More advanced users can access the functionality used by `jpc.make_pc_step`.
+More advanced users can access any of the functionality used by `jpc.make_pc_step`.
 
 ```py
 import jpc
 
 # 1. initialise activities with a feedforward pass
-activities0 = jpc.init_activities_with_ffwd(model, x)
+activities0 = jpc.init_activities_with_ffwd(model=model, input=x)
 
 # 2. run the inference dynamics to equilibrium
-equilib_activities = jpc.solve_pc_inference(model, activities0, y, x)
-
-# 3. compute PC parameter gradients
-param_grads = jpc.compute_pc_param_grads(
-    model,
-    equilib_activities,
-    y,
-    x
+equilibrated_activities = jpc.solve_pc_inference(
+    params=(model, None), 
+    activities=activities0, 
+    output=y, 
+    input=x
 )
 
-# 4. update parameters
-updates, opt_states = optim.update(
-    param_grads,
-    opt_state,
-    model
+# 3. update parameters with PC
+step_result = jpc.update_params(
+    params=(model, None), 
+    activities=equilibrated_activities,
+    optim=optim,
+    opt_state=opt_state,
+    output=y, 
+    input=x
 )
-model = eqx.apply_updates(model, updates)
 ```
 
 ## 📄 Citation
-
 If you found this library useful in your work, please cite (arXiv link):
 
 ```bibtex
 @article{innocenti2024jpc,
-    title={JPC: Predictive Coding Networks in JAX},
-    author={Innocenti, Francesco and Kinghorn, Paul and Singh, Ryan and 
-    De Llanza Varona, Miguel and Buckley, Christopher},
+    title={JPC: Flexible Inference for Predictive Coding Networks in JAX},
+    author={Innocenti, Francesco and Kinghorn, Paul and Yun-Farmbrough, Will 
+    and Singh, Ryan and De Llanza Varona, Miguel and Buckley, Christopher},
     journal={arXiv preprint},
     year={2024}
 }
