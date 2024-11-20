@@ -117,6 +117,7 @@ nav:
         - 'api/Energy functions.md'
         - 'api/Inference.md'
         - 'api/Gradients.md'
+        - 'api/Updates.md'
         - 'api/Analytical tools.md'
 
 copyright: |
