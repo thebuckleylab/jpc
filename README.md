@@ -16,9 +16,17 @@ networks with PyTorch-like syntax,
 * [Diffrax](https://github.com/patrick-kidger/diffrax), to solve the PC inference (activity) dynamics, and
 * [Optax](https://github.com/google-deepmind/optax), for parameter optimisation.
 
-JPC provides a simple, relatively fast and flexible API to train a variety of
-PC networks including discriminative, generative and hybrid models. It is fully 
-functional, with the core library being <1000 lines of code.
+Unlike existing PC libraries, JPC leverages ordinary differential equation solvers
+to integrate the inference (activity) dynamics of PC networks, which we find
+can provide significant speed-ups compared to standard optimisers, especially
+for deeper models. 
+
+JPC provides a **simple**, **relatively fast** and **flexible** API. It is 
+simple in that, like JAX, JPC follows a fully functional paradigm, and the core 
+library is <1000 lines of code. It is relatively fast in that higher-order 
+solvers can provide speed-ups compared to standard optimisers, especially on
+deeper models. And JPC is flexible in that it allows training a variety of
+PC networks including discriminative, generative and hybrid models.
 
 ## Overview
 * [Installation](#installation)
@@ -34,8 +42,10 @@ pip install jpc
 
 Requires Python 3.9+, JAX 0.4.23+, [Equinox](https://github.com/patrick-kidger/equinox) 
 0.11.2+, [Diffrax](https://github.com/patrick-kidger/diffrax) 0.6.0+, and 
-[Optax](https://github.com/google-deepmind/optax) 0.2.4+. For GPU usage, upgrade
-jax to the appropriate cuda version (12 as an example here).
+[Optax](https://github.com/google-deepmind/optax) 0.2.4+. 
+
+For GPU usage, upgrade jax to the appropriate cuda version (12 as an example 
+here).
 
 ```
 pip install --upgrade "jax[cuda12]"
