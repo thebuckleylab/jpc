@@ -45,6 +45,20 @@ def pc_energy_fn(
 
     - `loss`: Loss function to use at the output layer (mean squared error
         'MSE' vs cross-entropy 'CE').
+        ??? cite "Reference"
+
+        ```bibtex
+        @article{tscshantz2023hybrid,
+          title={Hybrid predictive coding: Inferring, fast and slow},
+          author={Tscshantz, Alexander and Millidge, Beren and Seth, Anil K and Buckley, Christopher L},
+          journal={PLoS Computational Biology},
+          volume={19},
+          number={8},
+          pages={e1011280},
+          year={2023},
+          publisher={Public Library of Science San Francisco, CA USA}
+        }
+        ```
     - `record_layers`: If `True`, returns energies for each layer.
 
     **Returns:**
