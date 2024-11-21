@@ -147,8 +147,8 @@ def make_pc_step(
     equilib_activities = solve_pc_inference(
         params=(model, skip_model),
         activities=activities,
-        y=output,
-        x=input,
+        output=output,
+        input=input,
         loss_id=loss_id,
         solver=ode_solver,
         max_t1=max_t1,
@@ -329,8 +329,8 @@ def make_hpc_step(
     equilib_activities = solve_pc_inference(
         params=gen_params,
         activities=amort_activities[1:] if input is not None else amort_activities,
-        y=output,
-        x=input,
+        output=output,
+        input=input,
         solver=ode_solver,
         max_t1=max_t1,
         dt=dt,

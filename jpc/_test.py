@@ -124,7 +124,7 @@ def test_generative_pc(
     input_preds = solve_pc_inference(
         params=params,
         activities=activities,
-        y=output,
+        output=output,
         solver=ode_solver,
         max_t1=max_t1,
         dt=dt,
@@ -207,7 +207,7 @@ def test_hpc(
     hpc_preds = solve_pc_inference(
         params=gen_params,
         activities=amort_activities,
-        y=output,
+        output=output,
         solver=ode_solver,
         max_t1=max_t1,
         dt=dt,
@@ -223,7 +223,7 @@ def test_hpc(
     gen_preds = solve_pc_inference(
         params=gen_params,
         activities=activities,
-        y=output,
+        output=output,
         solver=ode_solver,
         max_t1=max_t1,
         dt=dt,

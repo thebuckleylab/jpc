@@ -20,8 +20,8 @@ from diffrax import (
 def solve_pc_inference(
         params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
         activities: PyTree[ArrayLike],
-        y: ArrayLike,
-        x: Optional[ArrayLike] = None,
+        output: ArrayLike,
+        input: Optional[ArrayLike] = None,
         loss_id: str = "MSE",
         solver: AbstractSolver = Heun(),
         max_t1: int = 20,
@@ -49,8 +49,8 @@ def solve_pc_inference(
 
     - `params`: Tuple with callable model layers and optional skip connections.
     - `activities`: List of activities for each layer free to vary.
-    - `y`: Observation or target of the generative model.
-    - `x`: Optional prior of the generative model.
+    - `output`: Observation or target of the generative model.
+    - `input`: Optional prior of the generative model.
 
     **Other arguments:**
 
@@ -87,7 +87,7 @@ def solve_pc_inference(
         t1=max_t1,
         dt0=dt,
         y0=activities,
-        args=(params, y, x, loss_id, stepsize_controller),
+        args=(params, output, input, loss_id, stepsize_controller),
         stepsize_controller=stepsize_controller,
         event=Event(steady_state_event_with_timeout),
         saveat=saveat
