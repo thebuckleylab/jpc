@@ -82,6 +82,10 @@ result = jpc.make_pc_step(
     output=y,
     input=x
 )
+
+# updated model and optimiser
+model = result["model"]
+optim, opt_state = result["optim"], result["opt_state"]
 ```
 Under the hood, `jpc.make_pc_step`
 1. integrates the inference (activity) dynamics using a [Diffrax](https://github.com/patrick-kidger/diffrax) ODE solver, and
@@ -92,24 +96,23 @@ Under the hood, `jpc.make_pc_step`
 
 ## 🚀 Advanced usage
 More advanced users can access any of the functionality used by `jpc.make_pc_step`.
-A custom PC training step would look like the following 
-
+A custom PC training step would look like the following
 ```py
 import jpc
 
 # 1. initialise activities with a feedforward pass
 activities = jpc.init_activities_with_ffwd(model=model, input=x)
 
-# 2. run the inference dynamics to equilibrium
-equilibrated_activities = jpc.solve_pc_inference(
+# 2. run inference to equilibrium
+equilibrated_activities = jpc.solve_inference(
     params=(model, None), 
     activities=activities, 
     output=y, 
     input=x
 )
 
-# 3. update parameters with PC
-step_result = jpc.update_params(
+# 3. update parameters at the activities' solution with PC
+result = jpc.update_params(
     params=(model, None), 
     activities=equilibrated_activities,
     optim=optim,
