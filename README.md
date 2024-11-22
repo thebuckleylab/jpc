@@ -99,7 +99,7 @@ Under the hood, `jpc.make_pc_step`
 
 ## 🚀 Advanced usage
 Advanced users can access all the underlying functions of `jpc.make_pc_step` as 
-well as additional features. A custom PC training step looks like the following
+well as additional features. A custom PC training step looks like the following:
 ```py
 import jpc
 
