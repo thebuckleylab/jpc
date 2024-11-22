@@ -15,7 +15,7 @@ from jpc import (
     init_activities_with_amort,
     mse_loss,
     cross_entropy_loss,
-    solve_pc_inference,
+    solve_inference,
     get_t_max,
     compute_activity_norms,
     pc_energy_fn,
@@ -144,7 +144,7 @@ def make_pc_step(
     else:
         raise ValueError("'MSE' and 'CE' are the only valid losses.")
 
-    equilib_activities = solve_pc_inference(
+    equilib_activities = solve_inference(
         params=(model, skip_model),
         activities=activities,
         output=output,
@@ -326,7 +326,7 @@ def make_hpc_step(
         generator=generator,
         input=output
     )
-    equilib_activities = solve_pc_inference(
+    equilib_activities = solve_inference(
         params=gen_params,
         activities=amort_activities[1:] if input is not None else amort_activities,
         output=output,

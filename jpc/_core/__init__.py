@@ -13,7 +13,7 @@ from ._grads import (
     compute_pc_param_grads as compute_pc_param_grads,
     compute_hpc_param_grads as compute_hpc_param_grads
 )
-from ._infer import solve_pc_inference as solve_pc_inference
+from ._infer import solve_inference as solve_inference
 from ._updates import (
     update_activities as update_activities,
     update_params as update_params

@@ -8,7 +8,7 @@ from jpc import (
     mse_loss,
     cross_entropy_loss,
     compute_accuracy,
-    solve_pc_inference
+    solve_inference
 )
 from diffrax import (
     AbstractSolver,
@@ -121,7 +121,7 @@ def test_generative_pc(
         batch_size=batch_size,
         sigma=sigma
     )
-    input_preds = solve_pc_inference(
+    input_preds = solve_inference(
         params=params,
         activities=activities,
         output=output,
@@ -204,7 +204,7 @@ def test_hpc(
         input=output
     )
     amort_preds = amort_activities[0]
-    hpc_preds = solve_pc_inference(
+    hpc_preds = solve_inference(
         params=gen_params,
         activities=amort_activities,
         output=output,
@@ -220,7 +220,7 @@ def test_hpc(
         batch_size=batch_size,
         sigma=sigma
     )
-    gen_preds = solve_pc_inference(
+    gen_preds = solve_inference(
         params=gen_params,
         activities=activities,
         output=output,

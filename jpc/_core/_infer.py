@@ -17,7 +17,7 @@ from diffrax import (
 )
 
 
-def solve_pc_inference(
+def solve_inference(
         params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
         activities: PyTree[ArrayLike],
         output: ArrayLike,
