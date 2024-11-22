@@ -78,24 +78,24 @@ Under the hood, `jpc.make_pc_step`
 ...
 
 ## 🚀 Advanced usage
-More advanced users can access any of the functionality used by `jpc.make_pc_step`.
-
+Advanced users can access all the underlying functions of `jpc.make_pc_step` as 
+well as additional features. A custom PC training step looks like the following
 ```py
 import jpc
 
 # 1. initialise activities with a feedforward pass
-activities0 = jpc.init_activities_with_ffwd(model=model, input=x)
+activities = jpc.init_activities_with_ffwd(model=model, input=x)
 
-# 2. run the inference dynamics to equilibrium
-equilibrated_activities = jpc.solve_pc_inference(
+# 2. run inference to equilibrium
+equilibrated_activities = jpc.solve_inference(
     params=(model, None), 
-    activities=activities0, 
+    activities=activities, 
     output=y, 
     input=x
 )
 
-# 3. update parameters with PC
-step_result = jpc.update_params(
+# 3. update parameters with at the activities' solution with PC
+result = jpc.update_params(
     params=(model, None), 
     activities=equilibrated_activities,
     optim=optim,
@@ -104,6 +104,8 @@ step_result = jpc.update_params(
     input=x
 )
 ```
+which can be embedded in a jitted function with any other additional 
+computations.
 
 ## 📄 Citation
 If you found this library useful in your work, please cite (arXiv link):

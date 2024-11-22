@@ -98,8 +98,8 @@ Under the hood, `jpc.make_pc_step`
 > are already "jitted" (for increased performance) for the user's convenience.
 
 ## 🚀 Advanced usage
-More advanced users can access any of the functionality used by `jpc.make_pc_step`.
-A custom PC training step would look like the following
+Advanced users can access all the underlying functions of `jpc.make_pc_step` as 
+well as additional features. A custom PC training step looks like the following
 ```py
 import jpc
 
@@ -124,7 +124,8 @@ result = jpc.update_params(
     input=x
 )
 ```
-which can be embedded in a jitted function with any other additional computations.
+which can be embedded in a jitted function with any other additional 
+computations.
 
 ## 📄 Citation
 If you found this library useful in your work, please cite (arXiv link):
