@@ -19,7 +19,6 @@ def neg_activity_grad(
             str,
             AbstractStepSizeController
         ],
-        energy_fn: Callable = pc_energy_fn
 ) -> PyTree[Array]:
     """Computes the negative gradient of the energy with respect to the activities $- \partial \mathcal{F} / \partial \mathbf{z}$.
 
@@ -47,7 +46,7 @@ def neg_activity_grad(
 
     """
     params, y, x, loss_id, _ = args
-    dFdzs = grad(energy_fn, argnums=1)(
+    dFdzs = grad(pc_energy_fn, argnums=1)(
         params,
         activities,
         y,
@@ -62,8 +61,7 @@ def compute_activity_grad(
         activities: PyTree[ArrayLike],
         y: ArrayLike,
         x: Optional[ArrayLike],
-        loss_id: str = "MSE",
-        energy_fn: Callable = pc_energy_fn
+        loss_id: str = "MSE"
 ) -> PyTree[Array]:
     """Computes the gradient of the energy with respect to the activities $\partial \mathcal{F} / \partial \mathbf{z}$.
 
@@ -91,7 +89,7 @@ def compute_activity_grad(
     List of negative gradients of the energy w.r.t. the activities.
 
     """
-    energy, dFdzs = value_and_grad(energy_fn, argnums=1)(
+    energy, dFdzs = value_and_grad(pc_energy_fn, argnums=1)(
         params,
         activities,
         y,
