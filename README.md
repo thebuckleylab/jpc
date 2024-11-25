@@ -52,8 +52,8 @@ here).
 pip install --upgrade "jax[cuda12]"
 ```
 
-## 📖 Documentation
-Available at https://github.com/thebuckleylab.githhub.io/jpc.
+## 📖 [Documentation](https://thebuckleylab.github.io/jpc/)
+Available at https://thebuckleylab.github.io/jpc/.
 
 ## ⚡️ Quick example
 Use `jpc.make_pc_step` to update the parameters of any neural network compatible
