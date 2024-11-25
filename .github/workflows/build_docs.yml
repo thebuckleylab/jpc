@@ -36,4 +36,4 @@ jobs:
           mkdocs build  # twice, see https://github.com/patrick-kidger/pytkdocs_tweaks
 
       - name: Deploy docs
-      - run: mkdocs gh-deploy --force
+        run: mkdocs gh-deploy --force
