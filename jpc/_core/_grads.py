@@ -18,7 +18,7 @@ def neg_activity_grad(
             Optional[ArrayLike],
             str,
             AbstractStepSizeController
-        ],
+        ]
 ) -> PyTree[Array]:
     """Computes the negative gradient of the energy with respect to the activities $- \partial \mathcal{F} / \partial \mathbf{z}$.
 
@@ -35,10 +35,6 @@ def neg_activity_grad(
         (iii) network input (prior),
         (iv) Loss specified at the output layer (MSE vs cross-entropy), and
         (v) diffrax controller for step size integration.
-
-    **Other arguments:**
-
-    - `energy_fn`: Free energy to take the gradient of.
 
     **Returns:**
 

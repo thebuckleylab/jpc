@@ -1,4 +1,4 @@
-"""Functions to update activities and parameters of PCNs with Optax optimisers."""
+"""Functions to update activities and parameters of PC networks."""
 
 import equinox as eqx
 from ._grads import compute_activity_grad, compute_pc_param_grads

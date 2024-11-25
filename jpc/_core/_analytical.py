@@ -1,4 +1,4 @@
-"""Theoretical tools for predictive coding networks."""
+"""Theoretical tools for PC networks."""
 
 from jax import vmap
 import jax.numpy as jnp
@@ -75,7 +75,7 @@ def linear_equilib_energy_batch(
 
     **Returns:**
 
-    Mean total analytical energy across datasets batch.
+    Mean total analytical energy over a batch or dataset.
 
     """
     return vmap(lambda x, y: linear_equilib_energy_single(
