@@ -140,3 +140,6 @@ If you found this library useful in your work, please cite (arXiv link):
 }
 ```
 Also consider starring the repo! ⭐️ 
+
+## 🙏 Acknowledgements
+We are grateful to Patrick Kidger for early advice on how to use Diffrax.
