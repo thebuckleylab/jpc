@@ -99,7 +99,6 @@ nav:
     - ⚙️ How it works:
         - Basic usage: 'basic_usage.md'
         - Advanced usage: 'advanced_usage.md'
-        - Extending JPC: 'extending_jpc.md'
     - 📚 Examples:
         - Introductory:
             - Discriminative PC: 'examples/discriminative_pc.ipynb'
