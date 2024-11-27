@@ -100,7 +100,7 @@ Under the hood, `jpc.make_pc_step`
 
 See the [documentation](https://thebuckleylab.github.io/jpc/) for more details. 
 
-> **NOTE**: All convenience training and test functions including `make_pc_step` 
+> **NOTE**: All convenience training and test functions such as `make_pc_step` 
 > are already "jitted" (for optimised performance) for the user's convenience.
 
 ## 🚀 Advanced usage
