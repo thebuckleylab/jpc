@@ -130,18 +130,17 @@ If you found this library useful in your work, please cite (arXiv link):
 ```
 Also consider starring the project [on GitHub](https://github.com/thebuckleylab/jpc)! ⭐️ 
 
-## ⏭️ Next steps
-
-
 ## 🙏 Acknowledgements
 We are grateful to Patrick Kidger for early advice on how to use Diffrax.
 
 ## See also: other PC libraries
 JAX-based:
+
 * [pcx](https://github.com/liukidar/pcx)
 * [pyhgf](https://github.com/ComputationalPsychiatry/pyhgf)
 
 PyTorch-based:
+
 * [Torch2PC](https://github.com/RobertRosenbaum/Torch2PC)
 * [pypc](https://github.com/infer-actively/pypc)
 * [pybrid](https://github.com/alec-tschantz/pybrid)

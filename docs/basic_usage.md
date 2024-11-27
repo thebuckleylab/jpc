@@ -1,11 +1,10 @@
-!!! info 
+!!! info
     JPC provides two types of API depending on the use case:
 * a simple, high-level API that allows to train and test models with predictive 
-coding in a few lines of code
+coding in a few lines of code, and
 * a more advanced API offering greater flexibility as well as additional features.
 
 # Basic usage
-
 At a high level, JPC provides a single convenience function `jpc.make_pc_step` 
 to update the parameters of a neural network with PC.
 ```py
@@ -49,7 +48,7 @@ sense that it's split into callable layers (see the
 that the `input` is actually not needed for unsupervised training. In fact, 
 `jpc.make_pc_step` can be used for classification and generation tasks, for 
 supervised as well as unsupervised training (again see the [example notebooks
-](https://thebuckleylab.github.io/jpc/examples/discriminative_pc/)) 
+](https://thebuckleylab.github.io/jpc/examples/discriminative_pc/)). 
 
 Under the hood, `jpc.make_pc_step` uses [Diffrax
 ](https://github.com/patrick-kidger/diffrax) to solve the activity (inference) 
@@ -59,8 +58,8 @@ variety of metrics such as loss, accuracy, and energies. See the [docs
 ](https://thebuckleylab.github.io/jpc/api/Training/#jpc.make_pc_step) for more 
 details.
 
-A similar convenience function `jpc.make_hpc_step` is provided for training a 
-hybrid PCN (see [Tschantz et al., 2023
+A similar convenience function `jpc.make_hpc_step` is provided for updating the
+parameters of a hybrid PCN ([Tschantz et al., 2023
 ](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1011280)).
 ```py
 import jax.random as jr
