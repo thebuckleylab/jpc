@@ -19,7 +19,7 @@ equation (ODE) solvers to integrate the inference dynamics of PC networks
 (PCNs), which we find can provide significant speed-ups compared to standard 
 optimisers, especially for deeper models. 
 * JPC also provides some analytical tools that can be used to study and 
-diagnose issues with PCNs.
+potentially diagnose issues with PCNs.
 
 If you're new to JPC, we recommend starting from the [
 tutorial notebooks](https://thebuckleylab.github.io/jpc/examples/discriminative_pc/).
@@ -82,9 +82,6 @@ Under the hood, `jpc.make_pc_step`
 
 > **NOTE**: All convenience training and test functions such as `make_pc_step` 
 > are already "jitted" (for optimised performance) for the user's convenience.
-
-## 🧠️ Predictive coding primer
-...
 
 ## 🚀 Advanced usage
 Advanced users can access all the underlying functions of `jpc.make_pc_step` as 
