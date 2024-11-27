@@ -1,64 +1,95 @@
 !!! info 
     JPC provides two types of API depending on the use case:
-* a simple, basic API that allows to train and test models with predictive 
-coding with a few lines of code 
-  * a more advanced and flexible API allowing for 
-
-Describe purposes/use cases of both basic and advanced.
+    * a simple, high-level API that allows to train and test models with predictive 
+    coding in a few lines of code 
+    * a more advanced API offering greater flexibility as well as additional features.
 
 # Basic usage
 
-JPC provides a single convenience function `jpc.make_pc_step()` to train 
-predictive coding networks (PCNs) on classification and generation tasks, in a 
-supervised as well as unsupervised manner.
+At a high level, JPC provides a single convenience function `jpc.make_pc_step` 
+to update the parameters of a neural network with PC on classification and 
+generation tasks, in a supervised as well as unsupervised manner.
 ```py
-import jpc
-
-relu_net = jpc.get_fc_network(key, [10, 100, 100, 10], "relu")
-result = jpc.make_pc_step(
-      model=relu_net,
-      optim=optim,
-      opt_state=opt_state,
-      y=y,
-      x=x
-)
-```
-At a minimum, `jpc.make_pc_step()` takes a model, an optax optimiser and its 
-state, and an output target. Under the hood, `jpc.make_pc_step()` uses diffrax
-to solve the activity (inference) dynamics of PC. The arguments can be changed
-```py
-import jpc
-
-result = jpc.make_pc_step(
-      model=network,
-      optim=optim,
-      opt_state=opt_state,
-      y=y,
-      x=x,
-      solver=other_solver,
-      dt=1e-1,
-)
-```
-Moreover, 
-
-JPC provides a similar function for training a hybrid PCN
-```py
-import jax
+import jax.random as jr
 import jax.numpy as jnp
-from equinox import nn as nn
+import equinox as eqx
+import optax
+import jpc
 
-# some datasets
+# toy data
 x = jnp.array([1., 1., 1.])
 y = -x
 
-# network
-key = jax.random.key(0)
-_, *subkeys = jax.random.split(key)
-network = [nn.Sequential(
-    [
-        nn.Linear(3, 100, key=subkeys[0]), 
-        nn.Lambda(jax.nn.relu)],
-    ),
-    nn.Linear(100, 3, key=subkeys[1]),
-]
+# define model and optimiser
+key = jr.PRNGKey(0)
+model = jpc.make_mlp(key, layer_sizes=[3, 100, 100, 3], act_fn="tanh")
+optim = optax.adam(1e-3)
+opt_state = optim.init(
+    (eqx.filter(model, eqx.is_array), None)
+)
+
+# perform one training step with PC
+update_result = jpc.make_pc_step(
+    model=model,
+    optim=optim,
+    opt_state=opt_state,
+    output=y,
+    input=x
+)
+
+# updated model and optimiser
+model = update_result["model"]
+optim, opt_state = update_result["optim"], update_result["opt_state"]
 ```
+As shown above, at a minimum `jpc.make_pc_step` takes a model, an [Optax
+](https://github.com/google-deepmind/optax) optimiser and its 
+state, and some data. Note that the input (`y` above) is actually not needed for
+unsupervised training. Under the hood, `jpc.make_pc_step` uses [Diffrax
+](https://github.com/patrick-kidger/diffrax) to solve the activity (inference) 
+dynamics of PC. Many default arguments, for example related to the ODE solver,
+can be changed, including the ODE solver, and there is an option to record a 
+variety of metrics such as loss, accuracy, and energies. See the [docs
+](https://thebuckleylab.github.io/jpc/api/Training/#jpc.make_pc_step) for more 
+details.
+
+A similar convenience function `jpc.make_hpc_step` is provided for training a 
+hybrid PCN (see [Tschantz et al., 2023
+](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1011280)).
+```py
+import jax.random as jr
+import equinox as eqx
+import optax
+import jpc
+
+# models
+key = jr.PRNGKey(0)
+subkeys = jr.split(key, 2)
+layer_sizes = [3, 100, 100, 3]
+generator = jpc.make_mlp(subkeys[0], layer_sizes, "tanh")
+amortiser = jpc.make_mlp(subkeys[1], layer_sizes[::-1], "tanh")
+
+# optimisers
+gen_optim = optax.adam(1e-3)
+amort_optim = optax.adam(1e-3)
+gen_pt_state = gen_optim.init(
+    (eqx.filter(generator, eqx.is_array), None)
+)
+amort_opt_state = amort_optim.init(
+    eqx.filter(amortiser, eqx.is_array)
+)
+
+update_result = jpc.make_hpc_step(
+    generator=generator,
+    amortiser=amortiser,
+    optims=[gen_optim, amort_optim],
+    opt_states=[gen_opt_state, amort_opt_state],
+    output=y,
+    input=x
+)
+generator, amortiser = update_result["generator"], update_result["amortiser"]
+optims, opt_states = update_result["optims"], update_result["opt_states"]
+gen_loss, amort_loss = update_result["losses"]
+```
+See the [docs
+](https://thebuckleylab.github.io/jpc/api/Training/#jpc.make_hpc_step) for more 
+details.

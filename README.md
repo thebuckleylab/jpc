@@ -75,7 +75,7 @@ y = -x
 
 # define model and optimiser
 key = jr.PRNGKey(0)
-model = jpc.make_mlp(key, layer_sizes=[3, 5, 5, 3], act_fn="relu")
+model = jpc.make_mlp(key, layer_sizes=[3, 5, 5, 3], act_fn="tanh")
 optim = optax.adam(1e-3)
 opt_state = optim.init(
     (eqx.filter(model, eqx.is_array), None)
