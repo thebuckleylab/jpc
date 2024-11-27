@@ -110,7 +110,7 @@ nav:
     - 🌱 Basic API:
           - 'api/Training.md'
           - 'api/Testing.md'
-          - 'api/make_mlp.md'
+          - 'api/Utils.md'
     - 🚀 Advanced API:
         - 'api/Initialisation.md'
         - 'api/Energy functions.md'
