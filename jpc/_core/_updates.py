@@ -52,8 +52,8 @@ def update_activities(
         "energy": energy,
         "activities": activities,
         "activity_grads": activity_grads,
-        "activity_optim": optim,
-        "activity_opt_state": opt_state
+        "optim": optim,
+        "opt_state": opt_state
     }
 
 
@@ -102,6 +102,6 @@ def update_params(
         "model": model,
         "skip_model": skip_model,
         "param_grads": param_grads,
-        "param_optim": optim,
-        "param_opt_state": opt_state
+        "optim": optim,
+        "opt_state": opt_state
     }
