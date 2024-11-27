@@ -1,14 +1,13 @@
 !!! info 
     JPC provides two types of API depending on the use case:
-    * a simple, high-level API that allows to train and test models with predictive 
-    coding in a few lines of code 
-    * a more advanced API offering greater flexibility as well as additional features.
+* a simple, high-level API that allows to train and test models with predictive 
+coding in a few lines of code
+* a more advanced API offering greater flexibility as well as additional features.
 
 # Basic usage
 
 At a high level, JPC provides a single convenience function `jpc.make_pc_step` 
-to update the parameters of a neural network with PC on classification and 
-generation tasks, in a supervised as well as unsupervised manner.
+to update the parameters of a neural network with PC.
 ```py
 import jax.random as jr
 import jax.numpy as jnp
@@ -43,8 +42,16 @@ optim, opt_state = update_result["optim"], update_result["opt_state"]
 ```
 As shown above, at a minimum `jpc.make_pc_step` takes a model, an [Optax
 ](https://github.com/google-deepmind/optax) optimiser and its 
-state, and some data. Note that the input (`y` above) is actually not needed for
-unsupervised training. Under the hood, `jpc.make_pc_step` uses [Diffrax
+state, and some data. The model needs to be compatible with PC updates in the 
+sense that it's split into callable layers (see the 
+[example notebooks
+](https://thebuckleylab.github.io/jpc/examples/discriminative_pc/)). Also note 
+that the `input` is actually not needed for unsupervised training. In fact, 
+`jpc.make_pc_step` can be used for classification and generation tasks, for 
+supervised as well as unsupervised training (again see the [example notebooks
+](https://thebuckleylab.github.io/jpc/examples/discriminative_pc/)) 
+
+Under the hood, `jpc.make_pc_step` uses [Diffrax
 ](https://github.com/patrick-kidger/diffrax) to solve the activity (inference) 
 dynamics of PC. Many default arguments, for example related to the ODE solver,
 can be changed, including the ODE solver, and there is an option to record a 
@@ -91,5 +98,6 @@ optims, opt_states = update_result["optims"], update_result["opt_states"]
 gen_loss, amort_loss = update_result["losses"]
 ```
 See the [docs
-](https://thebuckleylab.github.io/jpc/api/Training/#jpc.make_hpc_step) for more 
-details.
+](https://thebuckleylab.github.io/jpc/api/Training/#jpc.make_hpc_step) and the
+[example notebook
+](https://thebuckleylab.github.io/jpc/examples/hybrid_pc/) for more details.
