@@ -21,6 +21,9 @@ optimisers, especially for deeper models.
 * JPC also provides some analytical tools that can be used to study and 
 diagnose issues with PCNs.
 
+If you're new to JPC, we recommend starting from the [
+tutorial notebooks](https://thebuckleylab.github.io/jpc/examples/discriminative_pc/).
+
 ## 💻 Installation
 ```
 pip install jpc
@@ -39,7 +42,7 @@ pip install --upgrade "jax[cuda12]"
 
 ## ⚡️ Quick example
 Use `jpc.make_pc_step` to update the parameters of any neural network compatible
-with PC updates (see examples)
+with PC updates (see [examples](https://thebuckleylab.github.io/jpc/examples/discriminative_pc/))
 ```py
 import jax.random as jr
 import jax.numpy as jnp
@@ -78,7 +81,7 @@ Under the hood, `jpc.make_pc_step`
 2. updates model parameters at the numerical solution of the activities with a given [Optax](https://github.com/google-deepmind/optax) optimiser.
 
 > **NOTE**: All convenience training and test functions including `make_pc_step` 
-> are already "jitted" (for increased performance) for the user's convenience.
+> are already "jitted" (for optimised performance) for the user's convenience.
 
 ## 🧠️ Predictive coding primer
 ...
@@ -132,3 +135,13 @@ Also consider starring the project [on GitHub](https://github.com/thebuckleylab/
 
 ## 🙏 Acknowledgements
 We are grateful to Patrick Kidger for early advice on how to use Diffrax.
+
+## See also: other PC libraries
+JAX-based:
+* [pcx](https://github.com/liukidar/pcx)
+* [pyhgf](https://github.com/ComputationalPsychiatry/pyhgf)
+
+PyTorch-based:
+* [Torch2PC](https://github.com/RobertRosenbaum/Torch2PC)
+* [pypc](https://github.com/infer-actively/pypc)
+* [pybrid](https://github.com/alec-tschantz/pybrid)

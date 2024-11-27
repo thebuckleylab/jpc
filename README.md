@@ -29,6 +29,9 @@ optimisers, especially for deeper models.
 * JPC also provides some analytical tools that can be used to study and 
 diagnose issues with PCNs.
 
+If you're new to JPC, we recommend starting from the [
+tutorial notebooks](https://thebuckleylab.github.io/jpc/examples/discriminative_pc/).
+
 ## Overview
 * [Installation](#installation)
 * [Documentation](#documentation)
@@ -57,7 +60,8 @@ Available at https://thebuckleylab.github.io/jpc/.
 
 ## ⚡️ Quick example
 Use `jpc.make_pc_step` to update the parameters of any neural network compatible
-with PC updates (see examples)
+with PC updates (see [examples
+](https://thebuckleylab.github.io/jpc/examples/discriminative_pc/))
 ```py
 import jax.random as jr
 import jax.numpy as jnp
@@ -94,8 +98,10 @@ Under the hood, `jpc.make_pc_step`
 1. integrates the inference (activity) dynamics using a [Diffrax](https://github.com/patrick-kidger/diffrax) ODE solver, and
 2. updates model parameters at the numerical solution of the activities with a given [Optax](https://github.com/google-deepmind/optax) optimiser.
 
+See the [documentation](https://thebuckleylab.github.io/jpc/) for more details. 
+
 > **NOTE**: All convenience training and test functions including `make_pc_step` 
-> are already "jitted" (for increased performance) for the user's convenience.
+> are already "jitted" (for optimised performance) for the user's convenience.
 
 ## 🚀 Advanced usage
 Advanced users can access all the underlying functions of `jpc.make_pc_step` as 
@@ -125,7 +131,8 @@ result = jpc.update_params(
 )
 ```
 which can be embedded in a jitted function with any other additional 
-computations.
+computations. Again, see the [docs](https://thebuckleylab.github.io/jpc/) 
+for details.
 
 ## 📄 Citation
 If you found this library useful in your work, please cite (arXiv link):
@@ -143,3 +150,13 @@ Also consider starring the repo! ⭐️
 
 ## 🙏 Acknowledgements
 We are grateful to Patrick Kidger for early advice on how to use Diffrax.
+
+## See also: other PC libraries
+JAX-based:
+* [pcx](https://github.com/liukidar/pcx)
+* [pyhgf](https://github.com/ComputationalPsychiatry/pyhgf)
+
+PyTorch-based:
+* [Torch2PC](https://github.com/RobertRosenbaum/Torch2PC)
+* [pypc](https://github.com/infer-actively/pypc)
+* [pybrid](https://github.com/alec-tschantz/pybrid)
