@@ -77,8 +77,8 @@ optim, opt_state = result["optim"], result["opt_state"]
 ```
 Under the hood, `jpc.make_pc_step`
 
-1. integrates the inference (activity) dynamics using a [Diffrax](https://github.com/patrick-kidger/diffrax) ODE solver, and
-2. updates model parameters at the numerical solution of the activities with a given [Optax](https://github.com/google-deepmind/optax) optimiser.
+1. integrates the inference (activity) dynamics using a [diffrax](https://github.com/patrick-kidger/diffrax) ODE solver, and
+2. updates model parameters at the numerical solution of the activities with a given [optax](https://github.com/google-deepmind/optax) optimiser.
 
 > **NOTE**: All convenience training and test functions such as `make_pc_step` 
 > are already "jitted" (for optimised performance) for the user's convenience.

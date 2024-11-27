@@ -39,7 +39,7 @@ update_result = jpc.make_pc_step(
 model = update_result["model"]
 optim, opt_state = update_result["optim"], update_result["opt_state"]
 ```
-As shown above, at a minimum `jpc.make_pc_step` takes a model, an [Optax
+As shown above, at a minimum `jpc.make_pc_step` takes a model, an [optax
 ](https://github.com/google-deepmind/optax) optimiser and its 
 state, and some data. The model needs to be compatible with PC updates in the 
 sense that it's split into callable layers (see the 
@@ -50,7 +50,7 @@ that the `input` is actually not needed for unsupervised training. In fact,
 supervised as well as unsupervised training (again see the [example notebooks
 ](https://thebuckleylab.github.io/jpc/examples/discriminative_pc/)). 
 
-Under the hood, `jpc.make_pc_step` uses [Diffrax
+Under the hood, `jpc.make_pc_step` uses [diffrax
 ](https://github.com/patrick-kidger/diffrax) to solve the activity (inference) 
 dynamics of PC. Many default arguments, for example related to the ODE solver,
 can be changed, including the ODE solver, and there is an option to record a 

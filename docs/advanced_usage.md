@@ -32,8 +32,10 @@ param_optim = param_update_result["optim"]
 param_opt_state = param_update_result["opt_state"]
 ```
 which can be embedded in a jitted function with any other additional 
-computations. One can also use any Optax optimiser to equilibrate the inference
-dynamics by replacing the function in step 2, as shown below.
+computations. One can also use any [optax
+](https://optax.readthedocs.io/en/latest/api/optimizers.html) optimiser to 
+equilibrate the inference dynamics by replacing the function in step 2, as 
+shown below.
 ```py
 activity_optim = optax.sgd(1e-3)
 
@@ -60,8 +62,11 @@ for t in range(T):
 # 3. update parameters at the activities' solution with PC
 ...
 ```
-JPC also comes with some analytical tools that can be used to study and 
-potentially diagnose issues with PCNs (see [docs
+See the [updates docs
+](https://thebuckleylab.github.io/jpc/api/Updates/) for more details. JPC also 
+comes with some analytical tools that can be used to study and potentially 
+diagnose issues with PCNs 
+(see [docs
 ](https://thebuckleylab.github.io/jpc/api/Analytical%20tools/) 
 and [example notebook
 ](https://thebuckleylab.github.io/jpc/examples/linear_net_theoretical_energy/)).

@@ -30,7 +30,8 @@ optimisers, especially for deeper models.
 diagnose issues with PCNs.
 
 If you're new to JPC, we recommend starting from the [
-tutorial notebooks](https://thebuckleylab.github.io/jpc/examples/discriminative_pc/).
+tutorial notebooks](https://thebuckleylab.github.io/jpc/examples/discriminative_pc/)
+and checking the [documentation](https://thebuckleylab.github.io/jpc/).
 
 ## Overview
 * [Installation](#installation)
@@ -60,7 +61,7 @@ Available at https://thebuckleylab.github.io/jpc/.
 
 ## ⚡️ Quick example
 Use `jpc.make_pc_step` to update the parameters of any neural network compatible
-with PC updates (see [examples
+with PC updates (see the [notebook examples
 ](https://thebuckleylab.github.io/jpc/examples/discriminative_pc/))
 ```py
 import jax.random as jr
@@ -95,8 +96,8 @@ model = result["model"]
 optim, opt_state = result["optim"], result["opt_state"]
 ```
 Under the hood, `jpc.make_pc_step`
-1. integrates the inference (activity) dynamics using a [Diffrax](https://github.com/patrick-kidger/diffrax) ODE solver, and
-2. updates model parameters at the numerical solution of the activities with a given [Optax](https://github.com/google-deepmind/optax) optimiser.
+1. integrates the inference (activity) dynamics using a [diffrax](https://github.com/patrick-kidger/diffrax) ODE solver, and
+2. updates model parameters at the numerical solution of the activities with a given [optax](https://github.com/google-deepmind/optax) optimiser.
 
 See the [documentation](https://thebuckleylab.github.io/jpc/) for more details. 
 
