@@ -49,8 +49,8 @@ def linear_equilib_energy_batch(
     $$
 
     where the rescaling is $S = I_{d_y} + \sum_{\ell=2}^L (W_{L:\ell})(W_{L:\ell})^T$,
-    and we use the shorthand $W_{L:\ell} = W_L W_{L-1} \dots W_\ell$.
-    See reference below.
+    and we use the shorthand $W_{k:\ell} = W_k \dots W_\ell$ for $\ell, k \in 1,\dots, L$.
+    See the reference below for more details.
 
     !!! note
 
