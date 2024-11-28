@@ -8,7 +8,7 @@ networks with PyTorch-like syntax,
 * [Diffrax](https://github.com/patrick-kidger/diffrax), to solve the PC inference (activity) dynamics, and
 * [Optax](https://github.com/google-deepmind/optax), for parameter optimisation.
 
-JPC provides a **simple**, **relatively fast** and **flexible** API for 
+JPC provides a **simple**, **fast** and **flexible** API for 
 training of a variety of PCNs including discriminative, generative and hybrid 
 models.
 
