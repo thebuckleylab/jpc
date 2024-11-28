@@ -30,7 +30,7 @@ optimisers, especially for deeper models.
 diagnose issues with PCNs.
 
 If you're new to JPC, we recommend starting from the [
-tutorial notebooks](https://thebuckleylab.github.io/jpc/examples/discriminative_pc/)
+example notebooks](https://thebuckleylab.github.io/jpc/examples/discriminative_pc/)
 and checking the [documentation](https://thebuckleylab.github.io/jpc/).
 
 ## Overview
