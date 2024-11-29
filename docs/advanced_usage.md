@@ -37,12 +37,12 @@ computations. One can also use any [optax
 equilibrate the inference dynamics by replacing the function in step 2, as 
 shown below.
 ```py
-activity_optim = optax.sgd(1e-3)
+activity_optim = optax.adam(1e-3)
 
 # 1. initialise activities
 ...
 
-# 2. infer with gradient descent
+# 2. infer with adam
 activity_opt_state = activity_optim.init(activities)
 
 for t in range(T):
