@@ -245,16 +245,16 @@ def train_mlp(
 
 
 if __name__ == "__main__":
-    RESULTS_DIR = "results"
-    DATASETS = ["MNIST", "Fashion-MNIST"]
+    RESULTS_DIR = "mlp_results"
+    DATASETS = ["MNIST", "Fashion-MNIST", "CIFAR10"]
     N_SEEDS = 3
 
     WIDTH = 300
-    N_HIDDENS = [3, 5]
+    N_HIDDENS = [3, 5, 10]
     ACT_FN = "tanh"
 
     ACTIVITY_OPTIMS_ID = [
-        "SGD", "Heun", "Euler"
+        "Heun", "Euler"
     ]
     MAX_T1S = [5, 10, 20, 50, 100, 200, 500]
     ACTIVITY_LRS = [5e-1, 1e-1, 5e-2]
