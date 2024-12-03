@@ -24,10 +24,9 @@ models.
 of code. 
 * Unlike existing implementations, JPC leverages ordinary differential 
 equation (ODE) solvers to integrate the inference dynamics of PC networks 
-(PCNs), which we find can provide significant speed-ups compared to standard 
-optimisers, especially for deeper models. 
-* JPC also provides some analytical tools that can be used to study and 
-diagnose issues with PCNs.
+(PCNs). 
+* JPC also provides some analytical tools that can be used to study and
+potentially diagnose issues with PCNs.
 
 If you're new to JPC, we recommend starting from the [
 example notebooks](https://thebuckleylab.github.io/jpc/examples/discriminative_pc/)
