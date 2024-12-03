@@ -253,9 +253,7 @@ if __name__ == "__main__":
     N_HIDDENS = [3, 5, 10]
     ACT_FN = "tanh"
 
-    ACTIVITY_OPTIMS_ID = [
-        "Heun", "Euler"
-    ]
+    ACTIVITY_OPTIMS_ID = ["Euler", "Heun"]
     MAX_T1S = [5, 10, 20, 50, 100, 200, 500]
     ACTIVITY_LRS = [5e-1, 1e-1, 5e-2]
 
