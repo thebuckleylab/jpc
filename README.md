@@ -1,5 +1,5 @@
 <p align='center'>
-  <a href='https://github.com/thebuckleylab/jpc'>
+  <a href='https://thebuckleylab.github.io/jpc/'>
     <img src='.github/logo-with-background.svg' />
   </a> 
 </p>
