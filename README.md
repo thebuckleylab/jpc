@@ -1,5 +1,5 @@
 <p align='center'>
-  <a href='https://github.com/infer-actively/pymdp'>
+  <a href='https://github.com/thebuckleylab/jpc'>
     <img src='.github/logo-with-background.svg' />
   </a> 
 </p>
