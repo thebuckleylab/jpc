@@ -12,8 +12,8 @@ JPC provides a **simple**, **fast** and **flexible** API for
 training of a variety of PCNs including discriminative, generative and hybrid 
 models.
 
-* Like JAX, JPC is completely functional, and the core library is <1000 lines 
-of code. 
+* Like JAX, JPC is completely functional in design, and the core library is
+<1000 lines of code. 
 * Unlike existing implementations, JPC leverages ordinary differential 
 equation (ODE) solvers to integrate the inference dynamics of PC networks 
 (PCNs). 
