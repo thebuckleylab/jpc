@@ -34,11 +34,12 @@ example notebooks](https://thebuckleylab.github.io/jpc/examples/discriminative_p
 and checking the [documentation](https://thebuckleylab.github.io/jpc/).
 
 ## Overview
-* [Installation](#installation)
-* [Documentation](#documentation)
-* [Quick example](#quick-example)
-* [Advanced usage](#advanced-usage)
-* [Citation](#citation)
+* [Installation](#💻-installation)
+* [Documentation](#📖-documentation)
+* [PC primer](#🧠-pc-primer)
+* [Quick example](#⚡️-quick-example)
+* [Advanced usage](#🚀-advanced-usage)
+* [Citation](#📄-citation)
 
 ## ️💻 Installation
 ```
