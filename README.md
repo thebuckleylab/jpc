@@ -36,7 +36,6 @@ and checking the [documentation](https://thebuckleylab.github.io/jpc/).
 ## Overview
 * [Installation](#-installation)
 * [Documentation](#-documentation)
-* [PC primer](#-pc-primer)
 * [Quick example](#-quick-example)
 * [Advanced usage](#-advanced-usage)
 * [Citation](#-citation)
@@ -59,9 +58,6 @@ pip install --upgrade "jax[cuda12]"
 
 ## 📖 [Documentation](https://thebuckleylab.github.io/jpc/)
 Available at https://thebuckleylab.github.io/jpc/.
-
-## 🧠 PC primer
-<img src="docs/_static/pc_primer.png" width="900">
 
 ## ⚡️ Quick example
 Use `jpc.make_pc_step` to update the parameters of any neural network compatible
