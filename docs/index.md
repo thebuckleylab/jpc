@@ -41,9 +41,6 @@ here).
 pip install --upgrade "jax[cuda12]"
 ```
 
-## 🧠 PC primer
-<img src="_static/pc_primer.png" width="900">
-
 ## ⚡️ Quick example
 Use `jpc.make_pc_step` to update the parameters of any neural network compatible
 with PC updates (see [examples](https://thebuckleylab.github.io/jpc/examples/discriminative_pc/))
