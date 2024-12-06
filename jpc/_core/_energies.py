@@ -47,17 +47,13 @@ def pc_energy_fn(
         'MSE' vs cross-entropy 'CE').
         ??? cite "Reference"
 
-        ```bibtex
-        @article{tscshantz2023hybrid,
-          title={Hybrid predictive coding: Inferring, fast and slow},
-          author={Tscshantz, Alexander and Millidge, Beren and Seth, Anil K and Buckley, Christopher L},
-          journal={PLoS Computational Biology},
-          volume={19},
-          number={8},
-          pages={e1011280},
-          year={2023},
-          publisher={Public Library of Science San Francisco, CA USA}
-        }
+            ```bibtex
+            @article{pinchetti2022predictive,
+              title={Predictive coding beyond gaussian distributions},
+              author={Pinchetti, Luca and Salvatori, Tommaso and Yordanov, Yordan and Millidge, Beren and Song, Yuhang and Lukasiewicz, Thomas},
+              journal={arXiv preprint arXiv:2211.03481},
+              year={2022}
+            }
         ```
     - `record_layers`: If `True`, returns energies for each layer.
 
