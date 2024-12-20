@@ -1,7 +1,7 @@
 [project]
 name = "jpc"
 version = "0.0.1"
-description = "Predictive coding networks in JAX."
+description = "Flexible Inference for Predictive Coding Networks in JAX."
 readme = "README.md"
 requires-python ="~=3.9"
 license = {file = "LICENSE"}
@@ -38,6 +38,10 @@ dependencies = [
     "optax>=0.2.4",
     "jaxtyping>=0.2.24"
 ]
+
+[project.urls]
+Repository = "https://github.com/thebuckleylab/jpc"
+Documentation = "https://thebuckleylab.github.io/jpc/"
 
 [build-system]
 requires = ["hatchling"]
