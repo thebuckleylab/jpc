@@ -137,7 +137,8 @@ computations. Again, see the [docs](https://thebuckleylab.github.io/jpc/)
 for details.
 
 ## 📄 Citation
-If you found this library useful in your work, please cite (arXiv link):
+If you found this library useful in your work, please cite (
+[arXiv link](https://arxiv.org/abs/2412.03676)):
 
 ```bibtex
 @article{innocenti2024jpc,
