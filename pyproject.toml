@@ -39,10 +39,6 @@ dependencies = [
     "jaxtyping>=0.2.24"
 ]
 
-[project.urls]
-Repository = "https://github.com/thebuckleylab/jpc"
-Documentation = "https://thebuckleylab.github.io/jpc/"
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
