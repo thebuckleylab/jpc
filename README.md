@@ -41,6 +41,7 @@ and checking the [documentation](https://thebuckleylab.github.io/jpc/).
 * [Citation](#-citation)
 
 ## ️💻 Installation
+Clone the repo and in the project's directory run
 ```
 pip install jpc
 ```

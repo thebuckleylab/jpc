@@ -25,6 +25,7 @@ If you're new to JPC, we recommend starting from the [
 example notebooks](https://thebuckleylab.github.io/jpc/examples/discriminative_pc/).
 
 ## 💻 Installation
+Clone the repo and in the project's directory run
 ```
 pip install jpc
 ```
