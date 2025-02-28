@@ -1,0 +1,1187 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="The documentation for the jpc software library.">
+      
+      
+      
+        <meta name="author" content="Francesco Innocenti">
+      
+      
+      <link rel="icon" href="../../_static/favicon.png">
+      <meta name="generator" content="mkdocs-1.3.0, mkdocs-material-7.3.6">
+    
+    
+      
+        <title>Hybrid PC - jpc</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.a57b2b03.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.3f5d1f46.min.css">
+        
+      
+    
+    
+    
+      
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,400i,700%7CRoboto+Mono&display=fallback">
+        <style>:root{--md-text-font-family:"Roboto";--md-code-font-family:"Roboto Mono"}</style>
+      
+    
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../../_static/custom_css.css">
+    
+      <link rel="stylesheet" href="../../css/ansi-colours.css">
+    
+      <link rel="stylesheet" href="../../css/jupyter-cells.css">
+    
+      <link rel="stylesheet" href="../../css/pandas-dataframe.css">
+    
+    
+      
+
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="orange">
+  
+    
+    <script>function __prefix(e){return new URL("../..",location).pathname+"."+e}function __get(e,t=localStorage){return JSON.parse(t.getItem(__prefix(e)))}</script>
+    
+      <script>var palette=__get("__palette");if(null!==palette&&"object"==typeof palette.color)for(var key in palette.color)document.body.setAttribute("data-md-color-"+key,palette.color[key])</script>
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#hybrid-pc-on-mnist" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="jpc" class="md-header__button md-logo" aria-label="jpc" data-md-component="logo">
+      <img id="logo_light_mode" src="../../_static/logo-light.svg" alt="logo">
+<img id="logo_dark_mode" src="../../_static/logo-dark.svg" alt="logo">
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            jpc
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Hybrid PC
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      <form class="md-header__option" data-md-component="palette">
+        
+          
+          
+          <input class="md-option" data-md-color-media="(prefers-color-scheme: default)" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+          
+            <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3 3.19.09m3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95 2.06.05m-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31z"/></svg>
+            </label>
+          
+        
+          
+          
+          <input class="md-option" data-md-color-media="(prefers-color-scheme: slate)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_2">
+          
+            <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5c-.84 0-1.65.15-2.39.42L12 2M3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29L3.34 7m.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14L3.36 17M20.65 7l-1.77 3.79a7.023 7.023 0 0 0-2.38-4.15l4.15.36m-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29L20.64 17M12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44L12 22z"/></svg>
+            </label>
+          
+        
+      </form>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5z"/></svg>
+      </label>
+      
+<div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" aria-label="Clear" tabindex="-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        
+<a href="https://github.com/thebuckleylab/jpc" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    thebuckleylab/jpc
+  </div>
+</a>
+
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="jpc" class="md-nav__button md-logo" aria-label="jpc" data-md-component="logo">
+      <img id="logo_light_mode" src="../../_static/logo-light.svg" alt="logo">
+<img id="logo_dark_mode" src="../../_static/logo-dark.svg" alt="logo">
+    </a>
+    jpc
+  </label>
+  
+    <div class="md-nav__source">
+      
+<a href="https://github.com/thebuckleylab/jpc" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    thebuckleylab/jpc
+  </div>
+</a>
+
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        Getting started
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2" type="checkbox" id="__nav_2" >
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_2">
+          ⚙️ How it works
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="⚙️ How it works" data-md-level="1">
+        <label class="md-nav__title" for="__nav_2">
+          <span class="md-nav__icon md-icon"></span>
+          ⚙️ How it works
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../basic_usage/" class="md-nav__link">
+        Basic usage
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../advanced_usage/" class="md-nav__link">
+        Advanced usage
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    
+      
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3">
+          📚 Examples
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="📚 Examples" data-md-level="1">
+        <label class="md-nav__title" for="__nav_3">
+          <span class="md-nav__icon md-icon"></span>
+          📚 Examples
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3_1" type="checkbox" id="__nav_3_1" >
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3_1">
+          Introductory
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Introductory" data-md-level="2">
+        <label class="md-nav__title" for="__nav_3_1">
+          <span class="md-nav__icon md-icon"></span>
+          Introductory
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../discriminative_pc/" class="md-nav__link">
+        Discriminative PC
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../supervised_generative_pc/" class="md-nav__link">
+        Supervised generative PC
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../unsupervised_generative_pc/" class="md-nav__link">
+        Unsupervised generative PC
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3_2" type="checkbox" id="__nav_3_2" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3_2">
+          Advanced
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Advanced" data-md-level="2">
+        <label class="md-nav__title" for="__nav_3_2">
+          <span class="md-nav__icon md-icon"></span>
+          Advanced
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          Hybrid PC
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        Hybrid PC
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#hyperparameters" class="md-nav__link">
+    Hyperparameters
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dataset" class="md-nav__link">
+    Dataset
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#train-and-test" class="md-nav__link">
+    Train and test
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#run" class="md-nav__link">
+    Run
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../linear_net_theoretical_energy/" class="md-nav__link">
+        Linear theoretical energy
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4" type="checkbox" id="__nav_4" >
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_4">
+          🌱 Basic API
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="🌱 Basic API" data-md-level="1">
+        <label class="md-nav__title" for="__nav_4">
+          <span class="md-nav__icon md-icon"></span>
+          🌱 Basic API
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/Training/" class="md-nav__link">
+        Training
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/Testing/" class="md-nav__link">
+        Testing
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/Utils/" class="md-nav__link">
+        Utils
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_5" type="checkbox" id="__nav_5" >
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5">
+          🚀 Advanced API
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="🚀 Advanced API" data-md-level="1">
+        <label class="md-nav__title" for="__nav_5">
+          <span class="md-nav__icon md-icon"></span>
+          🚀 Advanced API
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/Initialisation/" class="md-nav__link">
+        Initialisation
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/Energy%20functions/" class="md-nav__link">
+        Energy functions
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/Inference/" class="md-nav__link">
+        Inference
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/Gradients/" class="md-nav__link">
+        Gradients
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/Updates/" class="md-nav__link">
+        Updates
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/Analytical%20tools/" class="md-nav__link">
+        Analytical tools
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          <div class="md-content" data-md-component="content">
+            <article class="md-content__inner md-typeset">
+              
+                
+                
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+<script>
+(function() {
+  function addWidgetsRenderer() {
+    var requireJsScript = document.createElement('script');
+    requireJsScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js';
+
+    var mimeElement = document.querySelector('script[type="application/vnd.jupyter.widget-view+json"]');
+    var jupyterWidgetsScript = document.createElement('script');
+    var widgetRendererSrc = 'https://unpkg.com/@jupyter-widgets/html-manager@*/dist/embed-amd.js';
+    var widgetState;
+
+    // Fallback for older version:
+    try {
+      widgetState = mimeElement && JSON.parse(mimeElement.innerHTML);
+
+      if (widgetState && (widgetState.version_major < 2 || !widgetState.version_major)) {
+        widgetRendererSrc = 'jupyter-js-widgets@*/dist/embed.js';
+      }
+    } catch(e) {}
+
+    jupyterWidgetsScript.src = widgetRendererSrc;
+
+    document.body.appendChild(requireJsScript);
+    document.body.appendChild(jupyterWidgetsScript);
+  }
+
+  document.addEventListener('DOMContentLoaded', addWidgetsRenderer);
+}());
+</script>
+
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="hybrid-pc-on-mnist">Hybrid PC on MNIST<a class="headerlink" href="#hybrid-pc-on-mnist" title="Permanent link">¤</a></h1>
+<p><a href="https://colab.research.google.com/github/thebuckleylab/jpc/blob/main/examples/hybrid_pc.ipynb"><img alt="Open in Colab" src="https://colab.research.google.com/assets/colab-badge.svg" /></a></p>
+<p>This notebook demonstrates how to train a hybrid predictive coding network that can both generate and classify MNIST digits.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="highlight"><pre><span></span><code><span class="o">%%</span><span class="n">capture</span>
+<span class="err">!</span><span class="n">pip</span> <span class="n">install</span> <span class="n">torch</span><span class="o">==</span><span class="mf">2.3.1</span>
+<span class="err">!</span><span class="n">pip</span> <span class="n">install</span> <span class="n">torchvision</span><span class="o">==</span><span class="mf">0.18.1</span>
+<span class="err">!</span><span class="n">pip</span> <span class="n">install</span> <span class="n">matplotlib</span><span class="o">==</span><span class="mf">3.0.0</span>
+</code></pre></div>
+
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="highlight"><pre><span></span><code><span class="kn">import</span> <span class="nn">jpc</span>
+
+<span class="kn">import</span> <span class="nn">jax</span>
+<span class="kn">import</span> <span class="nn">jax.numpy</span> <span class="k">as</span> <span class="nn">jnp</span>
+<span class="kn">import</span> <span class="nn">equinox</span> <span class="k">as</span> <span class="nn">eqx</span>
+<span class="kn">import</span> <span class="nn">equinox.nn</span> <span class="k">as</span> <span class="nn">nn</span>
+<span class="kn">import</span> <span class="nn">optax</span>
+
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">torch.utils.data</span> <span class="kn">import</span> <span class="n">DataLoader</span>
+<span class="kn">from</span> <span class="nn">torchvision</span> <span class="kn">import</span> <span class="n">datasets</span><span class="p">,</span> <span class="n">transforms</span>
+
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="n">warnings</span><span class="o">.</span><span class="n">simplefilter</span><span class="p">(</span><span class="s1">&#39;ignore&#39;</span><span class="p">)</span>  <span class="c1"># ignore warnings</span>
+</code></pre></div>
+
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="hyperparameters">Hyperparameters<a class="headerlink" href="#hyperparameters" title="Permanent link">¤</a></h2>
+<p>We define some global parameters, including network architecture, learning rate, batch size, etc.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="highlight"><pre><span></span><code><span class="n">SEED</span> <span class="o">=</span> <span class="mi">0</span>
+
+<span class="n">LAYER_SIZES</span> <span class="o">=</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">784</span><span class="p">]</span>
+<span class="n">ACT_FN</span> <span class="o">=</span> <span class="s2">&quot;relu&quot;</span>
+
+<span class="n">LEARNING_RATE</span> <span class="o">=</span> <span class="mf">1e-3</span>
+<span class="n">BATCH_SIZE</span> <span class="o">=</span> <span class="mi">64</span>
+<span class="n">MAX_T1</span> <span class="o">=</span> <span class="mi">50</span>
+<span class="n">TEST_EVERY</span> <span class="o">=</span> <span class="mi">100</span>
+<span class="n">N_TRAIN_ITERS</span> <span class="o">=</span> <span class="mi">300</span>
+</code></pre></div>
+
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="dataset">Dataset<a class="headerlink" href="#dataset" title="Permanent link">¤</a></h2>
+<p>Some utils to fetch MNIST.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="highlight"><pre><span></span><code><span class="c1">#@title data utils</span>
+
+
+<span class="k">def</span> <span class="nf">get_mnist_loaders</span><span class="p">(</span><span class="n">batch_size</span><span class="p">):</span>
+    <span class="n">train_data</span> <span class="o">=</span> <span class="n">MNIST</span><span class="p">(</span><span class="n">train</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">normalise</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">test_data</span> <span class="o">=</span> <span class="n">MNIST</span><span class="p">(</span><span class="n">train</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">normalise</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">train_loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span>
+        <span class="n">dataset</span><span class="o">=</span><span class="n">train_data</span><span class="p">,</span>
+        <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">,</span>
+        <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">drop_last</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">)</span>
+    <span class="n">test_loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span>
+        <span class="n">dataset</span><span class="o">=</span><span class="n">test_data</span><span class="p">,</span>
+        <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">,</span>
+        <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">drop_last</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">train_loader</span><span class="p">,</span> <span class="n">test_loader</span>
+
+
+<span class="k">class</span> <span class="nc">MNIST</span><span class="p">(</span><span class="n">datasets</span><span class="o">.</span><span class="n">MNIST</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">train</span><span class="p">,</span> <span class="n">normalise</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">save_dir</span><span class="o">=</span><span class="s2">&quot;data&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">normalise</span><span class="p">:</span>
+            <span class="n">transform</span> <span class="o">=</span> <span class="n">transforms</span><span class="o">.</span><span class="n">Compose</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="n">transforms</span><span class="o">.</span><span class="n">ToTensor</span><span class="p">(),</span>
+                    <span class="n">transforms</span><span class="o">.</span><span class="n">Normalize</span><span class="p">(</span>
+                        <span class="n">mean</span><span class="o">=</span><span class="p">(</span><span class="mf">0.1307</span><span class="p">),</span> <span class="n">std</span><span class="o">=</span><span class="p">(</span><span class="mf">0.3081</span><span class="p">)</span>
+                    <span class="p">)</span>
+                <span class="p">]</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">transform</span> <span class="o">=</span> <span class="n">transforms</span><span class="o">.</span><span class="n">Compose</span><span class="p">([</span><span class="n">transforms</span><span class="o">.</span><span class="n">ToTensor</span><span class="p">()])</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">save_dir</span><span class="p">,</span> <span class="n">download</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">train</span><span class="o">=</span><span class="n">train</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="n">transform</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="p">):</span>
+        <span class="n">img</span><span class="p">,</span> <span class="n">label</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__getitem__</span><span class="p">(</span><span class="n">index</span><span class="p">)</span>
+        <span class="n">img</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="n">img</span><span class="p">)</span>
+        <span class="n">label</span> <span class="o">=</span> <span class="n">one_hot</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">img</span><span class="p">,</span> <span class="n">label</span>
+
+
+<span class="k">def</span> <span class="nf">one_hot</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">n_classes</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+    <span class="n">arr</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">n_classes</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">arr</span><span class="p">[</span><span class="n">labels</span><span class="p">]</span>
+
+
+<span class="k">def</span> <span class="nf">plot_mnist_imgs</span><span class="p">(</span><span class="n">imgs</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">n_imgs</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_imgs</span><span class="p">):</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_imgs</span><span class="p">,</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">xticks</span><span class="p">([])</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">yticks</span><span class="p">([])</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">imgs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">28</span><span class="p">,</span> <span class="mi">28</span><span class="p">),</span> <span class="n">cmap</span><span class="o">=</span><span class="n">plt</span><span class="o">.</span><span class="n">cm</span><span class="o">.</span><span class="n">binary_r</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)[</span><span class="n">i</span><span class="p">])</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</code></pre></div>
+
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="train-and-test">Train and test<a class="headerlink" href="#train-and-test" title="Permanent link">¤</a></h2>
+<p>Similar to a standard PC network, a hybrid model can be trained in a single line of code with <code>jpc.make_hpc_step()</code> (see the <a href="https://thebuckleylab.github.io/jpc/api/Training/#jpc.make_hpc_step">docs</a> for more details). Similarly, we can use <code>jpc.test_hpc()</code> to compute different test metrics (docs <a href="https://thebuckleylab.github.io/jpc/api/Testing/#jpc.test_hpc">here</a>). Note that these functions are already "jitted" for optimised performance. Below we simply wrap each of these functions in training and test loops, respectively.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="highlight"><pre><span></span><code><span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span>
+      <span class="n">key</span><span class="p">,</span>
+      <span class="n">layer_sizes</span><span class="p">,</span>
+      <span class="n">batch_size</span><span class="p">,</span>
+      <span class="n">generator</span><span class="p">,</span>
+      <span class="n">amortiser</span><span class="p">,</span>
+      <span class="n">test_loader</span>
+<span class="p">):</span>
+    <span class="n">amort_accs</span><span class="p">,</span> <span class="n">hpc_accs</span><span class="p">,</span> <span class="n">gen_accs</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">batch_id</span><span class="p">,</span> <span class="p">(</span><span class="n">img_batch</span><span class="p">,</span> <span class="n">label_batch</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">test_loader</span><span class="p">):</span>
+        <span class="n">img_batch</span><span class="p">,</span> <span class="n">label_batch</span> <span class="o">=</span> <span class="n">img_batch</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span> <span class="n">label_batch</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+
+        <span class="n">amort_acc</span><span class="p">,</span> <span class="n">hpc_acc</span><span class="p">,</span> <span class="n">gen_acc</span><span class="p">,</span> <span class="n">img_preds</span> <span class="o">=</span> <span class="n">jpc</span><span class="o">.</span><span class="n">test_hpc</span><span class="p">(</span>
+            <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span>
+            <span class="n">layer_sizes</span><span class="o">=</span><span class="n">layer_sizes</span><span class="p">,</span>
+            <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">,</span>
+            <span class="n">generator</span><span class="o">=</span><span class="n">generator</span><span class="p">,</span>
+            <span class="n">amortiser</span><span class="o">=</span><span class="n">amortiser</span><span class="p">,</span>
+            <span class="nb">input</span><span class="o">=</span><span class="n">label_batch</span><span class="p">,</span>
+            <span class="n">output</span><span class="o">=</span><span class="n">img_batch</span>
+        <span class="p">)</span>
+        <span class="n">amort_accs</span> <span class="o">+=</span> <span class="n">amort_acc</span>
+        <span class="n">hpc_accs</span> <span class="o">+=</span> <span class="n">hpc_acc</span>
+        <span class="n">gen_accs</span> <span class="o">+=</span> <span class="n">gen_acc</span>
+
+    <span class="k">return</span> <span class="p">(</span>
+        <span class="n">amort_accs</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">test_loader</span><span class="p">),</span>
+        <span class="n">hpc_accs</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">test_loader</span><span class="p">),</span>
+        <span class="n">gen_accs</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">test_loader</span><span class="p">),</span>
+        <span class="n">label_batch</span><span class="p">,</span>
+        <span class="n">img_preds</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">train</span><span class="p">(</span>
+      <span class="n">seed</span><span class="p">,</span>
+      <span class="n">layer_sizes</span><span class="p">,</span>
+      <span class="n">act_fn</span><span class="p">,</span>
+      <span class="n">batch_size</span><span class="p">,</span>
+      <span class="n">lr</span><span class="p">,</span>
+      <span class="n">max_t1</span><span class="p">,</span>
+      <span class="n">test_every</span><span class="p">,</span>
+      <span class="n">n_train_iters</span>
+<span class="p">):</span>
+    <span class="n">key</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">PRNGKey</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+    <span class="n">key</span><span class="p">,</span> <span class="o">*</span><span class="n">subkey</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+
+    <span class="n">generator</span> <span class="o">=</span> <span class="n">jpc</span><span class="o">.</span><span class="n">make_mlp</span><span class="p">(</span><span class="n">subkey</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">layer_sizes</span><span class="p">,</span> <span class="n">act_fn</span><span class="p">)</span>
+    <span class="n">amortiser</span> <span class="o">=</span> <span class="n">jpc</span><span class="o">.</span><span class="n">make_mlp</span><span class="p">(</span><span class="n">subkey</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">layer_sizes</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">act_fn</span><span class="p">)</span>
+
+    <span class="n">gen_optim</span> <span class="o">=</span> <span class="n">optax</span><span class="o">.</span><span class="n">adam</span><span class="p">(</span><span class="n">lr</span><span class="p">)</span>
+    <span class="n">amort_optim</span> <span class="o">=</span> <span class="n">optax</span><span class="o">.</span><span class="n">adam</span><span class="p">(</span><span class="n">lr</span><span class="p">)</span>
+    <span class="n">optims</span> <span class="o">=</span> <span class="p">[</span><span class="n">gen_optim</span><span class="p">,</span> <span class="n">amort_optim</span><span class="p">]</span>
+
+    <span class="n">gen_opt_state</span> <span class="o">=</span> <span class="n">gen_optim</span><span class="o">.</span><span class="n">init</span><span class="p">(</span>
+        <span class="p">(</span><span class="n">eqx</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">generator</span><span class="p">,</span> <span class="n">eqx</span><span class="o">.</span><span class="n">is_array</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">amort_opt_state</span> <span class="o">=</span> <span class="n">amort_optim</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="n">eqx</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">amortiser</span><span class="p">,</span> <span class="n">eqx</span><span class="o">.</span><span class="n">is_array</span><span class="p">))</span>
+    <span class="n">opt_states</span> <span class="o">=</span> <span class="p">[</span><span class="n">gen_opt_state</span><span class="p">,</span> <span class="n">amort_opt_state</span><span class="p">]</span>
+
+    <span class="n">train_loader</span><span class="p">,</span> <span class="n">test_loader</span> <span class="o">=</span> <span class="n">get_mnist_loaders</span><span class="p">(</span><span class="n">batch_size</span><span class="p">)</span>
+    <span class="k">for</span> <span class="nb">iter</span><span class="p">,</span> <span class="p">(</span><span class="n">img_batch</span><span class="p">,</span> <span class="n">label_batch</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">train_loader</span><span class="p">):</span>
+        <span class="n">img_batch</span><span class="p">,</span> <span class="n">label_batch</span> <span class="o">=</span> <span class="n">img_batch</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span> <span class="n">label_batch</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="n">jpc</span><span class="o">.</span><span class="n">make_hpc_step</span><span class="p">(</span>
+            <span class="n">generator</span><span class="o">=</span><span class="n">generator</span><span class="p">,</span>
+            <span class="n">amortiser</span><span class="o">=</span><span class="n">amortiser</span><span class="p">,</span>
+            <span class="n">optims</span><span class="o">=</span><span class="n">optims</span><span class="p">,</span>
+            <span class="n">opt_states</span><span class="o">=</span><span class="n">opt_states</span><span class="p">,</span>
+            <span class="nb">input</span><span class="o">=</span><span class="n">label_batch</span><span class="p">,</span>
+            <span class="n">output</span><span class="o">=</span><span class="n">img_batch</span><span class="p">,</span>
+            <span class="n">max_t1</span><span class="o">=</span><span class="n">max_t1</span>
+        <span class="p">)</span>
+        <span class="n">generator</span><span class="p">,</span> <span class="n">amortiser</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;generator&quot;</span><span class="p">],</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;amortiser&quot;</span><span class="p">]</span>
+        <span class="n">optims</span><span class="p">,</span> <span class="n">opt_states</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;optims&quot;</span><span class="p">],</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;opt_states&quot;</span><span class="p">]</span>
+        <span class="n">gen_loss</span><span class="p">,</span> <span class="n">amort_loss</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;losses&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="p">((</span><span class="nb">iter</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="n">test_every</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">amort_acc</span><span class="p">,</span> <span class="n">hpc_acc</span><span class="p">,</span> <span class="n">gen_acc</span><span class="p">,</span> <span class="n">label_batch</span><span class="p">,</span> <span class="n">img_preds</span> <span class="o">=</span> <span class="n">evaluate</span><span class="p">(</span>
+                <span class="n">key</span><span class="p">,</span>
+                <span class="n">layer_sizes</span><span class="p">,</span>
+                <span class="n">batch_size</span><span class="p">,</span>
+                <span class="n">generator</span><span class="p">,</span>
+                <span class="n">amortiser</span><span class="p">,</span>
+                <span class="n">test_loader</span>
+            <span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Iter </span><span class="si">{</span><span class="nb">iter</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">, gen loss=</span><span class="si">{</span><span class="n">gen_loss</span><span class="si">:</span><span class="s2">4f</span><span class="si">}</span><span class="s2">, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;amort loss=</span><span class="si">{</span><span class="n">amort_loss</span><span class="si">:</span><span class="s2">4f</span><span class="si">}</span><span class="s2">, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;avg amort test accuracy=</span><span class="si">{</span><span class="n">amort_acc</span><span class="si">:</span><span class="s2">4f</span><span class="si">}</span><span class="s2">, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;avg hpc test accuracy=</span><span class="si">{</span><span class="n">hpc_acc</span><span class="si">:</span><span class="s2">4f</span><span class="si">}</span><span class="s2">, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;avg gen test accuracy=</span><span class="si">{</span><span class="n">gen_acc</span><span class="si">:</span><span class="s2">4f</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="p">(</span><span class="nb">iter</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">n_train_iters</span><span class="p">:</span>
+                <span class="k">break</span>
+
+    <span class="n">plot_mnist_imgs</span><span class="p">(</span><span class="n">img_preds</span><span class="p">,</span> <span class="n">label_batch</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">amortiser</span><span class="p">,</span> <span class="n">generator</span>
+</code></pre></div>
+
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="run">Run<a class="headerlink" href="#run" title="Permanent link">¤</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="highlight"><pre><span></span><code><span class="n">network</span> <span class="o">=</span> <span class="n">train</span><span class="p">(</span>
+    <span class="n">seed</span><span class="o">=</span><span class="n">SEED</span><span class="p">,</span>
+    <span class="n">layer_sizes</span><span class="o">=</span><span class="n">LAYER_SIZES</span><span class="p">,</span>
+    <span class="n">act_fn</span><span class="o">=</span><span class="n">ACT_FN</span><span class="p">,</span>
+    <span class="n">batch_size</span><span class="o">=</span><span class="n">BATCH_SIZE</span><span class="p">,</span>
+    <span class="n">lr</span><span class="o">=</span><span class="n">LEARNING_RATE</span><span class="p">,</span>
+    <span class="n">max_t1</span><span class="o">=</span><span class="n">MAX_T1</span><span class="p">,</span>
+    <span class="n">test_every</span><span class="o">=</span><span class="n">TEST_EVERY</span><span class="p">,</span>
+    <span class="n">n_train_iters</span><span class="o">=</span><span class="n">N_TRAIN_ITERS</span>
+<span class="p">)</span>
+</code></pre></div>
+
+</div>
+<div class="output_wrapper">
+<div class="output">
+<div class="output_area">
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>
+<code>Iter 100, gen loss=0.592253, amort loss=0.053611, avg amort test accuracy=74.639420, avg hpc test accuracy=78.956329, avg gen test accuracy=78.345352, 
+Iter 200, gen loss=0.495099, amort loss=0.038817, avg amort test accuracy=84.585335, avg hpc test accuracy=82.061295, avg gen test accuracy=81.270035, 
+Iter 300, gen loss=0.555837, amort loss=0.040748, avg amort test accuracy=85.176285, avg hpc test accuracy=81.770836, avg gen test accuracy=80.869392, 
+</code>
+</pre>
+</div>
+</div>
+<div class="output_area">
+<div class="output_png output_subarea ">
+<img src="data:image/png;base64,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X/3VX8XixYubbhpmuF//9V+Pp556Kr785S/Hc889Fx/72Mfiox/9aBw+fLjppmEG2r17dzzyyCPx3e9+N5566qm4cuVKfOxjH4sLFy403TTMcNQ69Bv1Dk3YsWNHHDly5If/+5//+Z+mm4SbCM+K8wZarVar6Ua8G7z11ltx3333xd/93d/FZz/72Xjf+94XX/jCF5puFm4CAwMD8eSTT8YnP/nJppuCm9CSJUviL//yL+PXfu3Xmm4KZqA//uM/jm9/+9vx3//93003BTeRS5cuxfDwcHzjG9+Ij3/84z+c/v73vz8efPDB+OxnP9tg63AzOHHiRKxYsSJ2794dP/7jP950czBDUeswHVDvULfPfOYz8fWvfz2eeeaZppuCmxDPiieHv4RIeuSRR+LjH/94fPSjH226KQBQu7Gxsfja174WFy5ciPvvv7/p5mCG+rd/+7f4wAc+ED//8z8fK1asiHvvvTf+8R//selmYYa7evVqjI2Nxa233lqZPnfuXP7lHPri3LlzEXHtRT9QF2odpgPqHfrhtddeizVr1sSmTZviU5/6VBw4cKDpJuEmwbPiyeElRMLXvva1+N///d94/PHHm24KANTqueeei/nz58ecOXPiN37jN+LJJ5+Mu+++u+lmYYZ644034oknnogtW7bErl274jd/8zfjd37nd+Kf//mfm24aZrDh4eG4//7748/+7M9iZGQkxsbG4itf+Up85zvfiSNHjjTdPMxw4+Pj8eijj8YDDzwQ99xzT9PNwQxGrUPTqHfohw996EPxpS99Kf7jP/4jnnjiidi3b1985CMfidHR0aabhhmOZ8WTN9R0A6a7gwcPxu/+7u/GU089VfwrEgCYabZt2xbPPPNMnDt3Lv71X/81Hn744di9ezcvIlCL8fHx+MAHPhCf+9znIiLi3nvvjeeffz7+/u//Ph5++OGGW4eZ7Mtf/nL86q/+atx+++0xODgY9913Xzz00EOxZ8+eppuGGe6RRx6J559/nn+Jjr6g1qFJ1Dv0w4MPPvjD/79z58740Ic+FBs2bIh/+Zd/YUhh1IZnxb3hLyG62LNnTxw/fjzuu+++GBoaiqGhodi9e3f8zd/8TQwNDcXY2FjTTQSAKXPLLbfE5s2b4/3vf388/vjj8d73vjf++q//uulmYYZavXp18YLrrrvu4k+oUbs777wzdu/eHW+99VYcPHgwvve978WVK1di06ZNTTcNM9hv/dZvxb//+7/Hf/7nf8batWubbg5uAtQ6NIV6h6YsWrQotm7dGnv37m26KZjBeFbcG/4Soouf/umfjueee64y7dOf/nRs3749/uiP/igGBwcbahkA1G98fDzeeeedppuBGeqBBx6IV155pTLt1VdfjQ0bNjTUItxs5s2bF/PmzYszZ87Erl274i/+4i+abhJmoFarFb/9278dTz75ZHzrW9+KjRs3Nt0k3GSodegX6h2a9tZbb8Xrr78ev/RLv9R0UzCD8ay4N7yE6GJ4eLgYv3DevHmxdOlSxjVEbd56663Km/t9+/bFM888E0uWLIn169c32DLMZI899lg8+OCDsX79+hgdHY2vfvWr8a1vfSt27drVdNMwQ/3e7/1efPjDH47Pfe5z8Qu/8Avxve99L774xS/GF7/4xaabhhlu165d0Wq1Ytu2bbF37974wz/8w9i+fXt8+tOfbrppmIEeeeSR+OpXvxrf+MY3Ynh4OI4ePRoREQsXLoy5c+c23DrMZNQ69Bv1Dv32B3/wB/GJT3wiNmzYECMjI/Enf/InMTg4GA899FDTTcMMxrPi3vASApiGnn766fjJn/zJH37+/d///YiIePjhh+NLX/pSQ63CTHf8+PH45V/+5Thy5EgsXLgwdu7cGbt27Yqf+ZmfabppmKE++MEPxpNPPhmPPfZY/Omf/mls3LgxvvCFL8SnPvWpppuGGe7cuXPx2GOPxaFDh2LJkiXxcz/3c/Hnf/7nMXv27KabhhnoiSeeiIiIn/iJn6hM/6d/+qf4lV/5lf43CDcNah36jXqHfjt06FA89NBDcerUqVi+fHn82I/9WHz3u9+N5cuXN900AGKg1Wq1mm4EAAAAAAAAAACYeQimBgAAAAAAAAAAteAlBAAAAAAAAAAAqAUvIQAAAAAAAAAAQC14CQEAAAAAAAAAAGrBSwgAAAAAAAAAAFALXkIAAAAAAAAAAIBa8BICAAAAAAAAAADUgpcQAAAAAAAAAACgFryEAAAAAAAAAAAAteAlBAAAAAAAAAAAqAUvIQAAAAAAAAAAQC3+H0vyTvBqWArXAAAAAElFTkSuQmCC"
+>
+</div>
+</div>
+</div>
+</div>
+</div>
+                
+              
+              
+                
+
+
+              
+            </article>
+          </div>
+        </div>
+        
+      </main>
+      
+        
+<footer class="md-footer">
+  
+    <nav class="md-footer__inner md-grid" aria-label="Footer">
+      
+        
+        <a href="../unsupervised_generative_pc/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Unsupervised generative PC" rel="prev">
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+          </div>
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              Unsupervised generative PC
+            </div>
+          </div>
+        </a>
+      
+      
+        
+        <a href="../linear_net_theoretical_energy/" class="md-footer__link md-footer__link--next" aria-label="Next: Linear theoretical energy" rel="next">
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              Linear theoretical energy
+            </div>
+          </div>
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4z"/></svg>
+          </div>
+        </a>
+      
+    </nav>
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-footer-copyright">
+        
+          <div class="md-footer-copyright__highlight">
+            &copy; 2024 <a href="https://github.com/thebuckleylab"  target="_blank" rel="noopener">thebuckleylab</a>
+          </div>
+        
+        
+          Made with
+          <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+            Material for MkDocs
+          </a>
+        
+        
+      </div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.sections", "toc.integrate", "header.autohide"], "search": "../../assets/javascripts/workers/search.fcfe8b6d.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version.title": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.b1047164.min.js"></script>
+      
+        <script src="../../_static/mathjax.js"></script>
+      
+        <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>
