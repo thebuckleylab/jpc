@@ -153,12 +153,10 @@ Also consider starring the repo! ⭐️
 ## 🙏 Acknowledgements
 We are grateful to Patrick Kidger for early advice on how to use Diffrax.
 
-## See also: other PC libraries
-JAX-based:
-* [pcx](https://github.com/liukidar/pcx)
-* [pyhgf](https://github.com/ComputationalPsychiatry/pyhgf)
-
-PyTorch-based:
-* [Torch2PC](https://github.com/RobertRosenbaum/Torch2PC)
-* [pypc](https://github.com/infer-actively/pypc)
-* [pybrid](https://github.com/alec-tschantz/pybrid)
+## See also: other libraries
+* [ngc-learn](https://github.com/NACLab/ngc-learn) (jax & pytorch)
+* [pcx](https://github.com/liukidar/pcx) (jax)
+* [pyhgf](https://github.com/ComputationalPsychiatry/pyhgf) (jax)
+* [Torch2PC](https://github.com/RobertRosenbaum/Torch2PC) (pytorch)
+* [pypc](https://github.com/infer-actively/pypc) (pytorch)
+* [pybrid](https://github.com/alec-tschantz/pybrid) (pytorch)
