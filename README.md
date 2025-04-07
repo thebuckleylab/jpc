@@ -153,7 +153,7 @@ Also consider starring the repo! ⭐️
 ## 🙏 Acknowledgements
 We are grateful to Patrick Kidger for early advice on how to use Diffrax.
 
-## See also: other libraries
+## See also: other PC libraries
 * [ngc-learn](https://github.com/NACLab/ngc-learn) (jax & pytorch)
 * [pcx](https://github.com/liukidar/pcx) (jax)
 * [pyhgf](https://github.com/ComputationalPsychiatry/pyhgf) (jax)
