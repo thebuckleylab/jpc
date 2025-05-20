@@ -2,7 +2,7 @@
 
 <p align='center'>
   <a href='https://thebuckleylab.github.io/jpc/'>
-    <img src='.github/mupc_spotlight_fig.png' />
+    <img src='mupc_spotlight_fig.png' />
   </a> 
 </p>
 
@@ -37,17 +37,17 @@ We recommend using a GPU for the experiments with 64- and 128-layer networks.
 
 ## Scripts
 * `train_pcn_no_metrics.py`: This is the main script that was used to produce
-results for Figs. 1, 5, & A.18-A.19.
+results for Figs. 1, 5, & A.16-A.18.
 * `analyse_activity_hessian`: This script can be used to reproduce results 
 related to spectral properties of the activity Hessian at initialisation 
-(Figs. 2 & 4, & Figs. A.1-A.7, A.14 & A.24).
+(Figs. 2 & 4, & Figs. A.1-A.7, A.12 & A.21).
 * `train_pcn.py`: This was mainly used to monitor the condition number of the
-activity Hessian during training (Figs. 3, A.11-A.12, A.15-A.16, A.23, A.25-A.28). 
+activity Hessian during training (Figs. 3, A.8-A.9, A.13-A.14,, A.22-A.28). 
 * `test_energy_theory.py`: This can be used to reproduce results related to
-the convergence behaviour of $\mu$PC to BP shown in Section 6 
-(Figs. 6 & A.30-A.33).
+the convergence behaviour of μPC to BP shown in Section 6 
+(Figs. 6 & A.32-A.33).
 * `train_bpn.py`: Used to obtain all the results with backprop. 
-* `test_mlp_fwd_pass.py`: Used for results of Fig. A.13.
+* `test_mlp_fwd_pass.py`: Used for results of Fig. A.29.
 * `toy_experiments.py`: Used for many secondary results in the Appendix. 
 
 The majority of results are plotted in `plot_results.ipynb` under informative
