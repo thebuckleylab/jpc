@@ -142,37 +142,17 @@ def init_activities_with_amort(
 
 def _get_scalings(model, skip_model, input, param_type):
     L = len(model)
-    #L = sum(l is not None for l in skip_model)
-    is_cnn = len(input.shape) == 4
 
     if param_type == "SP":
         scalings = [1] + [1] * (L-2) + [1]
 
     else:
-        if is_cnn:
-            scalings = []
-            for i, layer in enumerate(model[:-1]):
-                try:
-                    nonlin = layer[0].fn.__name__
-                    gain = calculate_gain(nonlin)
-                except:
-                    gain = 1
-                    
-                Cxkxk = math.prod(layer[1].weight.shape[1:])
-                al = gain / sqrt(Cxkxk) if skip_model[i] is None else gain / sqrt(Cxkxk * L)
-                scalings.append(al)
-
-            N = model[-1][1].weight.shape[1]
-            aL = 1 / N if param_type == "μP" else 1 / sqrt(N)
-            scalings.append(aL)
-    
-        else:
-            D = input.shape[1]
-            N = model[0][1].weight.shape[0]
-            
-            a1 = 1 / sqrt(D)
-            al = 1 / sqrt(N) if skip_model is None else 1 / sqrt(N * L)
-            aL = 1 / N if param_type == "μP" else 1 / sqrt(N)
-            scalings = [a1] + [al] * (L-2) + [aL]
+        D = input.shape[1]
+        N = model[0][1].weight.shape[0]
+        
+        a1 = 1 / sqrt(D)
+        al = 1 / sqrt(N) if skip_model is None else 1 / sqrt(N * L)
+        aL = 1 / N if param_type == "μP" else 1 / sqrt(N)
+        scalings = [a1] + [al] * (L-2) + [aL]
 
     return scalings

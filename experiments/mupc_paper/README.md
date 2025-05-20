@@ -1,7 +1,14 @@
-# $\mu$PC paper
+# μPC paper
+
+<p align='center'>
+  <a href='https://thebuckleylab.github.io/jpc/'>
+    <img src='.github/mupc_spotlight_fig.svg' />
+  </a> 
+</p>
 
 This folder contains code to reproduce all the experiments of the paper 
-"$\mu$PC": Scaling Predictive Coding to 100+ Layer Networks.
+["μPC": Scaling Predictive Coding to 100+ Layer Networks](https://arxiv.org/abs/2505.13124).
+For a high-level summary, see [this blog post](https://francesco-innocenti.github.io/posts/2025/05/20/Scaling-Predictive-Coding-to-100+-Layer-Networks/).
 
 
 ## Setup
