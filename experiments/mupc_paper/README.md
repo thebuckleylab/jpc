@@ -1,10 +1,6 @@
 # μPC paper
 
-<p align='center'>
-  <a href='https://thebuckleylab.github.io/jpc/'>
-    <img src='mupc_spotlight_fig.png' />
-  </a> 
-</p>
+[![μPC enables stable training of 100+ layer ResNets with zero-shot learning rate transfer.](mupc_spotlight_fig.png)](https://thebuckleylab.github.io/jpc/)
 
 This folder contains code to reproduce all the experiments of the paper 
 ["μPC": Scaling Predictive Coding to 100+ Layer Networks](https://arxiv.org/abs/2505.13124).
