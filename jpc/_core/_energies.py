@@ -1,8 +1,9 @@
 """Energy functions for predictive coding networks."""
 
 from jax import vmap
-from jax.numpy import sum, array, log
-from jax.nn import softmax
+from jax.numpy import sum, array, eye
+from ._init import _get_scalings
+from jax.nn import log_softmax
 from jaxtyping import PyTree, ArrayLike, Scalar, Array
 from typing import Tuple, Callable, Optional
 
@@ -12,8 +13,13 @@ def pc_energy_fn(
         activities: PyTree[ArrayLike],
         y: ArrayLike,
         x: Optional[ArrayLike] = None,
+        n_skip: int = 0,
         loss: str = "MSE",
-        record_layers: bool = False
+        param_type: str = "SP",
+        weight_decay: Scalar = 0.,
+        spectral_penalty: Scalar = 0.,
+        activity_decay: Scalar = 0.,
+        record_layers: bool = False,
 ) -> Scalar | Array:
     """Computes the free energy for a feedforward neural network of the form
 
@@ -45,16 +51,6 @@ def pc_energy_fn(
 
     - `loss`: Loss function to use at the output layer (mean squared error
         'MSE' vs cross-entropy 'CE').
-        ??? cite "Reference"
-
-            ```bibtex
-            @article{pinchetti2022predictive,
-              title={Predictive coding beyond gaussian distributions},
-              author={Pinchetti, Luca and Salvatori, Tommaso and Yordanov, Yordan and Millidge, Beren and Song, Yuhang and Lukasiewicz, Thomas},
-              journal={arXiv preprint arXiv:2211.03481},
-              year={2022}
-            }
-        ```
     - `record_layers`: If `True`, returns energies for each layer.
 
     **Returns:**
@@ -66,45 +62,74 @@ def pc_energy_fn(
     batch_size = y.shape[0]
     start_activity_l = 1 if x is not None else 2
     n_activity_layers = len(activities) - 1
-    n_layers = len(model) - 1
+    n_hidden = len(model) - 1
+
     if skip_model is None:
         skip_model = [None] * len(model)
 
-    if loss == "MSE":
-        eL = y - vmap(model[-1])(activities[-2])
-    elif loss == "CE":
-        logits = vmap(model[-1])(activities[-2])
-        probs = softmax(logits, axis=-1)
-        eL = - sum(y * log(probs + 1e-10), axis=-1)
+    scalings = _get_scalings(
+        model=model, 
+        skip_model=skip_model, 
+        input=x, 
+        param_type=param_type
+    )
 
-    energies = [sum(eL ** 2)]
+    if loss == "MSE":
+        eL = y - scalings[-1] * vmap(model[-1])(activities[-2])
+        energies = [0.5 * sum(eL ** 2)]
+
+    elif loss == "CE":
+        logits = scalings[-1] * vmap(model[-1])(activities[-2])
+        energies = [- sum(y * log_softmax(logits))]
 
     for act_l, net_l in zip(
             range(start_activity_l, n_activity_layers),
-            range(1, n_layers)
+            range(1, n_hidden)
     ):
-        err = activities[act_l] - vmap(model[net_l])(activities[act_l - 1])
+        err = activities[act_l] - scalings[net_l] * vmap(model[net_l])(activities[act_l - 1])
         if skip_model[net_l] is not None:
-            err -= vmap(skip_model[net_l])(activities[act_l - 1])
+            err -= vmap(skip_model[net_l])(activities[act_l - n_skip])
 
-        energies.append(sum(err ** 2))
+        energies.append(0.5 * sum(err ** 2))
 
     if x is not None:
-        main_pred = vmap(model[0])(x)
-        skip_pred = vmap(skip_model[0])(x) if skip_model[0] is not None else 0
-        e1 = activities[0] - main_pred - skip_pred
+        e1 = activities[0] - scalings[0] * vmap(model[0])(x)
     else:
-        main_pred = vmap(model[0])(activities[0])
-        skip_pred = (vmap(skip_model[0])(activities[0])
-                     if skip_model[0] is not None else 0)
-        e1 = activities[1] - main_pred - skip_pred
+        e1 = activities[1] - vmap(model[0])(activities[0])
 
-    energies.append(sum(e1 ** 2))
+    energies.append(0.5 * sum(e1 ** 2))
+
+    weight_reg = 0.
+    if weight_decay > 0.:
+        for layer in model:
+            if hasattr(layer, "weight"):
+                W = layer.weight
+                weight_reg += sum(W ** 2)
+        weight_reg *= weight_decay / 2
+
+    spectral_reg = 0.
+    if spectral_penalty > 0.:
+        for layer in model:
+            if hasattr(layer, "weight"):
+                W = layer.weight
+                WT_W_I = W.T @ W - eye(W.shape[1])
+                spectral_reg += sum(WT_W_I ** 2)
+        spectral_reg *= spectral_penalty / 2
+
+    activity_reg = 0.
+    if activity_decay > 0.:
+        for activity in activities:
+            mean_squared_l2 = (sum(activity ** 2, axis=1)).mean()
+            activity_reg += mean_squared_l2
+        activity_reg *= activity_decay / 2
+
+    reg_terms = weight_reg + spectral_reg + activity_reg
+    total_energy = (sum(array(energies)) / batch_size) + reg_terms
 
     if record_layers:
         return array(energies) / batch_size
     else:
-        return sum(array(energies)) / batch_size
+        return total_energy
 
 
 def hpc_energy_fn(

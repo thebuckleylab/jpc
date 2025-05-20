@@ -25,8 +25,10 @@ def test_discriminative_pc(
         model: PyTree[Callable],
         output: ArrayLike,
         input: ArrayLike,
+        skip_model: Optional[PyTree[Callable]] = None,
+        n_skip: int = 0,
         loss: str = "MSE",
-        skip_model: Optional[PyTree[Callable]] = None
+        param_type: str = "SP"
 ) -> Tuple[Scalar, Scalar]:
     """Computes test metrics for a discriminative predictive coding network.
 
@@ -50,7 +52,9 @@ def test_discriminative_pc(
     preds = init_activities_with_ffwd(
         model=model,
         input=input,
-        skip_model=skip_model
+        skip_model=skip_model,
+        n_skip=n_skip,
+        param_type=param_type
     )[-1]
 
     if loss == "MSE":

@@ -22,7 +22,9 @@ def solve_inference(
         activities: PyTree[ArrayLike],
         output: ArrayLike,
         input: Optional[ArrayLike] = None,
+        n_skip: int = 0,
         loss_id: str = "MSE",
+        param_type: str = "SP",
         solver: AbstractSolver = Heun(),
         max_t1: int = 20,
         dt: float | int = None,
@@ -38,7 +40,7 @@ def solve_inference(
     ODE system `_neg_activity_grad` defining the PC inference dynamics
 
     $$
-    \partial \mathbf{z} / \partial t = - \partial \mathcal{F} / \partial \mathbf{z}
+    d\mathbf{z} / dt = - \partial \mathcal{F} / \partial \mathbf{z}
     $$
 
     where $\mathcal{F}$ is the free energy, $\mathbf{z}$ are the activities,
@@ -87,7 +89,7 @@ def solve_inference(
         t1=max_t1,
         dt0=dt,
         y0=activities,
-        args=(params, output, input, loss_id, stepsize_controller),
+        args=(params, output, input, n_skip, loss_id, param_type, stepsize_controller),
         stepsize_controller=stepsize_controller,
         event=Event(steady_state_event_with_timeout),
         saveat=saveat

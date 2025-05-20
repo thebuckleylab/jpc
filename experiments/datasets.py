@@ -1,9 +1,19 @@
+import jax.random as jr
+import jax.numpy as jnp
+
 import torch
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
 
 DATA_DIR = "datasets"
+IMAGENET_DIR = f"~/projects/jpc/experiments/{DATA_DIR}/ImageNet"
+
+
+def make_gaussian_dataset(key, mean, std, shape):
+    x = mean + std * jr.normal(key, shape)
+    y = x
+    return (x, y)
 
 
 def get_dataloaders(dataset_id, batch_size, flatten=True):
@@ -46,6 +56,27 @@ def get_dataset(id, train, normalise, flatten=True):
             "Invalid dataset ID. Options are 'MNIST', 'Fashion-MNIST' and 'CIFAR10'"
         )
     return dataset
+
+
+def get_imagenet_loaders(batch_size):
+    train_data, val_data = ImageNet(split="train"), ImageNet(split="val")
+    train_loader = DataLoader(
+        dataset=train_data,
+        batch_size=batch_size,
+        shuffle=True,
+        drop_last=True,
+        num_workers=32,
+        persistent_workers=True
+    )
+    val_loader = DataLoader(
+        dataset=val_data,
+        batch_size=batch_size,
+        shuffle=True,
+        drop_last=True,
+        num_workers=32,
+        persistent_workers=True
+    )
+    return train_loader, val_loader
 
 
 class MNIST(datasets.MNIST):
@@ -102,10 +133,15 @@ class CIFAR10(datasets.CIFAR10):
         if normalise:
             transform = transforms.Compose(
                 [
+                    transforms.RandomResizedCrop(32),
+                    transforms.RandomHorizontalFlip(),
+                    transforms.RandomRotation(degrees=10),
+                    #transforms.RandomAffine(degrees=10, translate=(0.1, 0.1), scale=(0.8, 1.2), shear=10),
+                    #transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
                     transforms.ToTensor(),
                     transforms.Normalize(
                         mean=(0.4914, 0.4822, 0.4465),
-                        std=(0.247, 0.243, 0.261)
+                        std=(0.2470, 0.2435, 0.2616)
                     )
                 ]
             )
@@ -118,6 +154,38 @@ class CIFAR10(datasets.CIFAR10):
         if self.flatten:
             img = torch.flatten(img)
         label = one_hot(label)
+        return img, label
+
+
+class ImageNet(datasets.ImageNet):
+    def __init__(self, split):
+        if split == "train":
+            transform = transforms.Compose([
+                transforms.RandomResizedCrop(224),
+                transforms.RandomHorizontalFlip(),
+                transforms.ColorJitter(0.4, 0.4, 0.4, 0.1),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406],
+                    std=[0.229, 0.224, 0.225])
+            ])
+        elif split == "val":
+            transform = transforms.Compose(
+                [
+                    transforms.Resize(256),
+                    transforms.CenterCrop(224),
+                    transforms.ToTensor(),
+                    transforms.Normalize(
+                        mean=[0.485, 0.456, 0.406],
+                        std=[0.229, 0.224, 0.225]
+                    ),
+                ]
+            )
+        super().__init__(root=IMAGENET_DIR, split=split, transform=transform)
+
+    def __getitem__(self, index):
+        img, label = super().__getitem__(index)
+        label = one_hot(label, n_classes=1000)
         return img, label
 
 

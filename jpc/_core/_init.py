@@ -1,14 +1,21 @@
 """Functions to initialise layer activities of predictive coding networks."""
 
+import math
 from jax import vmap, random
+from jax.numpy import sqrt
+import equinox as eqx
+from torch.nn.init import calculate_gain
 from jaxtyping import PyTree, ArrayLike, Array, PRNGKeyArray, Scalar
 from typing import Callable, Optional
 
 
+@eqx.filter_jit
 def init_activities_with_ffwd(
         model: PyTree[Callable],
         input: ArrayLike,
-        skip_model: Optional[PyTree[Callable]] = None
+        skip_model: Optional[PyTree[Callable]] = None,
+        n_skip: int = 0,
+        param_type: str = "SP"
 ) -> PyTree[Array]:
     """Initialises layers' activity with a feedforward pass
     $\{ f_\ell(\mathbf{z}_{\ell-1}) \}_{\ell=1}^L$ where $\mathbf{z}_0 = \mathbf{x}$ is
@@ -28,23 +35,31 @@ def init_activities_with_ffwd(
     List with activity values of each layer.
 
     """
+    L = len(model)
     if skip_model is None:
         skip_model = [None] * len(model)
+        
+    scalings = _get_scalings(
+        model=model, 
+        skip_model=skip_model, 
+        input=input, 
+        param_type=param_type
+    )
 
-    first_layer_output = vmap(model[0])(input)
+    z1 = scalings[0] * vmap(model[0])(input)
     if skip_model[0] is not None:
-        first_layer_output += vmap(skip_model[0])(input)
+        z1 += vmap(skip_model[0])(input)
 
-    activities = [first_layer_output]
-    for l in range(1, len(model)):
-        layer_output = vmap(model[l])(activities[l - 1])
+    activities = [z1]
+    for l in range(1, L):
+        zl = scalings[l] * vmap(model[l])(activities[l - 1])
 
         if skip_model[l] is not None:
-            skip_output = vmap(skip_model[l])(activities[l - 1])
-            layer_output += skip_output
+            skip_output = vmap(skip_model[l])(activities[l - n_skip])
+            zl += skip_output
 
-        activities.append(layer_output)
-
+        activities.append(zl)
+    
     return activities
 
 
@@ -123,3 +138,41 @@ def init_activities_with_amort(
         vmap(generator[-1])(activities[-1])
     )
     return activities
+
+
+def _get_scalings(model, skip_model, input, param_type):
+    L = len(model)
+    #L = sum(l is not None for l in skip_model)
+    is_cnn = len(input.shape) == 4
+
+    if param_type == "SP":
+        scalings = [1] + [1] * (L-2) + [1]
+
+    else:
+        if is_cnn:
+            scalings = []
+            for i, layer in enumerate(model[:-1]):
+                try:
+                    nonlin = layer[0].fn.__name__
+                    gain = calculate_gain(nonlin)
+                except:
+                    gain = 1
+                    
+                Cxkxk = math.prod(layer[1].weight.shape[1:])
+                al = gain / sqrt(Cxkxk) if skip_model[i] is None else gain / sqrt(Cxkxk * L)
+                scalings.append(al)
+
+            N = model[-1][1].weight.shape[1]
+            aL = 1 / N if param_type == "μP" else 1 / sqrt(N)
+            scalings.append(aL)
+    
+        else:
+            D = input.shape[1]
+            N = model[0][1].weight.shape[0]
+            
+            a1 = 1 / sqrt(D)
+            al = 1 / sqrt(N) if skip_model is None else 1 / sqrt(N * L)
+            aL = 1 / N if param_type == "μP" else 1 / sqrt(N)
+            scalings = [a1] + [al] * (L-2) + [aL]
+
+    return scalings

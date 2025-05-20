@@ -20,6 +20,6 @@ from ._updates import (
 )
 from ._analytical import (
     linear_equilib_energy_batch as linear_equilib_energy,
-    linear_activities_coeff_matrix as linear_activities_coeff_matrix,
+    linear_activities_hessian as linear_activities_hessian,
     linear_activities_solution_batch as linear_activities_solution
 )

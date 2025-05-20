@@ -78,8 +78,40 @@ def make_mlp(
     return layers
 
 
+def make_mlp_preactiv(key, d_in, N, L, d_out, act_fn, use_bias=False):
+    subkeys = jax.random.split(key, L)
+    layers = []
+    for i in range(L):
+        act_fn_l = nn.Identity() if i == 0 else act_fn
+        _in = d_in if i == 0 else N
+        _out = d_out if (i + 1) == L else N
+        layer = nn.Sequential(
+            [
+                nn.Lambda(act_fn_l),
+                nn.Linear(
+                    _in,
+                    _out,
+                    use_bias=use_bias,
+                    key=subkeys[i]
+                )
+            ]
+        )
+        layers.append(layer)
+
+    return layers
+
+
+def make_skip_model(model):
+    L = len(model)
+    skips = [None] * L
+    for l in range(1, L-1):
+        skips[l] = nn.Lambda(nn.Identity())
+        
+    return skips
+
+
 def mse_loss(preds: ArrayLike, labels: ArrayLike) -> Scalar:
-    return jnp.mean((labels - preds)**2)
+    return 0.5 * jnp.mean((labels - preds)**2)
 
 
 def cross_entropy_loss(logits: ArrayLike, labels: ArrayLike) -> Scalar:

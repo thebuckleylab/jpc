@@ -85,13 +85,22 @@ def linear_equilib_energy_batch(
     ))(x, y).mean()
 
 
-def linear_activities_coeff_matrix(Ws: PyTree[Array]) -> Array:
+@eqx.filter_jit
+def linear_activities_hessian(
+        Ws: PyTree[Array],
+        n_skip: int = 0,
+        param_type: str = "SP",
+        activity_decay: bool = False,
+        diag: bool = True,
+        off_diag: bool = True
+) -> Array:
     """See docs of `linear_activities_solution_batch`."""
     L = len(Ws)
+    N = Ws[0].shape[0]
 
     # Get layer dimensions
-    nonunit_width = 0 if len(Ws[0].shape) == 1 else 1
-    dims = [Ws[0].shape[nonunit_width]] + [W.shape[0] for W in Ws]
+    non_unit_width = 0 if len(Ws[0].shape) == 1 else 1
+    dims = [Ws[0].shape[non_unit_width]] + [W.shape[0] for W in Ws]
 
     # Dimension of A (excluding input and output)
     n_activities = np.sum(dims[1:-1])
@@ -104,14 +113,60 @@ def linear_activities_coeff_matrix(Ws: PyTree[Array]) -> Array:
     for i in range(1, L):
         end_idx = start_idx + dims[i]
 
-        # Diagonal block
-        diagonal_block = jnp.eye(dims[i]) + Ws[i].T @ Ws[i]
-        A = A.at[start_idx:end_idx, start_idx:end_idx].set(diagonal_block)
+        if diag:
+            # Diagonal block
+            I = jnp.eye(dims[i])
+            WT_W = Ws[i].T @ Ws[i]
 
-        # Off-diagonal blocks
-        if i < L - 1:
-            A = A.at[start_idx:end_idx, end_idx:end_idx + dims[i + 1]].set(-Ws[i].T)
-            A = A.at[end_idx:end_idx + dims[i + 1], start_idx:end_idx].set(-Ws[i])
+            if param_type == "SP":
+                a_l = 1
+            elif param_type == "NTP":
+                a_l = 1 / np.sqrt(N) if n_skip == 0 else 1 / np.sqrt(N*L)
+            elif param_type == "μP":
+                if i+1 == L:
+                    a_l = 1 / N
+                else:
+                    a_l = 1 / np.sqrt(N) if n_skip == 0 else 1 / np.sqrt(N*L)
+
+            if n_skip == 0:
+                if activity_decay:
+                    diagonal_block = 2*I + a_l**2 * WT_W
+                else:
+                    diagonal_block = I + a_l**2 * WT_W
+
+            elif n_skip == 1:
+                W = Ws[i]
+                if i+1 == L:
+                    if activity_decay:
+                        diagonal_block = 2*I + a_l**2 * WT_W
+                    else:
+                        diagonal_block = I + a_l**2 * WT_W
+                else:
+                    if activity_decay:
+                        diagonal_block = 3*I + a_l**2 * WT_W + 2*a_l * (W.T + W)
+                    else:
+                        diagonal_block = 2*I + a_l**2 * WT_W + a_l * (W.T + W)
+
+            A = A.at[start_idx:end_idx, start_idx:end_idx].set(diagonal_block)
+
+        if off_diag:
+            # Off-diagonal block
+            if i < L - 1:
+                if n_skip == 0:
+                    a_l = 1 if param_type == "SP" else 1 / np.sqrt(N)
+                    off_diagonal_block = - a_l * Ws[i].T
+
+                if n_skip == 1:
+                    I = jnp.eye(dims[i])
+                    a_l = 1 if param_type == "SP" else 1 / np.sqrt(N*L)
+                    off_diagonal_block = - a_l * Ws[i].T - I
+
+                A = A.at[start_idx:end_idx, end_idx:end_idx + dims[i + 1]].set(
+                    off_diagonal_block
+                )
+                A = A.at[end_idx:end_idx + dims[i + 1], start_idx:end_idx].set(
+                    off_diagonal_block.T
+                )
 
         start_idx = end_idx
 
@@ -121,25 +176,48 @@ def linear_activities_coeff_matrix(Ws: PyTree[Array]) -> Array:
 def linear_activities_solution_single(
         network: PyTree[nn.Linear],
         x: ArrayLike,
-        y: ArrayLike
+        y: ArrayLike,
+        n_skip: int = 0,
+        param_type: str = "SP",
+        activity_decay: bool = False
 ) -> PyTree[Array]:
     """See docs of `linear_activities_solution_batch`."""
     # Extract all weight matrices from the network
     Ws = [
-        layer.weight for seq in network for layer in seq if hasattr(layer, 'weight')
+        layer.weight for seq in network for layer in seq if hasattr(layer, "weight")
     ]
+    D = Ws[0].shape[1]
+    N = Ws[0].shape[0]
+    H = len(Ws)-1
 
     # Construct matrix of the linear system
-    A = linear_activities_coeff_matrix(Ws)
+    A = linear_activities_hessian(
+        Ws=Ws,
+        param_type=param_type,
+        n_skip=n_skip,
+        activity_decay=activity_decay
+    )
+
+    if param_type == "SP":
+        a_1, a_L = 1, 1
+    if param_type == "NTP":
+        a_1, a_L = 1/np.sqrt(D), 1/np.sqrt(N)
+    elif param_type == "μP":
+        a_1, a_L = 1/np.sqrt(D), 1/N
 
     # Get layer dimensions
-    nonunit_width = 0 if len(Ws[0].shape) == 1 else 1
+    is_scalar = N == 1
+    nonunit_width = 0 if is_scalar else 1
     dims = [Ws[0].shape[nonunit_width]] + [W.shape[0] for W in Ws]
 
     # Compute activities solution
     b = jnp.zeros(len(A))
-    b = b.at[:dims[1]].set(Ws[0] @ x)
-    b = b.at[-dims[-2]:].set(Ws[-1].T @ y)
+    if H == 1:
+        b = a_1 * Ws[0] @ x + a_L * Ws[-1].T @ y
+    else:
+        b = b.at[:dims[1]].set(a_1 * Ws[0] @ x)
+        b = b.at[-dims[-2]:].set(a_L * Ws[-1].T @ y)
+    
     z_star = jnp.linalg.inv(A) @ b
 
     # Reshape result as a list of activities for each layer
@@ -150,7 +228,7 @@ def linear_activities_solution_single(
         start_idx += dim
 
     # Add target prediction for energy computation
-    activities_solution.append(Ws[-1] @ activities_solution[-1])
+    activities_solution.append(a_L * Ws[-1] @ activities_solution[-1])
 
     return activities_solution
 
@@ -159,7 +237,10 @@ def linear_activities_solution_single(
 def linear_activities_solution_batch(
         network: PyTree[nn.Linear],
         x: ArrayLike,
-        y: ArrayLike
+        y: ArrayLike,
+        n_skip: int = 0,
+        param_type: str = "SP",
+        activity_decay: bool = False
 ) -> PyTree[Array]:
     """Computes the theoretical solution for the PC activities of a deep linear network (DLN).
 
@@ -192,5 +273,8 @@ def linear_activities_solution_batch(
     return vmap(lambda x, y: linear_activities_solution_single(
         network,
         x,
-        y
+        y,
+        n_skip,
+        param_type,
+        activity_decay
     ))(x, y)

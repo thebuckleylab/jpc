@@ -19,7 +19,7 @@ from plotting import (
     plot_runtimes,
     plot_norms
 )
-from datasets import get_dataloaders
+from experiments.datasets import get_dataloaders
 
 
 def evaluate(model, test_loader):
@@ -57,8 +57,7 @@ def train_mlp(
     os.makedirs(save_dir, exist_ok=True)
 
     key = jax.random.PRNGKey(seed)
-    input_dim = 3072 if dataset == "CIFAR10" else 784
-    layer_sizes = [input_dim] + [width] * n_hidden + [10]
+    layer_sizes = [784] + [width] * n_hidden + [10]
     model = jpc.make_mlp(key, layer_sizes, act_fn)
 
     param_optim = optax.adam(param_lr)
@@ -246,7 +245,7 @@ def train_mlp(
 
 if __name__ == "__main__":
     RESULTS_DIR = "mlp_results"
-    DATASETS = ["MNIST", "Fashion-MNIST", "CIFAR10"]
+    DATASETS = ["MNIST", "Fashion-MNIST"]
     N_SEEDS = 3
 
     WIDTH = 300

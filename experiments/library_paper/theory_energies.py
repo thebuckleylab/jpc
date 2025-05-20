@@ -8,7 +8,7 @@ import optax
 import jpc
 
 from utils import set_seed
-from datasets import get_dataloaders
+from experiments.datasets import get_dataloaders
 
 import plotly.graph_objs as go
 import plotly.colors as pc

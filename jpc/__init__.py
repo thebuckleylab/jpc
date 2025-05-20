@@ -14,11 +14,13 @@ from ._core import (
     update_activities as update_activities,
     update_params as update_params,
     linear_equilib_energy as linear_equilib_energy,
-    linear_activities_coeff_matrix as linear_activities_coeff_matrix,
+    linear_activities_hessian as linear_activities_hessian,
     linear_activities_solution as linear_activities_solution
 )
 from ._utils import (
     make_mlp as make_mlp,
+    make_mlp_preactiv as make_mlp_preactiv,
+    make_skip_model as make_skip_model,
     get_act_fn as get_act_fn,
     mse_loss as mse_loss,
     cross_entropy_loss as cross_entropy_loss,

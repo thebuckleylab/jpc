@@ -69,3 +69,29 @@ Starting experiment with configuration:
         activity_optim_id,
         str(seed)
     )
+
+
+def get_min_iter(lists):
+    min_iter = 100000
+    for i in lists:
+        if len(i) < min_iter:
+            min_iter = len(i)
+    return min_iter
+
+
+def get_min_iter_metrics(metrics):
+    n_seeds = len(metrics)
+    min_iter = get_min_iter(lists=metrics)
+
+    min_iter_metrics = np.zeros((n_seeds, min_iter))
+    for seed in range(n_seeds):
+        min_iter_metrics[seed, :] = metrics[seed][:min_iter]
+
+    return min_iter_metrics
+
+
+def compute_metric_stats(metric):
+    min_iter_metrics = get_min_iter_metrics(metrics=metric)
+    metric_means = min_iter_metrics.mean(axis=0)
+    metric_stds = min_iter_metrics.std(axis=0)
+    return metric_means, metric_stds

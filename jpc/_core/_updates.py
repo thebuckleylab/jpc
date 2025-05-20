@@ -1,8 +1,9 @@
 """Functions to update activities and parameters of PC networks."""
 
+import jax.numpy as jnp
 import equinox as eqx
 from ._grads import compute_activity_grad, compute_pc_param_grads
-from jaxtyping import PyTree, ArrayLike
+from jaxtyping import PyTree, ArrayLike, Scalar
 from typing import Tuple, Callable, Optional, Dict
 from optax import GradientTransformation, GradientTransformationExtraArgs, OptState
 
@@ -14,7 +15,13 @@ def update_activities(
         optim: GradientTransformation | GradientTransformationExtraArgs,
         opt_state: OptState,
         output: ArrayLike,
-        input: Optional[ArrayLike] = None
+        input: Optional[ArrayLike] = None,
+        n_skip: int = 0,
+        loss_id: str = "MSE",
+        param_type: str = "SP",
+        weight_decay: Scalar = 0.,
+        spectral_penalty: Scalar = 0.,
+        activity_decay: Scalar = 0.
 ) -> Dict:
     """Updates activities of a predictive coding network with a given Optax optimiser.
 
@@ -33,26 +40,31 @@ def update_activities(
     and updated optimiser state.
 
     """
-    energy, activity_grads = compute_activity_grad(
+    energy, grads = compute_activity_grad(
         params=params,
         activities=activities,
         y=output,
-        x=input
+        x=input,
+        n_skip=n_skip,
+        loss_id=loss_id,
+        param_type=param_type,
+        weight_decay=weight_decay,
+        spectral_penalty=spectral_penalty,
+        activity_decay=activity_decay
     )
-    activity_updates, activity_opt_state = optim.update(
-        updates=activity_grads,
+    updates, opt_state = optim.update(
+        updates=grads,
         state=opt_state,
         params=activities
     )
     activities = eqx.apply_updates(
         model=activities,
-        updates=activity_updates
+        updates=updates
     )
     return {
         "energy": energy,
         "activities": activities,
-        "activity_grads": activity_grads,
-        "optim": optim,
+        "grads": grads,
         "opt_state": opt_state
     }
 
@@ -64,7 +76,13 @@ def update_params(
         optim: GradientTransformation | GradientTransformationExtraArgs,
         opt_state: OptState,
         output: ArrayLike,
-        input: Optional[ArrayLike] = None
+        input: Optional[ArrayLike] = None,
+        n_skip: int = 0,
+        loss_id: str = "MSE",
+        param_type: str = "SP",
+        weight_decay: Scalar = 0.,
+        spectral_penalty: Scalar = 0.,
+        activity_decay: Scalar = 0.
 ) -> Dict:
     """Updates parameters of a predictive coding network with a given Optax optimiser.
 
@@ -83,25 +101,30 @@ def update_params(
     parameter gradients, optimiser, and updated optimiser state.
 
     """
-    param_grads = compute_pc_param_grads(
+    grads = compute_pc_param_grads(
         params=params,
         activities=activities,
         y=output,
-        x=input
+        x=input,
+        n_skip=n_skip,
+        loss_id=loss_id,
+        param_type=param_type,
+        weight_decay=weight_decay,
+        spectral_penalty=spectral_penalty,
+        activity_decay=activity_decay
     )
-    param_updates, param_opt_state = optim.update(
-        updates=param_grads,
+    updates, opt_state = optim.update(
+        updates=grads,
         state=opt_state,
         params=params
     )
     model, skip_model = eqx.apply_updates(
         model=params,
-        updates=param_updates
+        updates=updates
     )
     return {
         "model": model,
         "skip_model": skip_model,
-        "param_grads": param_grads,
-        "optim": optim,
+        "grads": grads,
         "opt_state": opt_state
     }

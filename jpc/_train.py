@@ -39,6 +39,7 @@ def make_pc_step(
       output: ArrayLike,
       input: Optional[ArrayLike] = None,
       loss_id: str = "MSE",
+      param_type: str = "SP",
       ode_solver: AbstractSolver = Heun(),
       max_t1: int = 20,
       dt: Scalar | int = None,
@@ -46,6 +47,9 @@ def make_pc_step(
           rtol=1e-3, atol=1e-3
       ),
       skip_model: Optional[PyTree[Callable]] = None,
+      n_skip: int = 0,
+      activities: PyTree[ArrayLike] = None,
+      spectral_penalty: Scalar = 0.,
       key: Optional[PRNGKeyArray] = None,
       layer_sizes: Optional[PyTree[int]] = None,
       batch_size: Optional[int] = None,
@@ -125,17 +129,20 @@ def make_pc_step(
     if record_energies:
         record_activities = True
 
-    activities = init_activities_from_normal(
-        key=key,
-        layer_sizes=layer_sizes,
-        mode="unsupervised",
-        batch_size=batch_size,
-        sigma=sigma
-    ) if input is None else init_activities_with_ffwd(
-        model=model,
-        input=input,
-        skip_model=skip_model
-    )
+    if activities is None:
+        activities = init_activities_from_normal(
+            key=key,
+            layer_sizes=layer_sizes,
+            mode="unsupervised",
+            batch_size=batch_size,
+            sigma=sigma
+        ) if input is None else init_activities_with_ffwd(
+            model=model,
+            input=input,
+            skip_model=skip_model,
+            n_skip=n_skip,
+            param_type=param_type
+        )
 
     if loss_id == "MSE":
         loss = mse_loss(activities[-1], output) if input is not None else None
@@ -149,7 +156,9 @@ def make_pc_step(
         activities=activities,
         output=output,
         input=input,
+        n_skip=n_skip,
         loss_id=loss_id,
+        param_type=param_type,
         solver=ode_solver,
         max_t1=max_t1,
         dt=dt,
@@ -193,7 +202,10 @@ def make_pc_step(
         ),
         y=output,
         x=input,
-        loss_id=loss_id
+        n_skip=n_skip,
+        loss_id=loss_id,
+        param_type=param_type,
+        spectral_penalty=spectral_penalty
     )
     grad_norms = compute_param_norms(param_grads) if grad_norms else (None, None)
     updates, opt_state = optim.update(

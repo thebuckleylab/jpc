@@ -3,7 +3,7 @@
 from jax import grad, value_and_grad
 from jax.tree_util import tree_map
 from equinox import filter_grad
-from jaxtyping import PyTree, ArrayLike, Array
+from jaxtyping import PyTree, ArrayLike, Array, Scalar
 from typing import Tuple, Callable, Optional
 from diffrax import AbstractStepSizeController
 from ._energies import pc_energy_fn, hpc_energy_fn
@@ -16,6 +16,8 @@ def neg_activity_grad(
             Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
             ArrayLike,
             Optional[ArrayLike],
+            int,
+            str,
             str,
             AbstractStepSizeController
         ]
@@ -41,13 +43,15 @@ def neg_activity_grad(
     List of negative gradients of the energy w.r.t. the activities.
 
     """
-    params, y, x, loss_id, _ = args
+    params, y, x, n_skip, loss_id, param_type, _ = args
     dFdzs = grad(pc_energy_fn, argnums=1)(
         params,
         activities,
         y,
         x,
-        loss_id
+        n_skip,
+        loss_id,
+        param_type
     )
     return tree_map(lambda dFdz: -dFdz, dFdzs)
 
@@ -57,7 +61,12 @@ def compute_activity_grad(
         activities: PyTree[ArrayLike],
         y: ArrayLike,
         x: Optional[ArrayLike],
-        loss_id: str = "MSE"
+        n_skip: int = 0,
+        loss_id: str = "MSE",
+        param_type: str = "SP",
+        weight_decay: Scalar = 0.,
+        spectral_penalty: Scalar = 0.,
+        activity_decay: Scalar = 0.
 ) -> PyTree[Array]:
     """Computes the gradient of the energy with respect to the activities $\partial \mathcal{F} / \partial \mathbf{z}$.
 
@@ -90,7 +99,12 @@ def compute_activity_grad(
         activities,
         y,
         x,
-        loss_id
+        n_skip,
+        loss_id,
+        param_type,
+        weight_decay=weight_decay,
+        spectral_penalty=spectral_penalty,
+        activity_decay=activity_decay
     )
     return energy, dFdzs
 
@@ -100,7 +114,12 @@ def compute_pc_param_grads(
         activities: PyTree[ArrayLike],
         y: ArrayLike,
         x: Optional[ArrayLike] = None,
-        loss_id: str = "MSE"
+        n_skip: int = 0,
+        loss_id: str = "MSE",
+        param_type: str = "SP",
+        weight_decay: Scalar = 0.,
+        spectral_penalty: Scalar = 0.,
+        activity_decay: Scalar = 0.
 ) -> Tuple[PyTree[Array], PyTree[Array]]:
     """Computes the gradient of the PC energy with respect to model parameters $\partial \mathcal{F} / \partial θ$.
 
@@ -126,7 +145,12 @@ def compute_pc_param_grads(
         activities,
         y,
         x,
-        loss_id
+        n_skip,
+        loss_id,
+        param_type,
+        weight_decay=weight_decay,
+        spectral_penalty=spectral_penalty,
+        activity_decay=activity_decay
     )
 
 
