@@ -2,7 +2,7 @@
 
 <p align='center'>
   <a href='https://thebuckleylab.github.io/jpc/'>
-    <img src='.github/mupc_spotlight_fig.svg' />
+    <img src='.github/mupc_spotlight_fig.png' />
   </a> 
 </p>
 
