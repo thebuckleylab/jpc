@@ -37,7 +37,7 @@ def neg_activity_grad(
         (iii) network input (prior),
         (iv) number of layers to skip for the skip connections,
         (v) loss specified at the output layer (MSE vs cross-entropy),
-        (vi) parameterisation type (SP, μP, or NTP), and
+        (vi) parameterisation type (`sp`, `mup`, or npt`), and
         (vii) diffrax controller for step size integration.
 
     **Returns:**
@@ -50,10 +50,10 @@ def neg_activity_grad(
         params,
         activities,
         y,
-        x,
-        n_skip,
-        loss_id,
-        param_type
+        x=x,
+        n_skip=n_skip,
+        loss_id=loss_id,
+        param_type=param_type
     )
     return tree_map(lambda dFdz: -dFdz, dFdzs)
 
@@ -62,10 +62,11 @@ def compute_activity_grad(
         params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
         activities: PyTree[ArrayLike],
         y: ArrayLike,
+        *,
         x: Optional[ArrayLike],
         n_skip: int = 0,
-        loss_id: str = "MSE",
-        param_type: str = "SP",
+        loss_id: str = "mse",
+        param_type: str = "sp",
         weight_decay: Scalar = 0.,
         spectral_penalty: Scalar = 0.,
         activity_decay: Scalar = 0.
@@ -88,9 +89,9 @@ def compute_activity_grad(
 
     - `x`: Optional prior of the generative model.
     - `n_skip`: Number of layers to skip for the skip connections.
-    - `loss_id`: Loss function for the output layer (mean squared error 'MSE'
-        vs cross-entropy 'CE').
-    - `param_type`: Determines the parameterisation. Options are `SP`, `μP`, or NTP`.
+    - `loss_id`: Loss function for the output layer (mean squared error 'mse'
+        vs cross-entropy 'ce').
+    - `param_type`: Determines the parameterisation. Options are `sp`, `mup`, or npt`.
     - `weight_decay`: Weight decay for the weights.
     - `spectral_penalty`: Spectral penalty for the weights.
     - `activity_decay`: Activity decay for the activities.
@@ -119,10 +120,11 @@ def compute_pc_param_grads(
         params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
         activities: PyTree[ArrayLike],
         y: ArrayLike,
+        *,
         x: Optional[ArrayLike] = None,
         n_skip: int = 0,
-        loss_id: str = "MSE",
-        param_type: str = "SP",
+        loss_id: str = "mse",
+        param_type: str = "sp",
         weight_decay: Scalar = 0.,
         spectral_penalty: Scalar = 0.,
         activity_decay: Scalar = 0.
@@ -139,9 +141,9 @@ def compute_pc_param_grads(
 
     - `x`: Optional prior of the generative model.
     - `n_skip`: Number of layers to skip for the skip connections.
-    - `loss_id`: Loss function for the output layer (mean squared error 'MSE'
-        vs cross-entropy 'CE').
-    - `param_type`: Determines the parameterisation. Options are `SP`, `μP`, or NTP`.
+    - `loss_id`: Loss function for the output layer (mean squared error 'mse'
+        vs cross-entropy 'ce').
+    - `param_type`: Determines the parameterisation. Options are `sp`, `mup`, or npt`.
     - `weight_decay`: Weight decay for the weights.
     - `spectral_penalty`: Spectral penalty for the weights.
     - `activity_decay`: Activity decay for the activities.

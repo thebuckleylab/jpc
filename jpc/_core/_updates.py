@@ -110,9 +110,6 @@ def update_params(
     - `loss_id`: Loss function to use at the output layer (mean squared error
         'MSE' vs cross-entropy 'CE').
     - `param_type`: Determines the parameterisation. Options are `SP`, `μP`, or NTP`.
-    - `weight_decay`: Weight decay for the weights.
-    - `spectral_penalty`: Spectral penalty for the weights.
-    - `activity_decay`: Activity decay for the activities.
 
     **Returns:**
 

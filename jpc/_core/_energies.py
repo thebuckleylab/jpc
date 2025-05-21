@@ -12,14 +12,15 @@ def pc_energy_fn(
         params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
         activities: PyTree[ArrayLike],
         y: ArrayLike,
+        *,
         x: Optional[ArrayLike] = None,
         n_skip: int = 0,
-        loss: str = "MSE",
-        param_type: str = "SP",
+        loss: str = "mse",
+        param_type: str = "sp",
         weight_decay: Scalar = 0.,
         spectral_penalty: Scalar = 0.,
         activity_decay: Scalar = 0.,
-        record_layers: bool = False,
+        record_layers: bool = False
 ) -> Scalar | Array:
     """Computes the free energy for a neural network with optional skip 
     connections of the form
@@ -52,8 +53,8 @@ def pc_energy_fn(
     - `x`: Optional prior of the generative model (for supervised training).
     - `n_skip`: Number of layers to skip for the skip connections.
     - `loss`: Loss function to use at the output layer (mean squared error
-        'MSE' vs cross-entropy 'CE').
-    - `param_type`: Determines the parameterisation. Options are `SP`, `μP`, or NTP`.
+        'mse' vs cross-entropy 'ce').
+    - `param_type`: Determines the parameterisation. Options are `sp`, `mup`, or npt`.
     - `weight_decay`: Weight decay for the weights.
     - `spectral_penalty`: Spectral penalty for the weights.
     - `activity_decay`: Activity decay for the activities.
@@ -80,11 +81,11 @@ def pc_energy_fn(
         param_type=param_type
     )
 
-    if loss == "MSE":
+    if loss == "mse":
         eL = y - scalings[-1] * vmap(model[-1])(activities[-2])
         energies = [0.5 * sum(eL ** 2)]
 
-    elif loss == "CE":
+    elif loss == "ce":
         logits = scalings[-1] * vmap(model[-1])(activities[-2])
         energies = [- sum(y * log_softmax(logits))]
 

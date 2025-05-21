@@ -21,6 +21,7 @@ def solve_inference(
         params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
         activities: PyTree[ArrayLike],
         output: ArrayLike,
+        *,
         input: Optional[ArrayLike] = None,
         n_skip: int = 0,
         loss_id: str = "MSE",
