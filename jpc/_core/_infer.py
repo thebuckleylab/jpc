@@ -1,8 +1,8 @@
 """Function to solve the inference (activity) dynamics of PC networks."""
 
-from jaxtyping import PyTree, ArrayLike, Array
+from jaxtyping import PyTree, ArrayLike, Array, Scalar
 import jax.numpy as jnp
-from typing import Tuple, Callable, Optional, Scalar
+from typing import Tuple, Callable, Optional
 from ._grads import neg_activity_grad
 from optimistix import rms_norm
 from diffrax import (
