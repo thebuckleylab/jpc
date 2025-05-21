@@ -1,6 +1,6 @@
 # μPC paper
 
-> [!IMPORTANT] 
+> [!NOTE] 
 > We are currently working on updating all the documentation to make the μPC 
 > changes more clear. An example notebook will also be soon released.
 
