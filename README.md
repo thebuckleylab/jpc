@@ -8,6 +8,9 @@
 
 ![status](https://img.shields.io/badge/status-active-green)
 
+> ℹ️ **UPDATE**: If you're here for [μPC](https://arxiv.org/abs/2505.13124), 
+> see the `experiments/mupc_paper` folder. 
+
 JPC is a [**J**AX](https://github.com/google/jax) library for training neural 
 networks with **P**redictive **C**oding (PC). It is built on top of three main 
 libraries:
