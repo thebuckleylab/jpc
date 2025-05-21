@@ -55,7 +55,7 @@ def neg_activity_grad(
         y,
         x=x,
         n_skip=n_skip,
-        loss_id=loss_id,
+        loss=loss_id,
         param_type=param_type,
         weight_decay=weight_decay,
         spectral_penalty=spectral_penalty,
