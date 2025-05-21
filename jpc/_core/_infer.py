@@ -24,8 +24,8 @@ def solve_inference(
         *,
         input: Optional[ArrayLike] = None,
         n_skip: int = 0,
-        loss_id: str = "MSE",
-        param_type: str = "SP",
+        loss_id: str = "mse",
+        param_type: str = "sp",
         solver: AbstractSolver = Heun(),
         max_t1: int = 20,
         dt: float | int = None,
@@ -59,11 +59,11 @@ def solve_inference(
     - `input`: Optional prior of the generative model.
     - `n_skip`: Number of layers to skip for the skip connections.
     - `loss_id`: Loss function to use at the output layer (mean squared error
-        'MSE' vs cross-entropy 'CE').
-    - `param_type`: Determines the parameterisation. Options are `SP`, `μP`, or NTP`.
+        `mse` vs cross-entropy `ce`).
+    - `param_type`: Determines the parameterisation. Options are `sp`, `mup`, or `ntp`.
     - `solver`: Diffrax (ODE) solver to be used. Default is Heun, a 2nd order
         explicit Runge--Kutta method.
-    - `max_t1`: Maximum end of integration region (500 by default).
+    - `max_t1`: Maximum end of integration region (20 by default).
     - `dt`: Integration step size. Defaults to `None` since the default
         `stepsize_controller` will automatically determine it.
     - `stepsize_controller`: diffrax controller for step size integration.

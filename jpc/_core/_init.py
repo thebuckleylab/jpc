@@ -13,11 +13,16 @@ def init_activities_with_ffwd(
         input: ArrayLike,
         skip_model: Optional[PyTree[Callable]] = None,
         n_skip: int = 0,
-        param_type: str = "SP"
+        param_type: str = "sp"
 ) -> PyTree[Array]:
     """Initialises layers' activity with a feedforward pass
     $\{ f_\ell(\mathbf{z}_{\ell-1}) \}_{\ell=1}^L$ where $\mathbf{z}_0 = \mathbf{x}$ is
     the input.
+
+    !!! note
+
+        param_type = `mup` (μPC) assumes that one is using `make_mlp()` to 
+        create the model.
 
     **Main arguments:**
 
@@ -28,7 +33,10 @@ def init_activities_with_ffwd(
 
     - `skip_model`: Optional skip connection model.
     - `n_skip`: Number of layers to skip for the skip connections.
-    - `param_type`: Determines the parameterisation. Options are `SP`, `μP`, or NTP`.
+    - `param_type`: Determines the parameterisation. Options are `sp` (standard
+        parameterisation), `mup` ([μPC](https://arxiv.org/abs/2505.13124)), or 
+        `ntp` (neural tangent parameterisation). See `_get_scalings()` for the
+        scalings of these different parameterisations.
 
     **Returns:**
 
@@ -146,14 +154,14 @@ def _get_scalings(
         model: PyTree[Callable], 
         input: ArrayLike, 
         skip_model: Optional[PyTree[Callable]] = None, 
-        param_type: str = "SP"
+        param_type: str = "sp"
     ) -> list[float]:
     """Gets layer scalings for a given parameterisation.
 
     !!! note
 
-        μP assumes that one is using `make_mlp_preactiv()` to create the model 
-        layers.
+        param_type = `mup` (μPC) assumes that one is using `make_mlp()` to 
+        create the model.
 
     **Main arguments:**
 
@@ -163,7 +171,7 @@ def _get_scalings(
     **Other arguments:**
 
     - `skip_model`: Optional skip connection model.
-    - `param_type`: Determines the parameterisation. Options are `SP`, `μP`, or NTP`.
+    - `param_type`: Determines the parameterisation. Options are `sp`, `mup`, or `ntp`.
 
     **Returns:**
 
@@ -172,7 +180,7 @@ def _get_scalings(
     """
     L = len(model)
 
-    if param_type == "SP":
+    if param_type == "sp":
         scalings = [1.] + [1] * (L-2) + [1]
 
     else:
@@ -181,7 +189,7 @@ def _get_scalings(
         
         a1 = 1 / sqrt(D)
         al = 1 / sqrt(N) if skip_model is None else 1 / sqrt(N * L)
-        aL = 1 / N if param_type == "μP" else 1 / sqrt(N)
+        aL = 1 / N if param_type == "mup" else 1 / sqrt(N)
         scalings = [a1] + [al] * (L-2) + [aL]
 
     return scalings
