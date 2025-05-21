@@ -108,9 +108,9 @@ def compute_activity_grad(
 
     """
     energy, dFdzs = value_and_grad(pc_energy_fn, argnums=1)(
-        params=params,
-        activities=activities,
-        y=y,
+        params,
+        activities,
+        y,
         x=x,
         n_skip=n_skip,
         loss=loss_id,
