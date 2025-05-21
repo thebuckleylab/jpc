@@ -38,10 +38,10 @@ def get_act_fn(name: str) -> Callable:
 
 def make_mlp(
         key: PRNGKeyArray, 
-        d_in: int, 
-        N: int ,
-        L: int, 
-        d_out: int, 
+        input_dim: int, 
+        width: int,
+        depth: int, 
+        output_dim: int, 
         act_fn: Callable, 
         use_bias: bool = False
     ) -> PyTree[Callable]:
@@ -67,12 +67,12 @@ def make_mlp(
     List of callable fully connected layers.
 
     """
-    subkeys = jax.random.split(key, L)
+    subkeys = jax.random.split(key, depth)
     layers = []
-    for i in range(L):
+    for i in range(depth):
         act_fn_l = nn.Identity() if i == 0 else act_fn
-        _in = d_in if i == 0 else N
-        _out = d_out if (i + 1) == L else N
+        _in = input_dim if i == 0 else width
+        _out = output_dim if (i + 1) == depth else width
         layer = nn.Sequential(
             [
                 nn.Lambda(act_fn_l),
