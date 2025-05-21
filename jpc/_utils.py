@@ -37,48 +37,36 @@ def get_act_fn(name: str) -> Callable:
 
 
 def make_mlp(
-        key: PRNGKeyArray,
-        layer_sizes: PyTree[int],
-        act_fn: str,
-        use_bias: bool = True
-) -> PyTree[Callable]:
+        key: PRNGKeyArray, 
+        d_in: int, 
+        N: int ,
+        L: int, 
+        d_out: int, 
+        act_fn: Callable, 
+        use_bias: bool = False
+    ) -> PyTree[Callable]:
     """Creates a multi-layer perceptron compatible with predictive coding updates.
+
+    !!! note
+
+        This implementation places the activation function before the linear 
+        transformation, $W_\ell\phi(\mathbf{z}_{\ell-1})$, for TODO. 
 
     **Main arguments:**
 
     - `key`: `jax.random.PRNGKey` for parameter initialisation.
-    - `layer_sizes`: Dimension of all layers (input, hidden and output).
-        Options are `linear`, `tanh` and `relu`.
-    - `act_fn`: Activation function for all layers except the output.
-    - `use_bias`: `True` by default.
+    - `d_in`: Input dimension.
+    - `N`: Network width.
+    - `L`: Network depth.
+    - `d_out`: Output dimension.
+    - `act_fn`: Activation function (for all layers except the output).
+    - `use_bias`: `False` by default.
 
     **Returns:**
 
     List of callable fully connected layers.
 
     """
-    act_fn = get_act_fn(act_fn)
-    layers = []
-    for i, subkey in enumerate(jax.random.split(key, len(layer_sizes)-1)):
-        is_last = (i+1) == len(layer_sizes)-1
-        act_fn_l = nn.Identity() if is_last else act_fn
-        hidden_layer = nn.Sequential(
-            [
-                nn.Linear(
-                    layer_sizes[i],
-                    layer_sizes[i+1],
-                    use_bias=use_bias,
-                    key=subkey
-                ),
-                nn.Lambda(act_fn_l)
-            ]
-        )
-        layers.append(hidden_layer)
-
-    return layers
-
-
-def make_mlp_preactiv(key, d_in, N, L, d_out, act_fn, use_bias=False):
     subkeys = jax.random.split(key, L)
     layers = []
     for i in range(L):
@@ -101,7 +89,12 @@ def make_mlp_preactiv(key, d_in, N, L, d_out, act_fn, use_bias=False):
     return layers
 
 
-def make_skip_model(model):
+def make_skip_model(model: PyTree[Callable]) -> PyTree[Callable]:
+    """Creates a residual network with skip connections at every layer except 
+    from the input and to the output.
+
+    This is used TODO.
+    """
     L = len(model)
     skips = [None] * L
     for l in range(1, L-1):
