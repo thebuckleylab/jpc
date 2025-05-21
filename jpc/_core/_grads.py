@@ -160,9 +160,9 @@ def compute_pc_param_grads(
 
     """
     return filter_grad(pc_energy_fn)(
-        params=params,
-        activities=activities,
-        y=y,
+        params,
+        activities,
+        y,
         x=x,
         n_skip=n_skip,
         loss=loss_id,
