@@ -128,8 +128,14 @@ def compute_infer_energies(
         activities_iters: PyTree[Array],
         t_max: Array,
         y: ArrayLike,
+        *,
         x: Optional[ArrayLike] = None,
-        loss: str = "MSE"
+        n_skip: int = 0,
+        loss: str = "mse",
+        param_type: str = "sp",
+        weight_decay: Scalar = 0.,
+        spectral_penalty: Scalar = 0.,
+        activity_decay: Scalar = 0.
 ) -> PyTree[Scalar]:
     """Calculates layer energies during predictive coding inference.
 
@@ -141,19 +147,24 @@ def compute_infer_energies(
         dimension by diffrax default.
     - `t_max`: Maximum number of inference iterations to compute energies for.
     - `y`: Observation or target of the generative model.
-    - `x`: Optional prior of the generative model.
 
     **Other arguments:**
-
-    - `loss`: Loss function specified at the output layer (mean squared error
-        'MSE' vs cross-entropy 'CE').
+    
+    - `x`: Optional prior of the generative model.
+    - `n_skip`: Number of layers to skip for the skip connections.
+    - `loss`: Loss function to use at the output layer (mean squared error
+        `mse` vs cross-entropy `ce`).
+    - `param_type`: Determines the parameterisation. Options are `sp`, `mup`, or `ntp`.
+    - `weight_decay`: Weight decay for the weights.
+    - `spectral_penalty`: Spectral penalty for the weights.
+    - `activity_decay`: Activity decay for the activities.
 
     **Returns:**
 
     List of layer-wise energies at every inference iteration.
 
     """
-    model, skip_model = params
+    model, _ = params
 
     def loop_body(state):
         t, energies_iters = state
@@ -163,7 +174,12 @@ def compute_infer_energies(
             activities=tree_map(lambda act: act[t], activities_iters),
             y=y,
             x=x,
+            n_skip=n_skip,
             loss=loss,
+            param_type=param_type,
+            weight_decay=weight_decay,
+            spectral_penalty=spectral_penalty,
+            activity_decay=activity_decay,
             record_layers=True
         )
         energies_iters = energies_iters.at[:, t].set(energies)

@@ -25,10 +25,11 @@ def test_discriminative_pc(
         model: PyTree[Callable],
         output: ArrayLike,
         input: ArrayLike,
+        *,
         skip_model: Optional[PyTree[Callable]] = None,
         n_skip: int = 0,
-        loss: str = "MSE",
-        param_type: str = "SP"
+        loss: str = "mse",
+        param_type: str = "sp"
 ) -> Tuple[Scalar, Scalar]:
     """Computes test metrics for a discriminative predictive coding network.
 
@@ -40,9 +41,14 @@ def test_discriminative_pc(
 
     **Other arguments:**
 
-    - `loss`: - `loss`: Loss function to use at the output layer (mean
-        squared error 'MSE' vs cross-entropy 'CE').
-    - `skip_model`: Optional list of callable skip connection functions.
+    - `skip_model`: Optional skip connection model.
+    - `n_skip`: Number of layers to skip for the skip connections.
+    - `loss`: Loss function to use at the output layer (mean squared error
+        `mse` vs cross-entropy `ce`).
+    - `param_type`: Determines the parameterisation. Options are `sp` (standard
+        parameterisation), `mup` ([μPC](https://arxiv.org/abs/2505.13124)), or 
+        `ntp` (neural tangent parameterisation). See `_get_scalings()` for the
+        scalings of these different parameterisations.
 
     **Returns:**
 
@@ -57,9 +63,9 @@ def test_discriminative_pc(
         param_type=param_type
     )[-1]
 
-    if loss == "MSE":
+    if loss == "mse":
         loss = mse_loss(preds, output)
-    elif loss == "CE":
+    elif loss == "ce":
         loss = cross_entropy_loss(preds, output)
 
     acc = compute_accuracy(output, preds)
@@ -74,6 +80,11 @@ def test_generative_pc(
         key: PRNGKeyArray,
         layer_sizes: PyTree[int],
         batch_size: int,
+        *,
+        skip_model: Optional[PyTree[Callable]] = None,
+        n_skip: int = 0,
+        loss_id: str = "mse",
+        param_type: str = "sp",
         sigma: Scalar = 0.05,
         ode_solver: AbstractSolver = Heun(),
         max_t1: int = 500,
@@ -81,7 +92,9 @@ def test_generative_pc(
         stepsize_controller: AbstractStepSizeController = PIDController(
             rtol=1e-3, atol=1e-3
         ),
-        skip_model: Optional[PyTree[Callable]] = None
+        weight_decay: Scalar = 0.,
+        spectral_penalty: Scalar = 0.,
+        activity_decay: Scalar = 0.
 ) -> Tuple[Scalar, Array]:
     """Computes test metrics for a generative predictive coding network.
 
@@ -100,6 +113,11 @@ def test_generative_pc(
 
     **Other arguments:**
 
+    - `skip_model`: Optional skip connection model.
+    - `n_skip`: Number of layers to skip for the skip connections.
+    - `loss_id`: Loss function to use at the output layer (mean squared error
+        `mse` vs cross-entropy `ce`).
+    - `param_type`: Determines the parameterisation. Options are `sp`, `mup`, or `ntp`.
     - `sigma`: Standard deviation for Gaussian to sample activities from.
         Defaults to 5e-2.
     - `ode_solver`: Diffrax ODE solver to be used. Default is Heun, a 2nd order
@@ -111,6 +129,9 @@ def test_generative_pc(
         Defaults to `PIDController`. Note that the relative and absolute
         tolerances of the controller will also determine the steady state to
         terminate the solver.
+    - `weight_decay`: $\ell^2$ regulariser for the weights.
+    - `spectral_penalty`: Spectral penalty for the weights.
+    - `activity_decay`: $\ell^2$ regulariser for the activities.
 
     **Returns:**
 
@@ -129,16 +150,24 @@ def test_generative_pc(
         params=params,
         activities=activities,
         output=output,
+        n_skip=n_skip,
+        loss_id=loss_id,
+        param_type=param_type,
         solver=ode_solver,
         max_t1=max_t1,
         dt=dt,
-        stepsize_controller=stepsize_controller
+        stepsize_controller=stepsize_controller,
+        weight_decay=weight_decay,
+        spectral_penalty=spectral_penalty,
+        activity_decay=activity_decay
     )[0][0]
     input_acc = compute_accuracy(input, input_preds)
     output_preds = init_activities_with_ffwd(
         model=model,
         input=input,
-        skip_model=skip_model
+        skip_model=skip_model,
+        n_skip=n_skip,
+        param_type=param_type
     )[-1]
     return input_acc, output_preds
 

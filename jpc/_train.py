@@ -37,9 +37,10 @@ def make_pc_step(
       optim: GradientTransformation | GradientTransformationExtraArgs,
       opt_state: OptState,
       output: ArrayLike,
+      *,
       input: Optional[ArrayLike] = None,
-      loss_id: str = "MSE",
-      param_type: str = "SP",
+      loss_id: str = "mse",
+      param_type: str = "sp",
       ode_solver: AbstractSolver = Heun(),
       max_t1: int = 20,
       dt: Scalar | int = None,
@@ -48,8 +49,9 @@ def make_pc_step(
       ),
       skip_model: Optional[PyTree[Callable]] = None,
       n_skip: int = 0,
-      activities: PyTree[ArrayLike] = None,
+      weight_decay: Scalar = 0.,
       spectral_penalty: Scalar = 0.,
+      activity_decay: Scalar = 0.,
       key: Optional[PRNGKeyArray] = None,
       layer_sizes: Optional[PyTree[int]] = None,
       batch_size: Optional[int] = None,
@@ -70,7 +72,6 @@ def make_pc_step(
     - `optim`: Optax optimiser, e.g. `optax.sgd()`.
     - `opt_state`: State of Optax optimiser.
     - `output`: Observation or target of the generative model.
-    - `input`: Optional prior of the generative model.
 
     !!! note
 
@@ -80,8 +81,10 @@ def make_pc_step(
 
     **Other arguments:**
 
-    - `loss_id`: Loss function for the output layer (mean squared error 'MSE'
-        vs cross-entropy 'CE').
+    - `input`: Optional prior of the generative model.
+    - `loss_id`: Loss function for the output layer (mean squared error `mse`
+        vs cross-entropy `ce`).
+    - `param_type`: Determines the parameterisation. Options are `sp`, `mup`, or `ntp`.
     - `ode_solver`: Diffrax ODE solver to be used. Default is Heun, a 2nd order
         explicit Runge--Kutta method.
     - `max_t1`: Maximum end of integration region (20 by default).
@@ -92,6 +95,7 @@ def make_pc_step(
         tolerances of the controller will also determine the steady state to
         terminate the solver.
     - `skip_model`: Optional list of callable skip connection functions.
+    - `n_skip`: Number of layers to skip for the skip connections.
     - `key`: `jax.random.PRNGKey` for random initialisation of activities.
     - `layer_sizes`: Dimension of all layers (input, hidden and output).
     - `batch_size`: Dimension of data batch for activity initialisation.
@@ -110,9 +114,9 @@ def make_pc_step(
 
     **Returns:**
 
-    Dict including model (and optional skip model) with updated parameters,
-    optimiser, updated optimiser state, loss, energies, activities,
-    and optionally other metrics (see other args above).
+    Dict including model (and optional skip model) with updated parameters, 
+    updated optimiser state, loss, energies, activities, and optionally other 
+    metrics (see other args above).
 
     **Raises:**
 
@@ -129,27 +133,26 @@ def make_pc_step(
     if record_energies:
         record_activities = True
 
-    if activities is None:
-        activities = init_activities_from_normal(
-            key=key,
-            layer_sizes=layer_sizes,
-            mode="unsupervised",
-            batch_size=batch_size,
-            sigma=sigma
-        ) if input is None else init_activities_with_ffwd(
-            model=model,
-            input=input,
-            skip_model=skip_model,
-            n_skip=n_skip,
-            param_type=param_type
-        )
+    activities = init_activities_from_normal(
+        key=key,
+        layer_sizes=layer_sizes,
+        mode="unsupervised",
+        batch_size=batch_size,
+        sigma=sigma
+    ) if input is None else init_activities_with_ffwd(
+        model=model,
+        input=input,
+        skip_model=skip_model,
+        n_skip=n_skip,
+        param_type=param_type
+    )
 
-    if loss_id == "MSE":
+    if loss_id == "mse":
         loss = mse_loss(activities[-1], output) if input is not None else None
-    elif loss_id == "CE":
+    elif loss_id == "ce":
         loss = cross_entropy_loss(activities[-1], output) if input is not None else None
     else:
-        raise ValueError("'MSE' and 'CE' are the only valid losses.")
+        raise ValueError("`mse` and `ce` are the only valid losses.")
 
     equilib_activities = solve_inference(
         params=(model, skip_model),
@@ -163,6 +166,9 @@ def make_pc_step(
         max_t1=max_t1,
         dt=dt,
         stepsize_controller=stepsize_controller,
+        weight_decay=weight_decay,
+        spectral_penalty=spectral_penalty,
+        activity_decay=activity_decay,
         record_iters=record_activities,
         record_every=record_every
     )
@@ -178,7 +184,12 @@ def make_pc_step(
         t_max=t_max,
         y=output,
         x=input,
-        loss=loss_id
+        n_skip=n_skip,
+        loss=loss_id,
+        param_type=param_type,
+        weight_decay=weight_decay,
+        spectral_penalty=spectral_penalty,
+        activity_decay=activity_decay
     ) if record_energies else pc_energy_fn(
         params=(model, skip_model),
         activities=tree_map(
@@ -187,7 +198,12 @@ def make_pc_step(
         ),
         y=output,
         x=input,
+        n_skip=n_skip,
         loss=loss_id,
+        param_type=param_type,
+        weight_decay=weight_decay,
+        spectral_penalty=spectral_penalty,
+        activity_decay=activity_decay,
         record_layers=True
     )
 
@@ -205,7 +221,9 @@ def make_pc_step(
         n_skip=n_skip,
         loss_id=loss_id,
         param_type=param_type,
-        spectral_penalty=spectral_penalty
+        weight_decay=weight_decay,
+        spectral_penalty=spectral_penalty,
+        activity_decay=activity_decay
     )
     grad_norms = compute_param_norms(param_grads) if grad_norms else (None, None)
     updates, opt_state = optim.update(
@@ -222,14 +240,15 @@ def make_pc_step(
         init_activities_with_ffwd(
             model=model,
             input=input,
-            skip_model=skip_model
+            skip_model=skip_model,
+            n_skip=n_skip,
+            param_type=param_type
         )[-1]
     ) if calculate_accuracy else None
 
     return {
         "model": model,
         "skip_model": skip_model,
-        "optim": optim,
         "opt_state": opt_state,
         "loss": loss,
         "acc": acc,
@@ -251,6 +270,7 @@ def make_hpc_step(
       optims: Tuple[GradientTransformationExtraArgs],
       opt_states: Tuple[OptState],
       output: ArrayLike,
+      *,
       input: Optional[ArrayLike] = None,
       ode_solver: AbstractSolver = Heun(),
       max_t1: int = 300,
@@ -311,7 +331,7 @@ def make_hpc_step(
 
     **Returns:**
 
-    Dict including models with updated parameters, optimiser and state for each
+    Dict including models with updated parameters, optimiser state for each 
     model, model activities, last inference step for the generator, MSE losses,
     and energies.
 
@@ -358,7 +378,7 @@ def make_hpc_step(
         y=output,
         x=input
     ) if record_energies else None
-    # remove target prediction of the generator
+    # remove dummy target prediction of the generator
     equilib_activities_for_amort = tree_map(
         lambda act: act[t_max if record_activities else array(0)],
         equilib_activities[::-1][1:]
@@ -407,7 +427,6 @@ def make_hpc_step(
     return {
         "generator": updated_generator[0],
         "amortiser": updated_amortiser,
-        "optims": (gen_optim, amort_optim),
         "opt_states": (gen_opt_state, amort_opt_state),
         "activities": (amort_activities, equilib_activities),
         "t_max": t_max,
