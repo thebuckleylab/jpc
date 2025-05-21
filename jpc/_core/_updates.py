@@ -14,6 +14,7 @@ def update_activities(
         optim: GradientTransformation | GradientTransformationExtraArgs,
         opt_state: OptState,
         output: ArrayLike,
+        *,
         input: Optional[ArrayLike] = None,
         n_skip: int = 0,
         loss_id: str = "mse",
@@ -85,6 +86,7 @@ def update_params(
         optim: GradientTransformation | GradientTransformationExtraArgs,
         opt_state: OptState,
         output: ArrayLike,
+        *,
         input: Optional[ArrayLike] = None,
         n_skip: int = 0,
         loss_id: str = "mse",
@@ -110,6 +112,9 @@ def update_params(
     - `loss_id`: Loss function to use at the output layer (mean squared error
         `mse` vs cross-entropy `ce`).
     - `param_type`: Determines the parameterisation. Options are `sp`, `mup`, or `ntp`.
+    - `weight_decay`: Weight decay for the weights.
+    - `spectral_penalty`: Spectral penalty for the weights.
+    - `activity_decay`: Activity decay for the activities.
 
     **Returns:**
 

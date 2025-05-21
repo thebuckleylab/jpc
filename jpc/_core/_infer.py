@@ -2,7 +2,7 @@
 
 from jaxtyping import PyTree, ArrayLike, Array
 import jax.numpy as jnp
-from typing import Tuple, Callable, Optional
+from typing import Tuple, Callable, Optional, Scalar
 from ._grads import neg_activity_grad
 from optimistix import rms_norm
 from diffrax import (
@@ -32,6 +32,9 @@ def solve_inference(
         stepsize_controller: AbstractStepSizeController = PIDController(
             rtol=1e-3, atol=1e-3
         ),
+        weight_decay: Scalar = 0.,
+        spectral_penalty: Scalar = 0.,
+        activity_decay: Scalar = 0.,
         record_iters: bool = False,
         record_every: int = None
 ) -> PyTree[Array]:
@@ -70,6 +73,9 @@ def solve_inference(
         Defaults to `PIDController`. Note that the relative and absolute
         tolerances of the controller will also determine the steady state to
         terminate the solver.
+    - `weight_decay`: $\ell^2$ regulariser for the weights.
+    - `spectral_penalty`: Spectral penalty for the weights.
+    - `activity_decay`: $\ell^2$ regulariser for the activities.
     - `record_iters`: If `True`, returns all integration steps.
     - `record_every`: int determining the sampling frequency of the integration
         steps.
@@ -92,7 +98,18 @@ def solve_inference(
         t1=max_t1,
         dt0=dt,
         y0=activities,
-        args=(params, output, input, n_skip, loss_id, param_type, stepsize_controller),
+        args=(
+            params, 
+            output, 
+            input, 
+            n_skip, 
+            loss_id, 
+            param_type,
+            weight_decay, 
+            spectral_penalty, 
+            activity_decay,
+            stepsize_controller
+        ),
         stepsize_controller=stepsize_controller,
         event=Event(steady_state_event_with_timeout),
         saveat=saveat

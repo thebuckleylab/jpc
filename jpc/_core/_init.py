@@ -11,6 +11,7 @@ from typing import Callable, Optional
 def init_activities_with_ffwd(
         model: PyTree[Callable],
         input: ArrayLike,
+        *,
         skip_model: Optional[PyTree[Callable]] = None,
         n_skip: int = 0,
         param_type: str = "sp"

@@ -37,15 +37,18 @@ def neg_activity_grad(
         (iii) network input (prior),
         (iv) number of layers to skip for the skip connections,
         (v) loss specified at the output layer (MSE vs cross-entropy),
-        (vi) parameterisation type (`sp`, `mup`, or `ntp`), and
-        (vii) diffrax controller for step size integration.
+        (vi) parameterisation type (`sp`, `mup`, or `ntp`),
+        (vii) $\ell^2$ regulariser for the weights,
+        (viii) spectral penalty for the weights
+        (ix) $\ell^2$ regulariser for the activities, and
+        (x) diffrax controller for step size integration.
 
     **Returns:**
 
     List of negative gradients of the energy w.r.t. the activities.
 
     """
-    params, y, x, n_skip, loss_id, param_type, _ = args
+    params, y, x, n_skip, loss_id, param_type, weight_decay, spectral_penalty, activity_decay, _ = args
     dFdzs = grad(pc_energy_fn, argnums=1)(
         params,
         activities,
@@ -53,7 +56,10 @@ def neg_activity_grad(
         x=x,
         n_skip=n_skip,
         loss_id=loss_id,
-        param_type=param_type
+        param_type=param_type,
+        weight_decay=weight_decay,
+        spectral_penalty=spectral_penalty,
+        activity_decay=activity_decay
     )
     return tree_map(lambda dFdz: -dFdz, dFdzs)
 
@@ -92,9 +98,9 @@ def compute_activity_grad(
     - `loss_id`: Loss function for the output layer (mean squared error `mse`
         vs cross-entropy `ce`).
     - `param_type`: Determines the parameterisation. Options are `sp`, `mup`, or `ntp`.
-    - `weight_decay`: Weight decay for the weights.
+    - `weight_decay`: $\ell^2$ regulariser for the weights.
     - `spectral_penalty`: Spectral penalty for the weights.
-    - `activity_decay`: Activity decay for the activities.
+    - `activity_decay`: $\ell^2$ regulariser for the activities.
 
     **Returns:**
 
@@ -144,9 +150,9 @@ def compute_pc_param_grads(
     - `loss_id`: Loss function for the output layer (mean squared error `mse`
         vs cross-entropy `ce`).
     - `param_type`: Determines the parameterisation. Options are `sp`, `mup`, or `ntp`.
-    - `weight_decay`: Weight decay for the weights.
+    - `weight_decay`: $\ell^2$ regulariser for the weights.
     - `spectral_penalty`: Spectral penalty for the weights.
-    - `activity_decay`: Activity decay for the activities.
+    - `activity_decay`: $\ell^2$ regulariser for the activities.
 
     **Returns:**
 
