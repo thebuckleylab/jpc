@@ -1,7 +1,8 @@
 # μPC paper
 
-> ℹ️ **NOTE**: We are currently working on updating all the documentation to 
-> make the μPC changes more clear. An example notebook will also be soon released.
+> [!IMPORTANT] 
+> We are currently working on updating all the documentation to make the μPC 
+> changes more clear. An example notebook will also be soon released.
 
 <p align='center'>
   <a href='https://github.com/thebuckleylab/jpc/blob/main/experiments/mupc_paper/spotlight_fig.png'>
