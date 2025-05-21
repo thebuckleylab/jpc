@@ -1,10 +1,8 @@
-"""Functions to initialise layer activities of predictive coding networks."""
+"""Functions to initialise the layer activities of PC networks."""
 
-import math
 from jax import vmap, random
 from jax.numpy import sqrt
 import equinox as eqx
-from torch.nn.init import calculate_gain
 from jaxtyping import PyTree, ArrayLike, Array, PRNGKeyArray, Scalar
 from typing import Callable, Optional
 
@@ -29,6 +27,8 @@ def init_activities_with_ffwd(
     **Other arguments:**
 
     - `skip_model`: Optional skip connection model.
+    - `n_skip`: Number of layers to skip for the skip connections.
+    - `param_type`: Determines the parameterisation. Options are `SP`, `μP`, or NTP`.
 
     **Returns:**
 
@@ -41,8 +41,8 @@ def init_activities_with_ffwd(
         
     scalings = _get_scalings(
         model=model, 
-        skip_model=skip_model, 
         input=input, 
+        skip_model=skip_model, 
         param_type=param_type
     )
 
@@ -133,18 +133,47 @@ def init_activities_with_amort(
         activities.append(vmap(amortiser[l])(activities[l - 1]))
 
     activities = activities[::-1]
-    # add generator's target prediction
+
+    # NOTE: this dummy activity for the last layer is added in case one is 
+    # interested in inspecting the generator's target prediction during inference.
     activities.append(
         vmap(generator[-1])(activities[-1])
     )
     return activities
 
 
-def _get_scalings(model, skip_model, input, param_type):
+def _get_scalings(
+        model: PyTree[Callable], 
+        input: ArrayLike, 
+        skip_model: Optional[PyTree[Callable]] = None, 
+        param_type: str = "SP"
+    ) -> list[float]:
+    """Gets layer scalings for a given parameterisation.
+
+    !!! note
+
+        μP assumes that one is using `make_mlp_preactiv()` to create the model 
+        layers.
+
+    **Main arguments:**
+
+    - `model`: List of callable model (e.g. neural network) layers.
+    - `input`: input to the model.
+
+    **Other arguments:**
+
+    - `skip_model`: Optional skip connection model.
+    - `param_type`: Determines the parameterisation. Options are `SP`, `μP`, or NTP`.
+
+    **Returns:**
+
+    List with scalings for each layer.
+
+    """
     L = len(model)
 
     if param_type == "SP":
-        scalings = [1] + [1] * (L-2) + [1]
+        scalings = [1.] + [1] * (L-2) + [1]
 
     else:
         D = input.shape[1]

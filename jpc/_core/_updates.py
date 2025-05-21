@@ -1,6 +1,5 @@
 """Functions to update activities and parameters of PC networks."""
 
-import jax.numpy as jnp
 import equinox as eqx
 from ._grads import compute_activity_grad, compute_pc_param_grads
 from jaxtyping import PyTree, ArrayLike, Scalar
@@ -32,12 +31,22 @@ def update_activities(
     - `optim`: Optax optimiser, e.g. `optax.sgd()`.
     - `opt_state`: State of Optax optimiser.
     - `output`: Observation or target of the generative model.
+
+    **Other arguments:**
+
     - `input`: Optional prior of the generative model.
+    - `n_skip`: Number of layers to skip for the skip connections.
+    - `loss_id`: Loss function to use at the output layer (mean squared error
+        'MSE' vs cross-entropy 'CE').
+    - `param_type`: Determines the parameterisation. Options are `SP`, `μP`, or NTP`.
+    - `weight_decay`: Weight decay for the weights.
+    - `spectral_penalty`: Spectral penalty for the weights.
+    - `activity_decay`: Activity decay for the activities.
 
     **Returns:**
 
-    Dictionary with energy, updated activities, activity gradients, optimiser,
-    and updated optimiser state.
+    Dictionary with energy, updated activities, activity gradients, and 
+    optimiser state.
 
     """
     energy, grads = compute_activity_grad(
@@ -93,12 +102,22 @@ def update_params(
     - `optim`: Optax optimiser, e.g. `optax.sgd()`.
     - `opt_state`: State of Optax optimiser.
     - `output`: Observation or target of the generative model.
+
+    **Other arguments:**
+
     - `input`: Optional prior of the generative model.
+    - `n_skip`: Number of layers to skip for the skip connections.
+    - `loss_id`: Loss function to use at the output layer (mean squared error
+        'MSE' vs cross-entropy 'CE').
+    - `param_type`: Determines the parameterisation. Options are `SP`, `μP`, or NTP`.
+    - `weight_decay`: Weight decay for the weights.
+    - `spectral_penalty`: Spectral penalty for the weights.
+    - `activity_decay`: Activity decay for the activities.
 
     **Returns:**
 
     Dictionary with model (and optional skip model) with updated parameters,
-    parameter gradients, optimiser, and updated optimiser state.
+    parameter gradients, and optimiser state.
 
     """
     grads = compute_pc_param_grads(

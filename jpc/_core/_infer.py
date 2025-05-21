@@ -52,12 +52,14 @@ def solve_inference(
     - `params`: Tuple with callable model layers and optional skip connections.
     - `activities`: List of activities for each layer free to vary.
     - `output`: Observation or target of the generative model.
-    - `input`: Optional prior of the generative model.
 
     **Other arguments:**
 
-    - `loss`: Loss function to use at the output layer (mean squared error
+    - `input`: Optional prior of the generative model.
+    - `n_skip`: Number of layers to skip for the skip connections.
+    - `loss_id`: Loss function to use at the output layer (mean squared error
         'MSE' vs cross-entropy 'CE').
+    - `param_type`: Determines the parameterisation. Options are `SP`, `μP`, or NTP`.
     - `solver`: Diffrax (ODE) solver to be used. Default is Heun, a 2nd order
         explicit Runge--Kutta method.
     - `max_t1`: Maximum end of integration region (500 by default).
@@ -68,7 +70,7 @@ def solve_inference(
         tolerances of the controller will also determine the steady state to
         terminate the solver.
     - `record_iters`: If `True`, returns all integration steps.
-    - `record_every`: int determining the sampling frequency the integration
+    - `record_every`: int determining the sampling frequency of the integration
         steps.
 
     **Returns:**

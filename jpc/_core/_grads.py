@@ -21,7 +21,7 @@ def neg_activity_grad(
             str,
             AbstractStepSizeController
         ]
-) -> PyTree[Array]:
+    ) -> PyTree[Array]:
     """Computes the negative gradient of the energy with respect to the activities $- \partial \mathcal{F} / \partial \mathbf{z}$.
 
     This defines an ODE system to be integrated by `solve_pc_inference`.
@@ -35,8 +35,10 @@ def neg_activity_grad(
         (i) Tuple with callable model layers and optional skip connections,
         (ii) network output (observation),
         (iii) network input (prior),
-        (iv) Loss specified at the output layer (MSE vs cross-entropy), and
-        (v) diffrax controller for step size integration.
+        (iv) number of layers to skip for the skip connections,
+        (v) loss specified at the output layer (MSE vs cross-entropy),
+        (vi) parameterisation type (SP, μP, or NTP), and
+        (vii) diffrax controller for step size integration.
 
     **Returns:**
 
@@ -68,11 +70,11 @@ def compute_activity_grad(
         spectral_penalty: Scalar = 0.,
         activity_decay: Scalar = 0.
 ) -> PyTree[Array]:
-    """Computes the gradient of the energy with respect to the activities $\partial \mathcal{F} / \partial \mathbf{z}$.
+    """Computes the gradient of the PC energy with respect to the activities $\nabla_{\mathbf{z}} \mathcal{F}$.
 
     !!! note
 
-        This function differs from `neg_activity_grad`, which computes the
+        This function differs from `neg_activity_grad()`, which computes the
         negative gradients, and is called in `update_activities` for use of
         any Optax optimiser.
 
@@ -81,13 +83,17 @@ def compute_activity_grad(
     - `params`: Tuple with callable model layers and optional skip connections.
     - `activities`: List of activities for each layer free to vary.
     - `y`: Observation or target of the generative model.
-    - `x`: Optional prior of the generative model.
 
     **Other arguments:**
 
+    - `x`: Optional prior of the generative model.
+    - `n_skip`: Number of layers to skip for the skip connections.
     - `loss_id`: Loss function for the output layer (mean squared error 'MSE'
         vs cross-entropy 'CE').
-    - `energy_fn`: Free energy to take the gradient of.
+    - `param_type`: Determines the parameterisation. Options are `SP`, `μP`, or NTP`.
+    - `weight_decay`: Weight decay for the weights.
+    - `spectral_penalty`: Spectral penalty for the weights.
+    - `activity_decay`: Activity decay for the activities.
 
     **Returns:**
 
@@ -95,13 +101,13 @@ def compute_activity_grad(
 
     """
     energy, dFdzs = value_and_grad(pc_energy_fn, argnums=1)(
-        params,
-        activities,
-        y,
-        x,
-        n_skip,
-        loss_id,
-        param_type,
+        params=params,
+        activities=activities,
+        y=y,
+        x=x,
+        n_skip=n_skip,
+        loss=loss_id,
+        param_type=param_type,
         weight_decay=weight_decay,
         spectral_penalty=spectral_penalty,
         activity_decay=activity_decay
@@ -121,19 +127,24 @@ def compute_pc_param_grads(
         spectral_penalty: Scalar = 0.,
         activity_decay: Scalar = 0.
 ) -> Tuple[PyTree[Array], PyTree[Array]]:
-    """Computes the gradient of the PC energy with respect to model parameters $\partial \mathcal{F} / \partial θ$.
+    """Computes the gradient of the PC energy with respect to model parameters $\nabla_θ \mathcal{F}$.
 
     **Main arguments:**
 
     - `params`: Tuple with callable model layers and optional skip connections.
     - `activities`: List of activities for each layer free to vary.
     - `y`: Observation or target of the generative model.
-    - `x`: Optional prior of the generative model.
 
     **Other arguments:**
 
+    - `x`: Optional prior of the generative model.
+    - `n_skip`: Number of layers to skip for the skip connections.
     - `loss_id`: Loss function for the output layer (mean squared error 'MSE'
         vs cross-entropy 'CE').
+    - `param_type`: Determines the parameterisation. Options are `SP`, `μP`, or NTP`.
+    - `weight_decay`: Weight decay for the weights.
+    - `spectral_penalty`: Spectral penalty for the weights.
+    - `activity_decay`: Activity decay for the activities.
 
     **Returns:**
 
@@ -141,13 +152,13 @@ def compute_pc_param_grads(
 
     """
     return filter_grad(pc_energy_fn)(
-        params,
-        activities,
-        y,
-        x,
-        n_skip,
-        loss_id,
-        param_type,
+        params=params,
+        activities=activities,
+        y=y,
+        x=x,
+        n_skip=n_skip,
+        loss=loss_id,
+        param_type=param_type,
         weight_decay=weight_decay,
         spectral_penalty=spectral_penalty,
         activity_decay=activity_decay

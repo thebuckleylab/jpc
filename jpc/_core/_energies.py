@@ -1,4 +1,4 @@
-"""Energy functions for predictive coding networks."""
+"""Energy functions for PC networks."""
 
 from jax import vmap
 from jax.numpy import sum, array, eye
@@ -21,7 +21,8 @@ def pc_energy_fn(
         activity_decay: Scalar = 0.,
         record_layers: bool = False,
 ) -> Scalar | Array:
-    """Computes the free energy for a feedforward neural network of the form
+    """Computes the free energy for a neural network with optional skip 
+    connections of the form
 
     $$
     \mathcal{F}(\mathbf{z}; θ) = 1/N \sum_i^N \sum_{\ell=1}^L || \mathbf{z}_{i, \ell} - f_\ell(\mathbf{z}_{i, \ell-1}; θ) ||^2
@@ -45,13 +46,18 @@ def pc_energy_fn(
         optional skip connections.
     - `activities`: List of activities for each layer free to vary.
     - `y`: Observation or target of the generative model.
-    - `x`: Optional prior of the generative model (for supervised training).
 
     **Other arguments:**
 
+    - `x`: Optional prior of the generative model (for supervised training).
+    - `n_skip`: Number of layers to skip for the skip connections.
     - `loss`: Loss function to use at the output layer (mean squared error
         'MSE' vs cross-entropy 'CE').
-    - `record_layers`: If `True`, returns energies for each layer.
+    - `param_type`: Determines the parameterisation. Options are `SP`, `μP`, or NTP`.
+    - `weight_decay`: Weight decay for the weights.
+    - `spectral_penalty`: Spectral penalty for the weights.
+    - `activity_decay`: Activity decay for the activities.
+    - `record_layers`: If `True`, returns the energy of each layer.
 
     **Returns:**
 
@@ -69,8 +75,8 @@ def pc_energy_fn(
 
     scalings = _get_scalings(
         model=model, 
-        skip_model=skip_model, 
         input=x, 
+        skip_model=skip_model, 
         param_type=param_type
     )
 
