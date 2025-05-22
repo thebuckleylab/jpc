@@ -3,3 +3,12 @@
 **/datasets/
 examples/data/
 *.egg-info/
+*.pdf
+*.npy
+*.DS_Store
+*.pkl
+*.iml
+*.xml
+__pycache__/
+.vscode/
+.all_objects.cache
