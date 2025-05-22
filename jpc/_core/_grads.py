@@ -37,7 +37,7 @@ def neg_activity_grad(
         (iii) network input (prior),
         (iv) number of layers to skip for the skip connections,
         (v) loss specified at the output layer (MSE vs cross-entropy),
-        (vi) parameterisation type (`sp`, `mup`, or `ntp`),
+        (vi) parameterisation type (`sp`, `mupc`, or `ntp`),
         (vii) $\ell^2$ regulariser for the weights,
         (viii) spectral penalty for the weights
         (ix) $\ell^2$ regulariser for the activities, and
@@ -97,7 +97,7 @@ def compute_activity_grad(
     - `n_skip`: Number of layers to skip for the skip connections.
     - `loss_id`: Loss function for the output layer (mean squared error `mse`
         vs cross-entropy `ce`).
-    - `param_type`: Determines the parameterisation. Options are `sp`, `mup`, or `ntp`.
+    - `param_type`: Determines the parameterisation. Options are `sp`, `mupc`, or `ntp`.
     - `weight_decay`: $\ell^2$ regulariser for the weights.
     - `spectral_penalty`: Spectral penalty for the weights.
     - `activity_decay`: $\ell^2$ regulariser for the activities.
@@ -149,7 +149,7 @@ def compute_pc_param_grads(
     - `n_skip`: Number of layers to skip for the skip connections.
     - `loss_id`: Loss function for the output layer (mean squared error `mse`
         vs cross-entropy `ce`).
-    - `param_type`: Determines the parameterisation. Options are `sp`, `mup`, or `ntp`.
+    - `param_type`: Determines the parameterisation. Options are `sp`, `mupc`, or `ntp`.
     - `weight_decay`: $\ell^2$ regulariser for the weights.
     - `spectral_penalty`: Spectral penalty for the weights.
     - `activity_decay`: $\ell^2$ regulariser for the activities.

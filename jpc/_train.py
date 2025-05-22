@@ -84,7 +84,7 @@ def make_pc_step(
     - `input`: Optional prior of the generative model.
     - `loss_id`: Loss function for the output layer (mean squared error `mse`
         vs cross-entropy `ce`).
-    - `param_type`: Determines the parameterisation. Options are `sp`, `mup`, or `ntp`.
+    - `param_type`: Determines the parameterisation. Options are `sp`, `mupc`, or `ntp`.
     - `ode_solver`: Diffrax ODE solver to be used. Default is Heun, a 2nd order
         explicit Runge--Kutta method.
     - `max_t1`: Maximum end of integration region (20 by default).

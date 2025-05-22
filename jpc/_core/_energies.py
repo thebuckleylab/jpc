@@ -54,7 +54,7 @@ def pc_energy_fn(
     - `n_skip`: Number of layers to skip for the skip connections.
     - `loss`: Loss function to use at the output layer (mean squared error
         `mse` vs cross-entropy `ce`).
-    - `param_type`: Determines the parameterisation. Options are `sp`, `mup`, or `ntp`.
+    - `param_type`: Determines the parameterisation. Options are `sp`, `mupc`, or `ntp`.
     - `weight_decay`: $\ell^2$ regulariser for the weights.
     - `spectral_penalty`: Spectral penalty for the weights of the form ||I - W_\ell^T W_\ell||^2.
     - `activity_decay`: $\ell^2$ regulariser for the activities.

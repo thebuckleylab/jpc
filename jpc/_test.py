@@ -46,9 +46,9 @@ def test_discriminative_pc(
     - `loss`: Loss function to use at the output layer (mean squared error
         `mse` vs cross-entropy `ce`).
     - `param_type`: Determines the parameterisation. Options are `sp` (standard
-        parameterisation), `mup` ([μPC](https://arxiv.org/abs/2505.13124)), or 
+        parameterisation), `mupc` ([μPC](https://arxiv.org/abs/2505.13124)), or 
         `ntp` (neural tangent parameterisation). See `_get_scalings()` for the
-        scalings of these different parameterisations.
+        specific scalings of these different parameterisations.
 
     **Returns:**
 
@@ -117,7 +117,7 @@ def test_generative_pc(
     - `n_skip`: Number of layers to skip for the skip connections.
     - `loss_id`: Loss function to use at the output layer (mean squared error
         `mse` vs cross-entropy `ce`).
-    - `param_type`: Determines the parameterisation. Options are `sp`, `mup`, or `ntp`.
+    - `param_type`: Determines the parameterisation. Options are `sp`, `mupc`, or `ntp`.
     - `sigma`: Standard deviation for Gaussian to sample activities from.
         Defaults to 5e-2.
     - `ode_solver`: Diffrax ODE solver to be used. Default is Heun, a 2nd order

@@ -63,7 +63,7 @@ def solve_inference(
     - `n_skip`: Number of layers to skip for the skip connections.
     - `loss_id`: Loss function to use at the output layer (mean squared error
         `mse` vs cross-entropy `ce`).
-    - `param_type`: Determines the parameterisation. Options are `sp`, `mup`, or `ntp`.
+    - `param_type`: Determines the parameterisation. Options are `sp`, `mupc`, or `ntp`.
     - `solver`: Diffrax (ODE) solver to be used. Default is Heun, a 2nd order
         explicit Runge--Kutta method.
     - `max_t1`: Maximum end of integration region (20 by default).

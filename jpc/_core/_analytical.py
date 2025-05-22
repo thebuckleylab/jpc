@@ -119,7 +119,7 @@ def compute_linear_activity_hessian(
     **Other arguments:**
 
     - `n_skip`: Number of layers to skip for the skip connections.
-    - `param_type`: Determines the parameterisation. Options are `sp`, `mup`, or `ntp`.
+    - `param_type`: Determines the parameterisation. Options are `sp`, `mupc`, or `ntp`.
     - `activity_decay`: $\ell^2$ regulariser for the activities.
     - `diag`: Whether to compute the diagonal blocks of the Hessian.
     - `off-diag`: Whether to compute the off-diagonal blocks of the Hessian.
@@ -157,7 +157,7 @@ def compute_linear_activity_hessian(
                 a_l = 1
             elif param_type == "ntp":
                 a_l = 1 / np.sqrt(N) if n_skip == 0 else 1 / np.sqrt(N*L)
-            elif param_type == "mup":
+            elif param_type == "mupc":
                 if i+1 == L:
                     a_l = 1 / N
                 else:
@@ -272,7 +272,7 @@ def compute_linear_activity_solution(
         a_1, a_L = 1, 1
     if param_type == "ntp":
         a_1, a_L = 1/np.sqrt(D), 1/np.sqrt(N)
-    elif param_type == "mup":
+    elif param_type == "mupc":
         a_1, a_L = 1/np.sqrt(D), 1/N
 
     # get layer dimensions
