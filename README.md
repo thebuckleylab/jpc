@@ -8,11 +8,6 @@
 
 ![status](https://img.shields.io/badge/status-active-green)
 
-> [!WARNING] 
-> We are currently making changes to better integrate [μPC](https://arxiv.org/abs/2505.13124)
-> so things might break every once in a while. An example notebook showcasing
-> μPC will also be released soon.
-
 > [!IMPORTANT] 
 > If you're here for [μPC](https://arxiv.org/abs/2505.13124), see 
 > [`experiments/mupc_paper`](https://github.com/thebuckleylab/jpc/tree/main/experiments/mupc_paper).

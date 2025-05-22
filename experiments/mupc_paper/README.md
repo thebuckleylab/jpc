@@ -1,9 +1,9 @@
 # μPC paper
 
-> [!WARNING] 
+> [!NOTE] 
 > We are currently working on updating all the documentation to make the μPC 
-> changes more clear so things might break once in a while. An example notebook 
-> will also be released soon.
+> changes more clear. An example notebook showcasing μPC will also be released 
+> soon.
 
 <p align='center'>
   <a href='https://github.com/thebuckleylab/jpc/blob/main/experiments/mupc_paper/spotlight_fig.png'>
