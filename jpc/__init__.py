@@ -13,9 +13,9 @@ from ._core import (
     compute_hpc_param_grads as compute_hpc_param_grads,
     update_activities as update_activities,
     update_params as update_params,
-    linear_equilib_energy as linear_equilib_energy,
-    linear_activities_hessian as linear_activities_hessian,
-    linear_activities_solution as linear_activities_solution
+    compute_linear_equilib_energy as compute_linear_equilib_energy,
+    compute_linear_activity_hessian as compute_linear_activity_hessian,
+    compute_linear_activity_solution as compute_linear_activity_solution
 )
 from ._utils import (
     make_mlp as make_mlp,

@@ -19,7 +19,7 @@ from ._updates import (
     update_params as update_params
 )
 from ._analytical import (
-    linear_equilib_energy_batch as linear_equilib_energy,
-    linear_activities_hessian as linear_activities_hessian,
-    linear_activities_solution_batch as linear_activities_solution
+    compute_linear_equilib_energy as compute_linear_equilib_energy,
+    compute_linear_activity_hessian as compute_linear_activity_hessian,
+    compute_linear_activity_solution as compute_linear_activity_solution
 )
