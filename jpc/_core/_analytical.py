@@ -27,7 +27,8 @@ def compute_linear_equilib_energy(
 
         This expression assumes no biases. It could also be generalised to 
         other network architectures (e.g. ResNets) and parameterisations
-        (see https://arxiv.org/abs/2505.13124).
+        (see https://arxiv.org/abs/2505.13124). TODO: add note on how to 
+        circumvent this
 
     ??? cite "Reference"
 
@@ -290,23 +291,22 @@ def compute_linear_activity_solution(
             b = b.at[:dims[1]].set(a_1 * Ws[0] @ x)
             b = b.at[-dims[-2]:].set(a_L * Ws[-1].T @ y)
         
-        return A_inv @ b
+        z_star = A_inv @ b
     
-    batched_fn = vmap(
+        # reshape result as a list of activities for each layer
+        activities_solution = []
+        start_idx = 0
+        for dim in dims[1:-1]:
+            activities_solution.append(z_star[start_idx:start_idx + dim])
+            start_idx += dim
+
+        # add dummy target prediction for optional later energy computation
+        activities_solution.append(a_L * Ws[-1] @ activities_solution[-1])
+
+        return activities_solution
+
+    return vmap(
         lambda x, y: compute_linear_activity_solution_single(
             x, y, A_inv, Ws, dims, H, a_1, a_L
         )
-    )
-    z_star = batched_fn(x, y)
-
-    # reshape result as a list of activities for each layer
-    activities_solution = []
-    start_idx = 0
-    for dim in dims[1:-1]:
-        activities_solution.append(z_star[start_idx:start_idx + dim])
-        start_idx += dim
-
-    # add dummy target prediction for optional later energy computation
-    activities_solution.append(a_L * Ws[-1] @ activities_solution[-1])
-
-    return activities_solution
+    )(x, y)
