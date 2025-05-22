@@ -93,7 +93,7 @@ def plot_energies_across_ts(theory_energies, num_energies, save_path):
 
 def evaluate(model, test_loader):
     avg_test_loss, avg_test_acc = 0, 0
-    for batch_id, (img_batch, label_batch) in enumerate(test_loader):
+    for _, (img_batch, label_batch) in enumerate(test_loader):
         img_batch, label_batch = img_batch.numpy(), label_batch.numpy()
 
         test_loss, test_acc = jpc.test_discriminative_pc(
@@ -122,7 +122,10 @@ def train(
     input_dim = 3072 if dataset == "CIFAR10" else 784
     model = jpc.make_mlp(
         key,
-        [input_dim] + [width]*n_hidden + [10],
+        input_dim=input_dim,
+        width=width,
+        depth=n_hidden+1,
+        output_dim=10,
         act_fn="linear",
         use_bias=False
     )
@@ -138,7 +141,7 @@ def train(
         img_batch, label_batch = img_batch.numpy(), label_batch.numpy()
 
         theory_energies.append(
-            jpc.linear_equilib_energy(
+            jpc.compute_linear_equilib_energy(
                 network=model,
                 x=img_batch,
                 y=label_batch
@@ -153,12 +156,12 @@ def train(
             max_t1=max_t1,
             record_energies=True
         )
-        model, optim, opt_state = result["model"], result["optim"], result["opt_state"]
+        model, opt_state = result["model"], result["opt_state"]
         train_loss, t_max = result["loss"], result["t_max"]
         num_energies.append(result["energies"][:, t_max-1].sum())
 
         if ((batch_id+1) % test_every) == 0:
-            avg_test_loss, avg_test_acc = evaluate(model, test_loader)
+            _, avg_test_acc = evaluate(model, test_loader)
             test_accs.append(avg_test_acc)
             print(
                 f"Train iter {batch_id+1}, train loss={train_loss:4f}, "

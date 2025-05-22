@@ -57,8 +57,14 @@ def train_mlp(
     os.makedirs(save_dir, exist_ok=True)
 
     key = jax.random.PRNGKey(seed)
-    layer_sizes = [784] + [width] * n_hidden + [10]
-    model = jpc.make_mlp(key, layer_sizes, act_fn)
+    model = jpc.make_mlp(
+        key, 
+        input_dim=784,
+        width=width,
+        depth=n_hidden+1,
+        output_dim=10,
+        act_fn=act_fn
+    )
 
     param_optim = optax.adam(param_lr)
     param_opt_state = param_optim.init(
@@ -102,8 +108,8 @@ def train_mlp(
                     param_norms=True,
                     grad_norms=True
                 )
-                model, param_optim, param_opt_state = result["model"], result["optim"], result["opt_state"]
-                train_loss, t_max = result["loss"], result["t_max"]
+                model, param_opt_state = result["model"], result["opt_state"]
+                train_loss = result["loss"]
                 activity_norms.append(result["activity_norms"][:-1])
                 param_norms.append(
                     [p for p in result["model_param_norms"] if p == 0 or p % 2 == 0]
@@ -120,7 +126,7 @@ def train_mlp(
                 activity_opt_state = activity_optim.init(activities)
                 train_loss = jpc.mse_loss(activities[-1], label_batch)
 
-                for t in range(max_t1):
+                for _ in range(max_t1):
                     activity_update_result = jpc.update_activities(
                         params=(model, None),
                         activities=activities,
