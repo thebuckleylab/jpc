@@ -42,7 +42,7 @@ def make_mlp(
         width: int,
         depth: int, 
         output_dim: int, 
-        act_fn: Callable, 
+        act_fn: str, 
         use_bias: bool = False
     ) -> PyTree[Callable]:
     """Creates a multi-layer perceptron compatible with predictive coding updates.
@@ -70,7 +70,7 @@ def make_mlp(
     subkeys = jax.random.split(key, depth)
     layers = []
     for i in range(depth):
-        act_fn_l = nn.Identity() if i == 0 else act_fn
+        act_fn_l = nn.Identity() if i == 0 else get_act_fn(act_fn)
         _in = input_dim if i == 0 else width
         _out = output_dim if (i + 1) == depth else width
         layer = nn.Sequential(
