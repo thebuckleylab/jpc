@@ -49,7 +49,7 @@ class MLP(eqx.Module):
         keys = jr.split(key, L)
         self.layers = []
         for i in range(L):
-            act_fn_l = nn.Identity() if i == 0 else act_fn
+            act_fn_l = nn.Identity() if i == 0 else jpc.get_act_fn(act_fn)
             _in = d_in if i == 0 else N
             _out = d_out if (i + 1) == L else N
             layer = nn.Sequential(
@@ -68,7 +68,7 @@ class MLP(eqx.Module):
     def __call__(self, x):
         pre_activs = []
 
-        if self.param_type == "μP":
+        if self.param_type == "depth_mup":
             for i, f in enumerate(self.layers):
                 if (i + 1) == 1:
                     x = f(x) / jnp.sqrt(self.D)
@@ -134,29 +134,27 @@ def test_fwd_pass(
         N=width,
         L=depth,
         d_out=10,
-        act_fn=jpc.get_act_fn(act_fn),
+        act_fn=act_fn,
         param_type=param_type,
         use_bias=False,
         use_skips=use_skips
     )
 
-    if param_type == "μP":
+    if param_type == "depth_mup":
         model = init_weights(
             model=model,
             init_fn_id="standard_gauss",
-            key=keys[1],
-            width=width
+            key=keys[1]
         )
     elif param_type == "orthogonal":
         model = init_weights(
             model=model,
             init_fn_id="orthogonal",
             key=keys[1],
-            width=width,
             gain=1.05 if act_fn == "tanh" else 1
         )
 
-    optim = optax.sgd(lr) if optim_id == "SGD" else optax.adam(lr)
+    optim = optax.sgd(lr) if optim_id == "sgd" else optax.adam(lr)
     opt_state = optim.init(eqx.filter(model, eqx.is_array))
 
     layer_idxs = [0, int(depth/4)-1, int(depth/2)-1, int(depth*3/4)-1, depth-1]
@@ -206,7 +204,7 @@ def test_fwd_pass(
 
 
 if __name__ == "__main__":
-    RESULTS_DIR = "fwd_pass_results"
+    RESULTS_DIR = "mlp_fwd_pass_results"
     DATASET = "MNIST"
     WIDTHS = [2 ** i for i in range(7, 11)]
     DEPTHS = [2 ** i for i in range(4, 10)]
@@ -217,8 +215,8 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--act_fns", type=str, nargs='+', default=["linear", "tanh", "relu"])
-    parser.add_argument("--optim_ids", type=str, nargs='+', default=["SGD", "Adam"])
-    parser.add_argument("--param_types", type=str, nargs='+', default=["SP", "μP", "orthogonal"])
+    parser.add_argument("--optim_ids", type=str, nargs='+', default=["sgd", "adam"])
+    parser.add_argument("--param_types", type=str, nargs='+', default=["sp", "depth_mup", "orthogonal"])
     parser.add_argument("--seed", type=int, default=54638)
     args = parser.parse_args()
 

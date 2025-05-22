@@ -32,20 +32,20 @@ def compute_hessian_metrics(
     if act_fn == "linear":
         # theoretical activity Hessian
         weights = get_network_weights(network)
-        theory_H = jpc.linear_activities_hessian(
+        theory_H = jpc.compute_linear_activity_hessian(
             weights,
             param_type=param_type,
             n_skip=n_skip,
             activity_decay=activity_decay
         )
-        D = jpc.linear_activities_hessian(
+        D = jpc.compute_linear_activity_hessian(
             weights,
             param_type=param_type,
             off_diag=False,
             n_skip=n_skip,
             activity_decay=activity_decay
         )
-        O = jpc.linear_activities_hessian(
+        O = jpc.compute_linear_activity_hessian(
             weights,
             param_type=param_type,
             diag=False,
@@ -58,7 +58,7 @@ def compute_hessian_metrics(
         activities = jpc.init_activities_with_ffwd(
             network,
             x,
-            skip_model,
+            skip_model=skip_model,
             n_skip=n_skip,
             param_type=param_type
         )
@@ -75,7 +75,7 @@ def compute_hessian_metrics(
         (network, skip_model),
         activities,
         y,
-        x,
+        x=x,
         n_skip=n_skip,
         param_type=param_type,
         activity_decay=activity_decay
@@ -125,21 +125,20 @@ def run_analysis(
     d_out = width if in_out_dims == "width" else in_out_dims[1]
 
     # create and initialise model
-    network = jpc.make_mlp_preactiv(
+    network = jpc.make_mlp(
         key=keys[0],
-        d_in=d_in,
-        N=width,
-        L=n_hidden+1,
-        d_out=d_out,
-        act_fn=jpc.get_act_fn(act_fn),
+        input_dim=d_in,
+        width=width,
+        depth=n_hidden+1,
+        output_dim=d_out,
+        act_fn=act_fn,
         use_bias=use_biases
     )
     if weight_init != "standard":
         network = init_weights(
             key=keys[1],
             model=network,
-            init_fn_id=weight_init,
-            width=width
+            init_fn_id=weight_init
         )
     skip_model = jpc.make_skip_model(network) if n_skip == 1 else None
 
@@ -202,8 +201,8 @@ if __name__ == "__main__":
     USE_BIASES = [False]
     MODES = ["supervised"]  #,"unsupervised"]
     N_SKIPS = [0, 1]
-    WEIGHT_INITS = ["one_over_N", "standard_gauss", "standard", "orthogonal"]
-    PARAM_TYPES = ["SP", "NTP", "μP"]
+    WEIGHT_INITS = ["one_over_N", "standard_gauss", "standard", "orthogonal"] 
+    PARAM_TYPES = ["sp", "mupc", "ntp"]
     ACTIVITY_DECAY = [False, True]
     WIDTHS = [2 ** i for i in range(1, 8)]
     N_HIDDENS = [2 ** i for i in range(1, 8)]

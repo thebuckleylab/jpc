@@ -3,7 +3,7 @@
 > [!WARNING] 
 > We are currently working on updating all the documentation to make the μPC 
 > changes more clear so things might break once in a while. An example notebook 
-> will also be soon released.
+> will also be released soon.
 
 <p align='center'>
   <a href='https://github.com/thebuckleylab/jpc/blob/main/experiments/mupc_paper/spotlight_fig.png'>
@@ -53,7 +53,7 @@ the convergence behaviour of μPC to BP shown in Section 6
 (Figs. 6 & A.32-A.33).
 * `train_bpn.py`: Used to obtain all the results with backprop. 
 * `test_mlp_fwd_pass.py`: Used for results of Fig. A.29.
-* `toy_experiments.py`: Used for many secondary results in the Appendix. 
+* `toy_experiments.ipynb`: Used for many secondary results in the Appendix. 
 
 The majority of results are plotted in `plot_results.ipynb` under informative
 headings. For details of all the experiments, see Section A.4 of the paper.

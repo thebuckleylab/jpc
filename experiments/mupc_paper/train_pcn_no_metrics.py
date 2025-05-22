@@ -68,13 +68,13 @@ def train_mlp(
     # create and initialise model
     d_in, d_out = 784, 10
     L = n_hidden + 1
-    model = jpc.make_mlp_preactiv(
+    model = jpc.make_mlp(
         key=keys[0],
-        d_in=d_in,
-        N=width,
-        L=L,
-        d_out=d_out,
-        act_fn=jpc.get_act_fn(act_fn),
+        input_dim=d_in,
+        width=width,
+        depth=L,
+        output_dim=d_out,
+        act_fn=act_fn,
         use_bias=False
     )
     if weight_init != "standard":
@@ -88,18 +88,18 @@ def train_mlp(
     skip_model = jpc.make_skip_model(model) if n_skip == 1 else None
 
     # optimisers
-    if param_optim_id == "SGD":
+    if param_optim_id == "sgd":
         param_optim = optax.sgd(param_lr)
-    elif param_optim_id == "Adam":
+    elif param_optim_id == "adam":
         param_optim = optax.adam(param_lr)
     else:
-        raise ValueError("Invalid param optim id. Options are 'SGD' and 'Adam'.")
+        raise ValueError("Invalid param optim id. Options are 'sgd' and 'adam'.")
 
     param_opt_state = param_optim.init(
         (eqx.filter(model, eqx.is_array), skip_model)
     )
     activity_optim = optax.sgd(activity_lr) if (
-            activity_optim_id == "GD"
+            activity_optim_id == "gd"
     ) else optax.adam(activity_lr)
 
     # data
@@ -151,7 +151,6 @@ def train_mlp(
                 activity_grads = activity_update_result["grads"]
                 if rms_norm(activity_grads) < 1e-3 + 1e-3 * rms_norm(activity_grads):
                     n_infer_iters[global_batch_id] = t
-                    #break
                 
             # update parameters
             param_update_result = jpc.update_params(
@@ -217,7 +216,6 @@ def train_mlp(
 if __name__ == "__main__":
     device = jax.devices()[0]
     print(f"device: {device}")
-    jax.config.update("jax_enable_x64", True)
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--results_dir", type=str, default="pcn_results")
@@ -227,12 +225,12 @@ if __name__ == "__main__":
     parser.add_argument("--act_fns", type=str, nargs='+', default=["relu"])
     parser.add_argument("--n_skips", type=int, nargs='+', default=[1])
     parser.add_argument("--weight_inits", type=str, nargs='+', default=["standard_gauss"]) 
-    parser.add_argument("--param_types", type=str, nargs='+', default=["μP"])  #μP
+    parser.add_argument("--param_types", type=str, nargs='+', default=["mupc"]) 
     parser.add_argument("--param_lrs", type=float, nargs='+', default=[1e-1])
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--max_infer_iters", type=int, default=8)
-    parser.add_argument("--param_optim_ids", type=str, nargs='+', default=["Adam"])
-    parser.add_argument("--activity_optim_ids", type=str, nargs='+', default=["GD"])
+    parser.add_argument("--param_optim_ids", type=str, nargs='+', default=["adam"])
+    parser.add_argument("--activity_optim_ids", type=str, nargs='+', default=["gd"])
     parser.add_argument("--activity_lrs", type=float, nargs='+', default=[5e-1])
     parser.add_argument("--activity_decays", type=float, nargs='+', default=[0])
     parser.add_argument("--weight_decays", type=float, nargs='+', default=[0])

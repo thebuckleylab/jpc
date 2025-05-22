@@ -31,16 +31,16 @@ def run_test(
     # create and initialise model
     d_in, d_out = 784, 10
     L = n_hidden + 1
-    model = jpc.make_mlp_preactiv(
+    model = jpc.make_mlp(
         key=model_key,
-        d_in=d_in,
-        N=width,
-        L=L,
-        d_out=d_out,
-        act_fn=jpc.get_act_fn(act_fn),
+        input_dim=d_in,
+        width=width,
+        depth=L,
+        output_dim=d_out,
+        act_fn=act_fn,
         use_bias=False
     )
-    if param_type != "SP":
+    if param_type != "sp":
         model = init_weights(
             key=init_key,
             model=model,
@@ -49,9 +49,9 @@ def run_test(
     skip_model = jpc.make_skip_model(model) if n_skip == 1 else None
 
     # optimisers
-    if param_optim_id == "SGD":
+    if param_optim_id == "sgd":
         param_optim = optax.sgd(param_lr)
-    elif param_optim_id == "Adam":
+    elif param_optim_id == "adam":
         param_optim = optax.adam(param_lr)
     
     param_opt_state = param_optim.init(
@@ -77,7 +77,7 @@ def run_test(
         loss = 0.5 * np.sum((y - activities[-1])**2) / batch_size
 
         # compute theoretical activities & energy
-        activities = jpc.linear_activities_solution(
+        activities = jpc.compute_linear_activity_solution(
             network=model,
             x=x,
             y=y,
@@ -128,12 +128,12 @@ if __name__ == "__main__":
     RESULTS_DIR = "energy_theory_results"
     DATASET = "MNIST"
     N_SKIP = 1
-    PARAM_OPTIM_ID = "Adam"
+    PARAM_OPTIM_ID = "adam"
     PARAM_LR = 1e-2
     BATCH_SIZE = 64
 
     ACT_FNS = ["linear"]
-    PARAM_TYPES = ["μP"]  #"SP", 
+    PARAM_TYPES = ["mupc"]  #"sp", 
     WIDTHS = [2**i for i in range(7)]           # 7 or 10 max
     N_HIDDENS = [2**i for i in range(7)]        # 4 or 7 max
     SEED = 4320

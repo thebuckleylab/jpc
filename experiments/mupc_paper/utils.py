@@ -394,7 +394,7 @@ def compute_hessian_eigens(
         params,
         activities,
         y,
-        x,
+        x=x,
         n_skip=n_skip,
         param_type=param_type,
         activity_decay=activity_decay,

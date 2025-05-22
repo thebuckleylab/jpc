@@ -44,7 +44,7 @@ class MLP(eqx.Module):
         keys = jr.split(key, L)
         self.layers = []
         for i in range(L):
-            act_fn_l = nn.Identity() if i == 0 else act_fn
+            act_fn_l = nn.Identity() if i == 0 else jpc.get_act_fn(act_fn)
             _in = d_in if i == 0 else N
             _out = d_out if (i + 1) == L else N
             layer = nn.Sequential(
@@ -61,7 +61,7 @@ class MLP(eqx.Module):
             self.layers.append(layer)
 
     def __call__(self, x):
-        if self.param_type == "μP":
+        if self.param_type == "depth_mup":
             for i, f in enumerate(self.layers):
                 if (i + 1) == 1:
                     x = f(x) / jnp.sqrt(self.D)
@@ -143,19 +143,19 @@ def train_mlp(
         N=width,
         L=n_hidden+1,
         d_out=10,
-        act_fn=jpc.get_act_fn(act_fn),
+        act_fn=act_fn,
         param_type=param_type,
         use_bias=False,
-        use_skips=True if param_type == "μP" else False
+        use_skips=True if param_type == "depth_mup" else False
     )
-    if param_type == "μP":
+    if param_type == "depth_mup":
         model = init_weights(
             model=model,
             init_fn_id="standard_gauss",
             key=init_key
         )
 
-    optim = optax.sgd(lr) if optim_id == "SGD" else optax.adam(lr)
+    optim = optax.sgd(lr) if optim_id == "sgd" else optax.adam(lr)
     opt_state = optim.init(eqx.filter(model, eqx.is_array))
 
     # data
@@ -225,8 +225,8 @@ if __name__ == "__main__":
     parser.add_argument("--width", type=int, default=512)
     parser.add_argument("--n_hidden", type=int, default=8)
     parser.add_argument("--act_fns", type=str, nargs='+', default=["relu"])
-    parser.add_argument("--param_type", type=str, default="μP") 
-    parser.add_argument("--optim_id", type=str, default="Adam")
+    parser.add_argument("--param_type", type=str, default="depth_mup") 
+    parser.add_argument("--optim_id", type=str, default="adam")
     parser.add_argument("--lrs", type=float, nargs='+', default=[1, 5e-1, 1e-1, 5e-2, 1e-2, 5e-3, 1e-3, 5e-4, 1e-4])
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--max_epochs", type=int, default=15)
