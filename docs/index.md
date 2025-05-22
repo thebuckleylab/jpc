@@ -81,8 +81,7 @@ result = jpc.make_pc_step(
 )
 
 # updated model and optimiser
-model = result["model"]
-opt_state = result["opt_state"]
+model, opt_state = result["model"], result["opt_state"]
 ```
 Under the hood, `jpc.make_pc_step()`
 

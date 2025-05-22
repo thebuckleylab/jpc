@@ -43,8 +43,7 @@ update_result = jpc.make_pc_step(
 )
 
 # updated model and optimiser
-model = update_result["model"]
-opt_state = update_result["opt_state"]
+model, opt_state = update_result["model"], update_result["opt_state"]
 ```
 As shown above, at a minimum `jpc.make_pc_step()` takes a model, an [optax
 ](https://github.com/google-deepmind/optax) optimiser and its 

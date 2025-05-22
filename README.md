@@ -111,8 +111,7 @@ result = jpc.make_pc_step(
 )
 
 # updated model and optimiser
-model = result["model"], 
-opt_state = result["opt_state"]
+model, opt_state = result["model"], result["opt_state"]
 ```
 Under the hood, `jpc.make_pc_step()`
 1. integrates the inference (activity) dynamics using a [diffrax](https://github.com/patrick-kidger/diffrax) ODE solver, and
@@ -120,7 +119,7 @@ Under the hood, `jpc.make_pc_step()`
 
 See the [documentation](https://thebuckleylab.github.io/jpc/) for more details. 
 
-> **NOTE**: All convenience training and test functions such as `make_pc_step` 
+> **NOTE**: All convenience training and test functions such as `make_pc_step()` 
 > are already "jitted" (for optimised performance) for the user's convenience.
 
 ## 🚀 Advanced usage
