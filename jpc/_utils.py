@@ -55,10 +55,10 @@ def make_mlp(
     **Main arguments:**
 
     - `key`: `jax.random.PRNGKey` for parameter initialisation.
-    - `d_in`: Input dimension.
-    - `N`: Network width.
-    - `L`: Network depth.
-    - `d_out`: Output dimension.
+    - `input_dim`: Input dimension.
+    - `width`: Network width.
+    - `depth`: Network depth.
+    - `output_dim`: Output dimension.
     - `act_fn`: Activation function (for all layers except the output).
     - `use_bias`: `False` by default.
 
