@@ -1,4 +1,4 @@
-# Updates
+# Discrete updates
 
 ::: jpc.update_activities
 

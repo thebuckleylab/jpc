@@ -114,9 +114,9 @@ nav:
     - 🚀 Advanced API:
         - 'api/Initialisation.md'
         - 'api/Energy functions.md'
-        - 'api/Inference.md'
         - 'api/Gradients.md'
-        - 'api/Updates.md'
+        - 'api/Continuous Inference.md'
+        - 'api/Discrete updates.md'
         - 'api/Theoretical tools.md'
 
 copyright: |
