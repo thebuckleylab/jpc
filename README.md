@@ -72,8 +72,8 @@ pip install --upgrade "jax[cuda12]"
 Available at https://thebuckleylab.github.io/jpc/.
 
 ## ⚡️ Quick example
-Use `jpc.make_pc_step` to update the parameters of any neural network compatible
-with PC updates (see the [notebook examples
+Use `jpc.make_pc_step()` to update the parameters of any neural network 
+compatible with PC updates (see the [notebook examples
 ](https://thebuckleylab.github.io/jpc/examples/discriminative_pc/))
 ```py
 import jax.random as jr
@@ -88,7 +88,14 @@ y = -x
 
 # define model and optimiser
 key = jr.PRNGKey(0)
-model = jpc.make_mlp(key, layer_sizes=[3, 5, 5, 3], act_fn="tanh")
+model = jpc.make_mlp(
+    key, 
+    input_dim=3,
+    width=50,
+    depth=5,
+    output_dim=3
+    act_fn="relu"
+)
 optim = optax.adam(1e-3)
 opt_state = optim.init(
     (eqx.filter(model, eqx.is_array), None)
@@ -104,10 +111,10 @@ result = jpc.make_pc_step(
 )
 
 # updated model and optimiser
-model = result["model"]
-optim, opt_state = result["optim"], result["opt_state"]
+model = result["model"], 
+opt_state = result["opt_state"]
 ```
-Under the hood, `jpc.make_pc_step`
+Under the hood, `jpc.make_pc_step()`
 1. integrates the inference (activity) dynamics using a [diffrax](https://github.com/patrick-kidger/diffrax) ODE solver, and
 2. updates model parameters at the numerical solution of the activities with a given [optax](https://github.com/google-deepmind/optax) optimiser.
 
@@ -117,8 +124,9 @@ See the [documentation](https://thebuckleylab.github.io/jpc/) for more details.
 > are already "jitted" (for optimised performance) for the user's convenience.
 
 ## 🚀 Advanced usage
-Advanced users can access all the underlying functions of `jpc.make_pc_step` as 
-well as additional features. A custom PC training step looks like the following:
+Advanced users can access all the underlying functions of `jpc.make_pc_step()` 
+as well as additional features. A custom PC training step looks like the 
+following:
 ```py
 import jpc
 
@@ -126,7 +134,7 @@ import jpc
 activities = jpc.init_activities_with_ffwd(model=model, input=x)
 
 # 2. run inference to equilibrium
-equilibrated_activities = jpc.solve_inference(
+converged_activities = jpc.solve_inference(
     params=(model, None), 
     activities=activities, 
     output=y, 
@@ -136,7 +144,7 @@ equilibrated_activities = jpc.solve_inference(
 # 3. update parameters at the activities' solution with PC
 result = jpc.update_params(
     params=(model, None), 
-    activities=equilibrated_activities,
+    activities=converged_activities,
     optim=optim,
     opt_state=opt_state,
     output=y, 

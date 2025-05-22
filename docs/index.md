@@ -43,8 +43,8 @@ pip install --upgrade "jax[cuda12]"
 ```
 
 ## ⚡️ Quick example
-Use `jpc.make_pc_step` to update the parameters of any neural network compatible
-with PC updates (see [examples](https://thebuckleylab.github.io/jpc/examples/discriminative_pc/))
+Use `jpc.make_pc_step()` to update the parameters of any neural network 
+compatible with PC updates (see [examples](https://thebuckleylab.github.io/jpc/examples/discriminative_pc/))
 ```py
 import jax.random as jr
 import jax.numpy as jnp
@@ -58,7 +58,14 @@ y = -x
 
 # define model and optimiser
 key = jr.PRNGKey(0)
-model = jpc.make_mlp(key, layer_sizes=[3, 5, 5, 3], act_fn="tanh")
+model = jpc.make_mlp(
+    key, 
+    input_dim=3,
+    width=50,
+    depth=5,
+    output_dim=3
+    act_fn="relu"
+)
 optim = optax.adam(1e-3)
 opt_state = optim.init(
     (eqx.filter(model, eqx.is_array), None)
@@ -75,19 +82,20 @@ result = jpc.make_pc_step(
 
 # updated model and optimiser
 model = result["model"]
-optim, opt_state = result["optim"], result["opt_state"]
+opt_state = result["opt_state"]
 ```
-Under the hood, `jpc.make_pc_step`
+Under the hood, `jpc.make_pc_step()`
 
 1. integrates the inference (activity) dynamics using a [diffrax](https://github.com/patrick-kidger/diffrax) ODE solver, and
 2. updates model parameters at the numerical solution of the activities with a given [optax](https://github.com/google-deepmind/optax) optimiser.
 
-> **NOTE**: All convenience training and test functions such as `make_pc_step` 
+> **NOTE**: All convenience training and test functions such as `make_pc_step()` 
 > are already "jitted" (for optimised performance) for the user's convenience.
 
 ## 🚀 Advanced usage
-Advanced users can access all the underlying functions of `jpc.make_pc_step` as 
-well as additional features. A custom PC training step looks like the following:
+Advanced users can access all the underlying functions of `jpc.make_pc_step()` 
+as well as additional features. A custom PC training step looks like the 
+following:
 ```py
 import jpc
 

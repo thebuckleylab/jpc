@@ -1,7 +1,8 @@
 # Advanced usage
 
-Advanced users can access all the underlying functions of `jpc.make_pc_step` as 
-well as additional features. A custom PC training step looks like the following:
+Advanced users can access all the underlying functions of `jpc.make_pc_step()` 
+as well as additional features. A custom PC training step looks like the 
+following:
 ```py
 import jpc
 
@@ -28,7 +29,6 @@ param_update_result = jpc.update_params(
 
 # updated model and optimiser
 model = param_update_result["model"]
-param_optim = param_update_result["optim"]
 param_opt_state = param_update_result["opt_state"]
 ```
 which can be embedded in a jitted function with any other additional 
@@ -56,7 +56,6 @@ for t in range(T):
     )
     # updated activities and optimiser
     activities = activity_update_result["activities"]
-    activity_optim = activity_update_result["optim"]
     activity_opt_state = activity_update_result["opt_state"]
 
 # 3. update parameters at the activities' solution with PC
@@ -69,4 +68,4 @@ diagnose issues with PCNs
 (see [docs
 ](https://thebuckleylab.github.io/jpc/api/Analytical%20tools/) 
 and [example notebook
-](https://thebuckleylab.github.io/jpc/examples/linear_net_theoretical_energy/)).
+](https://thebuckleylab.github.io/jpc/examples/theoretical_energy_with_linear_net/)).

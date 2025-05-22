@@ -117,7 +117,7 @@ nav:
         - 'api/Inference.md'
         - 'api/Gradients.md'
         - 'api/Updates.md'
-        - 'api/Analytical tools.md'
+        - 'api/Theoretical tools.md'
 
 copyright: |
   &copy; 2024 <a href="https://github.com/thebuckleylab"  target="_blank" rel="noopener">thebuckleylab</a>
