@@ -5,3 +5,7 @@
 ---
 
 ::: jpc.hpc_energy_fn
+
+---
+
+::: jpc._get_energy_scalings

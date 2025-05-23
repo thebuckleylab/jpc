@@ -5,7 +5,8 @@ from ._init import (
 )
 from ._energies import (
     pc_energy_fn as pc_energy_fn,
-    hpc_energy_fn as hpc_energy_fn
+    hpc_energy_fn as hpc_energy_fn,
+    _get_energy_scalings as _get_energy_scalings
 )
 from ._grads import (
     neg_activity_grad as neg_activity_grad,
