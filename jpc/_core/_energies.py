@@ -73,7 +73,7 @@ def pc_energy_fn(
     if skip_model is None:
         skip_model = [None] * len(model)
 
-    scalings = _get_energy_scalings(
+    scalings = _get_param_scalings(
         model=model, 
         input=x, 
         skip_model=skip_model, 
@@ -208,7 +208,7 @@ def hpc_energy_fn(
         return sum(array(energies)) / batch_size
 
 
-def _get_energy_scalings(
+def _get_param_scalings(
         model: PyTree[Callable], 
         input: ArrayLike, 
         *,

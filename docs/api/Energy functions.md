@@ -8,4 +8,4 @@
 
 ---
 
-::: jpc._get_energy_scalings
+::: jpc._get_param_scalings

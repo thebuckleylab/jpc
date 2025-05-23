@@ -2,7 +2,7 @@
 
 from jax import vmap, random
 import equinox as eqx
-from ._energies import _get_energy_scalings
+from ._energies import _get_param_scalings
 from jaxtyping import PyTree, ArrayLike, Array, PRNGKeyArray, Scalar
 from typing import Callable, Optional
 
@@ -16,14 +16,15 @@ def init_activities_with_ffwd(
         n_skip: int = 0,
         param_type: str = "sp"
 ) -> PyTree[Array]:
-    """Initialises layers' activity with a feedforward pass
-    $\{ f_\ell(\mathbf{z}_{\ell-1}) \}_{\ell=1}^L$ where $\mathbf{z}_0 = \mathbf{x}$ is
-    the input.
+    """Initialises the layers' activity with a feedforward pass
+    $\{ f_\ell(\mathbf{z}_{\ell-1}) \}_{\ell=1}^L$ where $f_\ell(\cdot)$ is some
+    callable layer transformation and $\mathbf{z}_0 = \mathbf{x}$ is the input.
 
-    !!! note
+    !!! warning
 
-        param_type = `mupc` (μPC) assumes that one is using `make_mlp()` to 
-        create the model.
+        `param_type = mupc` ([μPC](https://arxiv.org/abs/2505.13124)) assumes 
+        that one is using [`make_mlp()`](https://thebuckleylab.github.io/jpc/api/Utils/#jpc.make_mlp) 
+        to create the model.
 
     **Main arguments:**
 
@@ -48,7 +49,7 @@ def init_activities_with_ffwd(
     if skip_model is None:
         skip_model = [None] * len(model)
         
-    scalings = _get_energy_scalings(
+    scalings = _get_param_scalings(
         model=model, 
         input=input, 
         skip_model=skip_model, 
@@ -79,7 +80,8 @@ def init_activities_from_normal(
         batch_size: int,
         sigma: Scalar = 0.05
 ) -> PyTree[Array]:
-    """Initialises network activities from a zero-mean Gaussian $\sim \mathcal{N}(0, \sigma^2)$.
+    """Initialises network activities from a zero-mean Gaussian 
+    $z_i \sim \mathcal{N}(0, \sigma^2)$.
 
     **Main arguments:**
 
