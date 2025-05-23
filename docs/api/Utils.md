@@ -1,5 +1,8 @@
 # Utils
 
+JPC provides several standard utilities for neural network training, including 
+creation of simple models, losses, and metrics.
+
 ::: jpc.make_mlp
 
 ---

@@ -13,22 +13,32 @@ def compute_linear_equilib_energy(
         x: ArrayLike,
         y: ArrayLike
 ) -> Array:
-    """Computes the theoretical equilibrated PC energy for a deep linear network.
+    """Computes the theoretical [PC energy](http://127.0.0.1:8000/api/Energy%20functions/#jpc.pc_energy_fn) 
+    at the solution of the activities for a deep linear network ([Innocenti et al. 2024](https://proceedings.neurips.cc/paper_files/paper/2024/hash/6075fc6540b9a3cb951752099efd86ef-Abstract-Conference.html)).
 
     $$
-    \mathcal{F}^* = 1/N \sum_i^N (\mathbf{y}_i - W_{L:1}\mathbf{x}_i)^T S^{-1}(\mathbf{y}_i - W_{L:1}\mathbf{x}_i)
+    \mathcal{F}(\mathbf{z}^*) = 1/2N \sum_i^N (\mathbf{y}_i - \mathbf{W}_{L:1}\mathbf{x}_i)^T \mathbf{S}^{-1}(\mathbf{y}_i - \mathbf{W}_{L:1}\mathbf{x}_i)
     $$
 
-    where the rescaling is $S = I_{d_y} + \sum_{\ell=2}^L (W_{L:\ell})(W_{L:\ell})^T$,
-    and we use the shorthand $W_{k:\ell} = W_k \dots W_\ell$ for $\ell, k \in 1,\dots, L$.
-    See the reference below for more details.
+    where $\mathbf{S} = \mathbf{I}_{d_y} + \sum_{\ell=2}^L (\mathbf{W}_{L:\ell})(\mathbf{W}_{L:\ell})^T$,
+    and $\mathbf{W}_{k:\ell} = \mathbf{W}_k \dots \mathbf{W}_\ell$ for $\ell, k \in 1,\dots, L$.
+
+    In practice, this means that if you run, at any point in training, the 
+    inference dynamics of any PC linear network to equilibrium (for enough steps 
+    and as long as your network is not too deep), then [`jpc.pc_energy_fn()`](http://127.0.0.1:8000/api/Energy%20functions/#jpc.pc_energy_fn) 
+    will return the same energy value as this function. For a demonstration, see
+    [this example notebook](http://127.0.0.1:8000/examples/theoretical_energy_with_linear_net/).
 
     !!! note
 
         This expression assumes no biases. It could also be generalised to 
         other network architectures (e.g. ResNets) and parameterisations
-        (see https://arxiv.org/abs/2505.13124). TODO: add note on how to 
-        circumvent this
+        (see [Innocenti et al. 2025](https://arxiv.org/abs/2505.13124)). 
+        However, note that the equilibrated energy for ResNets and other
+        parameterisations can still be computed by getting the activity solution
+        with [`jpc.compute_linear_activity_solution`](http://127.0.0.1:8000/api/Theoretical%20tools/#jpc.compute_linear_activity_solution) 
+        and then plugging this into the standard PC energy 
+        [jpc.pc_energy_fn()](http://127.0.0.1:8000/api/Energy%20functions/#jpc.pc_energy_fn).
 
     ??? cite "Reference"
 
@@ -88,29 +98,33 @@ def compute_linear_activity_hessian(
         diag: bool = True,
         off_diag: bool = True
 ) -> Array:
-    """Computes the theoretical Hessian matrix of the PC energy with respect to 
-    the activities for a linear network, 
-    $\partial^2 \mathcal{F}/\partial \mathbf{z}_\ell \partial \mathbf{z}_k$.
-    
-    See [this paper](https://arxiv.org/abs/2505.13124) for more details.
+    """Computes the theoretical Hessian matrix of the [PC energy](http://127.0.0.1:8000/api/Energy%20functions/#jpc.pc_energy_fn) 
+    with respect to the activities for a linear network, 
+    $(\mathbf{H}_{\mathbf{z}})_{\ell k} := \partial^2 \mathcal{F} / \partial \mathbf{z}_\ell \partial \mathbf{z}_k \in \mathbb{R}^{(NH)×(NH)}$ 
+    where $N$ and $H$ are the width and number of hidden layers, respectively ([Innocenti et al., 2025](https://arxiv.org/abs/2505.13124)).
 
+    !!! info
+
+        This function can be used (i) to study the inference landscape of linear
+        PC networks and (ii) to compute the analytical solution with 
+        [`compute_linear_activity_solution()`](http://127.0.0.1:8000/api/Theoretical%20tools/#jpc.compute_linear_activity_solution).
+    
     !!! warning
 
         This was highly hard-coded for quick experimental iteration with 
         different models and parameterisations. The computation of the blocks
         could be implemented much more elegantly by fetching the 
-        transformation for each layer (see the paper below).
-
-    !!! info
-
-        This function can be used to study the inference landscape of linear
-        PC networks and compute the solution with 
-        `compute_linear_activity_solution()`.
+        transformation for each layer.
 
     ??? cite "Reference"
 
         ```bibtex
-        TODO
+        @article{innocenti2025mu,
+            title={$$\backslash$mu $ PC: Scaling Predictive Coding to 100+ Layer Networks},
+            author={Innocenti, Francesco and Achour, El Mehdi and Buckley, Christopher L},
+            journal={arXiv preprint arXiv:2505.13124},
+            year={2025}
+        }
         ```
 
     **Main arguments:**
@@ -120,15 +134,18 @@ def compute_linear_activity_hessian(
     **Other arguments:**
 
     - `n_skip`: Number of layers to skip for the skip connections.
-    - `param_type`: Determines the parameterisation. Options are `sp`, `mupc`, or `ntp`.
+    - `param_type`: Determines the parameterisation. Options are `sp` (standard
+        parameterisation), `mupc` ([μPC](https://arxiv.org/abs/2505.13124)), or 
+        `ntp` (neural tangent parameterisation). See [`_get_param_scalings()`](http://127.0.0.1:8000/api/Energy%20functions/#jpc._get_param_scalings) 
+        for the specific scalings of these different parameterisations.
     - `activity_decay`: $\ell^2$ regulariser for the activities.
     - `diag`: Whether to compute the diagonal blocks of the Hessian.
     - `off-diag`: Whether to compute the off-diagonal blocks of the Hessian.
 
     **Returns:**
 
-    The activity Hessian matrix of size NHxNH where N is the width and H is the
-    number of hidden layers.
+    The activity Hessian matrix of size $NH×NH$ where $N$ is the width and $H$ 
+    is the number of hidden layers.
 
     """
     L = len(Ws)
@@ -218,28 +235,32 @@ def compute_linear_activity_solution(
         param_type: str = "sp",
         activity_decay: bool = False
 ) -> PyTree[Array]:
-    """Computes the theoretical solution for the PC activities of a linear network.
+    """Computes the theoretical solution for the PC activities of a linear network ([Innocenti et al., 2025](https://arxiv.org/abs/2505.13124)).
 
     $$
-    \mathbf{z}^* = A^{-1} \mathbf{b}
+    \mathbf{z}^* = \mathbf{H}_{\mathbf{z}}^{-1}\mathbf{b}
     $$
 
-    where $A$ is the Hessian of the PC energy with respect to all the activities,
-    and $\mathbf{b} = [W_1 \mathbf{x}, \mathbf{0}, \dots, W_L^T \mathbf{y}]^T$.
-    In particular, $A_{\ell,k} = I + W_\ell^T W_\ell$ if $\ell = k$,
-    $A_{\ell,k} = -W_\ell$ if $\ell = k+1$,
-    $A_{\ell,k} = -W_\ell^T$ if $\ell = k-1$, and $\mathbf{0}$ otherwise,
-    for $\ell, k \in [2, \dots, L]$. See [this paper](https://arxiv.org/abs/2505.13124) 
-    for more details.
-
+    where $(\mathbf{H}_{\mathbf{z}})_{\ell k} := \partial^2 \mathcal{F} / \partial \mathbf{z}_\ell \partial \mathbf{z}_k \in \mathbb{R}^{(NH)×(NH)}$ 
+    is the Hessian of the energy with respect to the activities, and 
+    $\mathbf{b} \in \mathbb{R}^{NH}$ is a sparse vector depending only on the 
+    data and associated weights. The activity Hessian is computed analytically 
+    using [`compute_linear_activity_hessian()`](http://127.0.0.1:8000/api/Theoretical%20tools/#jpc.compute_linear_activity_hessian).    
+    
     !!! info
 
-        This uses `compute_linear_activity_hessian()` to compute $A$. 
+        This can be used to study how linear PC networks learn when they perform 
+        perfect inference. An example notebook demonstration is in the works!
     
     ??? cite "Reference"
 
         ```bibtex
-        TODO
+        @article{innocenti2025mu,
+            title={$$\backslash$mu $ PC: Scaling Predictive Coding to 100+ Layer Networks},
+            author={Innocenti, Francesco and Achour, El Mehdi and Buckley, Christopher L},
+            journal={arXiv preprint arXiv:2505.13124},
+            year={2025}
+        }
         ```
 
     **Main arguments:**
@@ -247,6 +268,15 @@ def compute_linear_activity_solution(
     - `network`: Linear network defined as a list of Equinox Linear layers.
     - `x`: Network input.
     - `y`: Network output.
+
+    **Other arguments:**
+
+    - `n_skip`: Number of layers to skip for the skip connections.
+    - `param_type`: Determines the parameterisation. Options are `sp` (standard
+        parameterisation), `mupc` ([μPC](https://arxiv.org/abs/2505.13124)), or 
+        `ntp` (neural tangent parameterisation). See [`_get_param_scalings()`](http://127.0.0.1:8000/api/Energy%20functions/#jpc._get_param_scalings) 
+        for the specific scalings of these different parameterisations.
+    - `activity_decay`: $\ell^2$ regulariser for the activities.
 
     **Returns:**
 

@@ -115,7 +115,7 @@ nav:
         - 'api/Initialisation.md'
         - 'api/Energy functions.md'
         - 'api/Gradients.md'
-        - 'api/Continuous Inference.md'
+        - 'api/Continuous-time Inference.md'
         - 'api/Discrete updates.md'
         - 'api/Theoretical tools.md'
 

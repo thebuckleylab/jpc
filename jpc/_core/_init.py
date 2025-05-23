@@ -34,11 +34,12 @@ def init_activities_with_ffwd(
     **Other arguments:**
 
     - `skip_model`: Optional skip connection model.
-    - `n_skip`: Number of layers to skip for the skip connections.
+    - `n_skip`: Number of layers to skip for the skip model (0 by default).
     - `param_type`: Determines the parameterisation. Options are `sp` (standard
         parameterisation), `mupc` ([μPC](https://arxiv.org/abs/2505.13124)), or 
-        `ntp` (neural tangent parameterisation). See `_get_scalings()` for the
-        specific scalings of these different parameterisations.
+        `ntp` (neural tangent parameterisation). See [`_get_param_scalings()`](http://127.0.0.1:8000/api/Energy%20functions/#jpc._get_param_scalings) 
+        for the specific scalings of these different parameterisations. Defaults
+        to `sp`.
 
     **Returns:**
 

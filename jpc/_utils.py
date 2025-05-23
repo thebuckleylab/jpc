@@ -50,7 +50,7 @@ def make_mlp(
     !!! note
 
         This implementation places the activation function before the linear 
-        transformation, $W_\ell\phi(\mathbf{z}_{\ell-1})$, for TODO. 
+        transformation, $\mathbf{W}_\ell \phi(\mathbf{z}_{\ell-1})$, for TODO. 
 
     **Main arguments:**
 
@@ -196,7 +196,7 @@ def compute_infer_energies(
 
 
 def compute_activity_norms(activities: PyTree[Array]) -> Array:
-    """Calculates l2 norm of activities at each layer."""
+    """Calculates $\ell^2$ norm of activities at each layer."""
     return jnp.array([
         jnp.mean(
             jnp.linalg.norm(
@@ -209,7 +209,7 @@ def compute_activity_norms(activities: PyTree[Array]) -> Array:
 
 
 def compute_param_norms(params):
-    """Calculates l2 norm of all model parameters."""
+    """Calculates $\ell^2$ norm of all model parameters."""
     def process_model_params(model_params):
         return jnp.array([
             jnp.linalg.norm(

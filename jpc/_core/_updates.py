@@ -23,26 +23,38 @@ def update_activities(
         spectral_penalty: Scalar = 0.,
         activity_decay: Scalar = 0.
 ) -> Dict:
-    """Updates activities of a predictive coding network with a given Optax optimiser.
+    """Updates activities of a predictive coding network with a given 
+    [optax](https://github.com/google-deepmind/optax) optimiser.
+
+    !!! warning
+
+        `param_type = mupc` ([μPC](https://arxiv.org/abs/2505.13124)) assumes 
+        that one is using [`make_mlp()`](https://thebuckleylab.github.io/jpc/api/Utils/#jpc.make_mlp) 
+        to create the model.
 
     **Main arguments:**
 
     - `params`: Tuple with callable model layers and optional skip connections.
     - `activities`: List of activities for each layer free to vary.
-    - `optim`: Optax optimiser, e.g. `optax.sgd()`.
-    - `opt_state`: State of Optax optimiser.
+    - `optim`: optax optimiser, e.g. `optax.sgd()`.
+    - `opt_state`: State of optax optimiser.
     - `output`: Observation or target of the generative model.
 
     **Other arguments:**
 
     - `input`: Optional prior of the generative model.
-    - `n_skip`: Number of layers to skip for the skip connections.
-    - `loss_id`: Loss function to use at the output layer (mean squared error
-        `mse` vs cross-entropy `ce`).
-    - `param_type`: Determines the parameterisation. Options are `sp`, `mupc`, or `ntp`.
-    - `weight_decay`: Weight decay for the weights.
-    - `spectral_penalty`: Spectral penalty for the weights.
-    - `activity_decay`: Activity decay for the activities.
+    - `n_skip`: Number of layers to skip for the skip connections (0 by default).
+    - `loss_id`: Loss function to use at the output layer. Options are mean squared 
+        error `mse` (default) or cross-entropy `ce`.
+    - `param_type`: Determines the parameterisation. Options are `sp` (standard
+        parameterisation), `mupc` ([μPC](https://arxiv.org/abs/2505.13124)), or 
+        `ntp` (neural tangent parameterisation). See [`_get_param_scalings()`](http://127.0.0.1:8000/api/Energy%20functions/#jpc._get_param_scalings) 
+        for the specific scalings of these different parameterisations. Defaults
+        to `sp`.
+    - `weight_decay`: Weight decay for the weights (0 by default).
+    - `spectral_penalty`: Weight spectral penalty of the form 
+        $||\mathbf{I} - \mathbf{W}_\ell^T \mathbf{W}_\ell||^2$ (0 by default).
+    - `activity_decay`: Activity decay for the activities (0 by default).
 
     **Returns:**
 
@@ -95,30 +107,42 @@ def update_params(
         spectral_penalty: Scalar = 0.,
         activity_decay: Scalar = 0.
 ) -> Dict:
-    """Updates parameters of a predictive coding network with a given Optax optimiser.
+    """Updates parameters of a predictive coding network with a given 
+    [optax](https://github.com/google-deepmind/optax) optimiser.
+
+    !!! warning
+
+        `param_type = mupc` ([μPC](https://arxiv.org/abs/2505.13124)) assumes 
+        that one is using [`make_mlp()`](https://thebuckleylab.github.io/jpc/api/Utils/#jpc.make_mlp) 
+        to create the model.
 
     **Main arguments:**
 
     - `params`: Tuple with callable model layers and optional skip connections.
     - `activities`: List of activities for each layer free to vary.
-    - `optim`: Optax optimiser, e.g. `optax.sgd()`.
-    - `opt_state`: State of Optax optimiser.
+    - `optim`: optax optimiser, e.g. `optax.sgd()`.
+    - `opt_state`: State of optax optimiser.
     - `output`: Observation or target of the generative model.
 
     **Other arguments:**
 
     - `input`: Optional prior of the generative model.
-    - `n_skip`: Number of layers to skip for the skip connections.
-    - `loss_id`: Loss function to use at the output layer (mean squared error
-        `mse` vs cross-entropy `ce`).
-    - `param_type`: Determines the parameterisation. Options are `sp`, `mupc`, or `ntp`.
-    - `weight_decay`: Weight decay for the weights.
-    - `spectral_penalty`: Spectral penalty for the weights.
-    - `activity_decay`: Activity decay for the activities.
+    - `n_skip`: Number of layers to skip for the skip connections (0 by default).
+    - `loss_id`: Loss function to use at the output layer. Options are mean squared 
+        error `mse` (default) or cross-entropy `ce`.
+    - `param_type`: Determines the parameterisation. Options are `sp` (standard
+        parameterisation), `mupc` ([μPC](https://arxiv.org/abs/2505.13124)), or 
+        `ntp` (neural tangent parameterisation). See [`_get_param_scalings()`](http://127.0.0.1:8000/api/Energy%20functions/#jpc._get_param_scalings) 
+        for the specific scalings of these different parameterisations. Defaults
+        to `sp`.
+    - `weight_decay`: Weight decay for the weights (0 by default).
+    - `spectral_penalty`: Weight spectral penalty of the form 
+        $||\mathbf{I} - \mathbf{W}_\ell^T \mathbf{W}_\ell||^2$ (0 by default).
+    - `activity_decay`: Activity decay for the activities (0 by default).
 
     **Returns:**
 
-    Dictionary with model (and optional skip model) with updated parameters,
+    Dictionary with model and optional skip model with updated parameters,
     parameter gradients, and optimiser state.
 
     """

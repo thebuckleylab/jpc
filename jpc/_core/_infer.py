@@ -40,16 +40,17 @@ def solve_inference(
 ) -> PyTree[Array]:
     """Solves the inference (activity) dynamics of a predictive coding network.
 
-    This is a wrapper around `diffrax.diffeqsolve` to integrate the gradient
-    ODE system `_neg_activity_grad` defining the PC inference dynamics
+    This is a wrapper around [`diffrax.diffeqsolve()`](https://docs.kidger.site/diffrax/api/diffeqsolve/#diffrax.diffeqsolve) 
+    to integrate the gradient ODE system [`neg_activity_grad()`](http://127.0.0.1:8000/api/Gradients/#jpc.neg_activity_grad) 
+    defining the PC inference dynamics.
 
     $$
-    d\mathbf{z} / dt = - \partial \mathcal{F} / \partial \mathbf{z}
+    d\mathbf{z} / dt = - ∇_{\mathbf{z}} \mathcal{F}
     $$
 
     where $\mathcal{F}$ is the free energy, $\mathbf{z}$ are the activities,
     with $\mathbf{z}_L$ clamped to some target and $\mathbf{z}_0$ optionally
-    equal to some prior.
+    set to some prior.
 
     **Main arguments:**
 
@@ -60,10 +61,14 @@ def solve_inference(
     **Other arguments:**
 
     - `input`: Optional prior of the generative model.
-    - `n_skip`: Number of layers to skip for the skip connections.
-    - `loss_id`: Loss function to use at the output layer (mean squared error
-        `mse` vs cross-entropy `ce`).
-    - `param_type`: Determines the parameterisation. Options are `sp`, `mupc`, or `ntp`.
+    - `n_skip`: Number of layers to skip for the skip connections (0 by default).
+    - `loss_id`: Loss function to use at the output layer. Options are mean squared 
+        error `mse` (default) or cross-entropy `ce`.
+    - `param_type`: Determines the parameterisation. Options are `sp` (standard
+        parameterisation), `mupc` ([μPC](https://arxiv.org/abs/2505.13124)), or 
+        `ntp` (neural tangent parameterisation). See [`_get_param_scalings()`](http://127.0.0.1:8000/api/Energy%20functions/#jpc._get_param_scalings) 
+        for the specific scalings of these different parameterisations. Defaults
+        to `sp`.
     - `solver`: Diffrax (ODE) solver to be used. Default is Heun, a 2nd order
         explicit Runge--Kutta method.
     - `max_t1`: Maximum end of integration region (20 by default).
@@ -73,9 +78,10 @@ def solve_inference(
         Defaults to `PIDController`. Note that the relative and absolute
         tolerances of the controller will also determine the steady state to
         terminate the solver.
-    - `weight_decay`: $\ell^2$ regulariser for the weights.
-    - `spectral_penalty`: Spectral penalty for the weights.
-    - `activity_decay`: $\ell^2$ regulariser for the activities.
+    - `weight_decay`: $\ell^2$ regulariser for the weights (0 by default).
+    - `spectral_penalty`: Weight spectral penalty of the form 
+        $||\mathbf{I} - \mathbf{W}_\ell^T \mathbf{W}_\ell||^2$ (0 by default).
+    - `activity_decay`: $\ell^2$ regulariser for the activities (0 by default).
     - `record_iters`: If `True`, returns all integration steps.
     - `record_every`: int determining the sampling frequency of the integration
         steps.

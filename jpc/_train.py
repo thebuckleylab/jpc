@@ -64,7 +64,7 @@ def make_pc_step(
       grad_norms: bool = False,
       calculate_accuracy: bool = False
 ) -> Dict:
-    """Updates network parameters with predictive coding.
+    """Performs one model parameter update with predictive coding.
 
     **Main arguments:**
 
@@ -82,9 +82,13 @@ def make_pc_step(
     **Other arguments:**
 
     - `input`: Optional prior of the generative model.
-    - `loss_id`: Loss function for the output layer (mean squared error `mse`
-        vs cross-entropy `ce`).
-    - `param_type`: Determines the parameterisation. Options are `sp`, `mupc`, or `ntp`.
+    - `loss_id`: Loss function to use at the output layer. Options are mean squared 
+        error `mse` (default) or cross-entropy `ce`.
+    - `param_type`: Determines the parameterisation. Options are `sp` (standard
+        parameterisation), `mupc` ([μPC](https://arxiv.org/abs/2505.13124)), or 
+        `ntp` (neural tangent parameterisation). See [`_get_param_scalings()`](http://127.0.0.1:8000/api/Energy%20functions/#jpc._get_param_scalings) 
+        for the specific scalings of these different parameterisations. Defaults
+        to `sp`.
     - `ode_solver`: Diffrax ODE solver to be used. Default is Heun, a 2nd order
         explicit Runge--Kutta method.
     - `max_t1`: Maximum end of integration region (20 by default).
@@ -95,7 +99,11 @@ def make_pc_step(
         tolerances of the controller will also determine the steady state to
         terminate the solver.
     - `skip_model`: Optional list of callable skip connection functions.
-    - `n_skip`: Number of layers to skip for the skip connections.
+    - `n_skip`: Number of layers to skip for the skip connections (0 by default).
+    - `weight_decay`: Weight decay for the weights (0 by default).
+    - `spectral_penalty`: Weight spectral penalty of the form 
+        $||\mathbf{I} - \mathbf{W}_\ell^T \mathbf{W}_\ell||^2$ (0 by default).
+    - `activity_decay`: Activity decay for the activities (0 by default).
     - `key`: `jax.random.PRNGKey` for random initialisation of activities.
     - `layer_sizes`: Dimension of all layers (input, hidden and output).
     - `batch_size`: Dimension of data batch for activity initialisation.
@@ -107,9 +115,9 @@ def make_pc_step(
         inference iteration.
     - `record_every`: int determining the sampling frequency the integration
         steps.
-    - `activity_norms`: If `True`, computes l2 norm of the activities.
-    - `param_norms`: If `True`, computes l2 norm of the parameters.
-    - `grad_norms`: If `True`, computes l2 norm of parameter gradients.
+    - `activity_norms`: If `True`, computes $\ell^2$ norm of the activities.
+    - `param_norms`: If `True`, computes $\ell^2$ norm of the parameters.
+    - `grad_norms`: If `True`, computes $\ell^2$ norm of parameter gradients.
     - `calculate_accuracy`: If `True`, computes the training accuracy.
 
     **Returns:**
@@ -281,7 +289,8 @@ def make_hpc_step(
       record_activities: bool = False,
       record_energies: bool = False
 ) -> Dict:
-    """Updates parameters of a hybrid predictive coding network.
+    """Performs one update of the parameters of a hybrid predictive coding 
+    network ([Tscshantz et al., 2023](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1011280)).
 
     ??? cite "Reference"
 

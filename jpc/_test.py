@@ -42,13 +42,14 @@ def test_discriminative_pc(
     **Other arguments:**
 
     - `skip_model`: Optional skip connection model.
-    - `n_skip`: Number of layers to skip for the skip connections.
-    - `loss`: Loss function to use at the output layer (mean squared error
-        `mse` vs cross-entropy `ce`).
+    - `n_skip`: Number of layers to skip for the skip connections (0 by default).
+    - `loss`: Loss function to use at the output layer. Options are mean squared 
+        error `mse` (default) or cross-entropy `ce`.
     - `param_type`: Determines the parameterisation. Options are `sp` (standard
         parameterisation), `mupc` ([μPC](https://arxiv.org/abs/2505.13124)), or 
-        `ntp` (neural tangent parameterisation). See `_get_scalings()` for the
-        specific scalings of these different parameterisations.
+        `ntp` (neural tangent parameterisation). See [`_get_param_scalings()`](http://127.0.0.1:8000/api/Energy%20functions/#jpc._get_param_scalings) 
+        for the specific scalings of these different parameterisations. Defaults
+        to `sp`.
 
     **Returns:**
 
@@ -106,7 +107,7 @@ def test_generative_pc(
 
     - `model`: List of callable model (e.g. neural network) layers.
     - `output`: Observation or target of the generative model.
-    - `input`: Optional prior of the generative model.
+    - `input`: Prior of the generative model.
     - `key`: `jax.random.PRNGKey` for random initialisation of activities.
     - `layer_sizes`: Dimension of all layers (input, hidden and output).
     - `batch_size`: Dimension of data batch for activity initialisation.
@@ -114,10 +115,14 @@ def test_generative_pc(
     **Other arguments:**
 
     - `skip_model`: Optional skip connection model.
-    - `n_skip`: Number of layers to skip for the skip connections.
-    - `loss_id`: Loss function to use at the output layer (mean squared error
-        `mse` vs cross-entropy `ce`).
-    - `param_type`: Determines the parameterisation. Options are `sp`, `mupc`, or `ntp`.
+    - `n_skip`: Number of layers to skip for the skip connections (0 by default).
+    - `loss_id`: Loss function to use at the output layer. Options are mean squared 
+        error `mse` (default) or cross-entropy `ce`.
+    - `param_type`: Determines the parameterisation. Options are `sp` (standard
+        parameterisation), `mupc` ([μPC](https://arxiv.org/abs/2505.13124)), or 
+        `ntp` (neural tangent parameterisation). See [`_get_param_scalings()`](http://127.0.0.1:8000/api/Energy%20functions/#jpc._get_param_scalings) 
+        for the specific scalings of these different parameterisations. Defaults
+        to `sp`.
     - `sigma`: Standard deviation for Gaussian to sample activities from.
         Defaults to 5e-2.
     - `ode_solver`: Diffrax ODE solver to be used. Default is Heun, a 2nd order
@@ -129,9 +134,10 @@ def test_generative_pc(
         Defaults to `PIDController`. Note that the relative and absolute
         tolerances of the controller will also determine the steady state to
         terminate the solver.
-    - `weight_decay`: $\ell^2$ regulariser for the weights.
-    - `spectral_penalty`: Spectral penalty for the weights.
-    - `activity_decay`: $\ell^2$ regulariser for the activities.
+    - `weight_decay`: Weight decay for the weights (0 by default).
+    - `spectral_penalty`: Weight spectral penalty of the form 
+        $||\mathbf{I} - \mathbf{W}_\ell^T \mathbf{W}_\ell||^2$ (0 by default).
+    - `activity_decay`: Activity decay for the activities (0 by default).
 
     **Returns:**
 

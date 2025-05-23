@@ -22,30 +22,41 @@ def neg_activity_grad(
             AbstractStepSizeController
         ]
     ) -> PyTree[Array]:
-    """Computes the negative gradient of the energy with respect to the activities $- \partial \mathcal{F} / \partial \mathbf{z}$.
+    """Computes the negative gradient of the [PC energy](http://127.0.0.1:8000/api/Energy%20functions/#jpc.pc_energy_fn) 
+    with respect to the activities $- ∇_{\mathbf{z}} \mathcal{F}$.
 
-    This defines an ODE system to be integrated by `solve_pc_inference`.
+    This defines an ODE system to be integrated by [`solve_pc_inference()`](http://127.0.0.1:8000/api/Continuous%20Inference/#jpc.solve_inference).
 
     **Main arguments:**
 
     - `t`: Time step of the ODE system, used for downstream integration by
-        `diffrax.diffeqsolve`.
+        [`diffrax.diffeqsolve()`](https://docs.kidger.site/diffrax/api/diffeqsolve/#diffrax.diffeqsolve).
     - `activities`: List of activities for each layer free to vary.
-    - `args`: 5-Tuple with
+    - `args`: 5-Tuple with:
+
         (i) Tuple with callable model layers and optional skip connections,
-        (ii) network output (observation),
-        (iii) network input (prior),
-        (iv) number of layers to skip for the skip connections,
-        (v) loss specified at the output layer (MSE vs cross-entropy),
-        (vi) parameterisation type (`sp`, `mupc`, or `ntp`),
-        (vii) $\ell^2$ regulariser for the weights,
-        (viii) spectral penalty for the weights
-        (ix) $\ell^2$ regulariser for the activities, and
+
+        (ii) model output (observation),
+
+        (iii) model input (prior),
+
+        (iv) number of layers to skip for the skip connections (0 by default),
+
+        (v) loss specified at the output layer (MSE as default or cross-entropy),
+
+        (vi) parameterisation type (`sp` as default, `mupc`, or `ntp`),
+
+        (vii) $\ell^2$ regulariser for the weights (0 by default),
+
+        (viii) spectral penalty for the weights (0 by default),
+
+        (ix) $\ell^2$ regulariser for the activities (0 by default), and
+
         (x) diffrax controller for step size integration.
 
     **Returns:**
 
-    List of negative gradients of the energy w.r.t. the activities.
+    List of negative gradients of the energy with respect to the activities.
 
     """
     params, y, x, n_skip, loss_id, param_type, weight_decay, spectral_penalty, activity_decay, _ = args
@@ -77,13 +88,16 @@ def compute_activity_grad(
         spectral_penalty: Scalar = 0.,
         activity_decay: Scalar = 0.
 ) -> PyTree[Array]:
-    """Computes the gradient of the PC energy with respect to the activities $∇_{\mathbf{z}} \mathcal{F}$.
+    """Computes the gradient of the [PC energy](http://127.0.0.1:8000/api/Energy%20functions/#jpc.pc_energy_fn)
+    with respect to the activities $∇_{\mathbf{z}} \mathcal{F}$.
 
     !!! note
 
-        This function differs from `neg_activity_grad()`, which computes the
-        negative gradients, and is called in `update_activities` for use of
-        any Optax optimiser.
+        This function differs from [`jpc.neg_activity_grad()`](http://127.0.0.1:8000/api/Gradients/#jpc.neg_activity_grad) 
+        only in the sign of the gradient (positive as opposed to negative) and 
+        is called in [`update_activities()`](http://127.0.0.1:8000/api/Discrete%20updates/#jpc.update_activities) 
+        for use with any [optax](https://github.com/google-deepmind/optax) 
+        optimiser.
 
     **Main arguments:**
 
@@ -94,17 +108,19 @@ def compute_activity_grad(
     **Other arguments:**
 
     - `x`: Optional prior of the generative model.
-    - `n_skip`: Number of layers to skip for the skip connections.
-    - `loss_id`: Loss function for the output layer (mean squared error `mse`
-        vs cross-entropy `ce`).
-    - `param_type`: Determines the parameterisation. Options are `sp`, `mupc`, or `ntp`.
-    - `weight_decay`: $\ell^2$ regulariser for the weights.
-    - `spectral_penalty`: Spectral penalty for the weights.
-    - `activity_decay`: $\ell^2$ regulariser for the activities.
+    - `n_skip`: Number of layers to skip for the skip connections (0 by default).
+    - `loss_id`: Loss function to use at the output layer. Options are mean squared 
+        error `mse` (default) or cross-entropy `ce`.
+    - `param_type`: Determines the parameterisation. Options are `sp` (default), 
+        `mupc`, or `ntp`.
+    - `weight_decay`: $\ell^2$ regulariser for the weights (0 by default).
+    - `spectral_penalty`: Weight spectral penalty of the form 
+        $||\mathbf{I} - \mathbf{W}_\ell^T \mathbf{W}_\ell||^2$ (0 by default).
+    - `activity_decay`: $\ell^2$ regulariser for the activities (0 by default).
 
     **Returns:**
 
-    List of negative gradients of the energy w.r.t. the activities.
+    List of negative gradients of the energy with respect to the activities.
 
     """
     energy, dFdzs = value_and_grad(pc_energy_fn, argnums=1)(
@@ -135,7 +151,8 @@ def compute_pc_param_grads(
         spectral_penalty: Scalar = 0.,
         activity_decay: Scalar = 0.
 ) -> Tuple[PyTree[Array], PyTree[Array]]:
-    """Computes the gradient of the PC energy with respect to model parameters $\partial \mathcal{F} / \partial θ$.
+    """Computes the gradient of the [PC energy](http://127.0.0.1:8000/api/Energy%20functions/#jpc.pc_energy_fn)
+    with respect to model parameters $∇_θ \mathcal{F}$.
 
     **Main arguments:**
 
@@ -146,17 +163,19 @@ def compute_pc_param_grads(
     **Other arguments:**
 
     - `x`: Optional prior of the generative model.
-    - `n_skip`: Number of layers to skip for the skip connections.
-    - `loss_id`: Loss function for the output layer (mean squared error `mse`
-        vs cross-entropy `ce`).
-    - `param_type`: Determines the parameterisation. Options are `sp`, `mupc`, or `ntp`.
-    - `weight_decay`: $\ell^2$ regulariser for the weights.
-    - `spectral_penalty`: Spectral penalty for the weights.
-    - `activity_decay`: $\ell^2$ regulariser for the activities.
+    - `n_skip`: Number of layers to skip for the skip connections (0 by default).
+    - `loss_id`: Loss function to use at the output layer. Options are mean squared 
+        error `mse` (default) or cross-entropy `ce`.
+    - `param_type`: Determines the parameterisation. Options are `sp` (default), 
+        `mupc`, or `ntp`.
+    - `weight_decay`: $\ell^2$ regulariser for the weights (0 by default).
+    - `spectral_penalty`: Weight spectral penalty of the form 
+        $||\mathbf{I} - \mathbf{W}_\ell^T \mathbf{W}_\ell||^2$ (0 by default).
+    - `activity_decay`: $\ell^2$ regulariser for the activities (0 by default).
 
     **Returns:**
 
-    List of parameter gradients for each network layer.
+    List of parameter gradients for each model layer.
 
     """
     return filter_grad(pc_energy_fn)(
@@ -180,7 +199,15 @@ def compute_hpc_param_grads(
         x: ArrayLike,
         y: Optional[ArrayLike] = None
 ) -> PyTree[Array]:
-    """Computes the gradient of the hybrid energy with respect to an amortiser's parameters $\partial \mathcal{F} / \partial θ$.
+    """Computes the gradient of the [hybrid PC energy](http://127.0.0.1:8000/api/Energy%20functions/#jpc.hpc_energy_fn) 
+    with respect to an amortiser's parameters $∇_θ \mathcal{F}$.
+
+    !!! warning
+
+        The input $x$ and output $y$ are reversed compared to 
+        `compute_pc_param_grads()` ($x$ is the generator's target and $y$ is its 
+        optional input or prior). Just think of $x$ and $y$ as the actual input 
+        and output of the amortiser, respectively.
 
     **Main arguments:**
 
@@ -188,20 +215,13 @@ def compute_hpc_param_grads(
     - `equilib_activities`: List of equilibrated activities reached by the
         generator and target for the amortiser.
     - `amort_activities`: List of amortiser's feedforward guesses
-        (initialisation) for the network activities.
+        (initialisation) for the model activities.
     - `x`: Input to the amortiser.
     - `y`: Optional target of the amortiser (for supervised training).
 
-    !!! note
-
-        The input $x$ and output $y$ are reversed compared to `compute_pc_param_grads`
-        ($x$ is the generator's target and $y$ is its optional input or prior).
-        Just think of $x$ and $y$ as the actual input and output of the
-        amortiser, respectively.
-
     **Returns:**
 
-    List of parameter gradients for each network layer.
+    List of parameter gradients for each model layer.
 
     """
     return filter_grad(hpc_energy_fn)(

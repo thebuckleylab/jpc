@@ -28,12 +28,12 @@ def pc_energy_fn(
     \mathcal{F}(\mathbf{z}; θ) = 1/N \sum_i^N \sum_{\ell=1}^L || \mathbf{z}_{i, \ell} - f_\ell(\mathbf{z}_{i, \ell-1}; θ) ||^2
     $$
 
-    given parameters $θ$, free activities $\mathbf{z}$, output
-    $\mathbf{z}_L = \mathbf{y}$ and optional input $\mathbf{z}_0 = \mathbf{x}$
+    given parameters $θ$, activities $\mathbf{z}$, output 
+    $\mathbf{z}_L = \mathbf{y}$, and optional input $\mathbf{z}_0 = \mathbf{x}$
     for supervised training. The activity of each layer $\mathbf{z}_\ell$ is
     some function of the previous layer, e.g.
-    ReLU$(W_\ell \mathbf{z}_{\ell-1} + \mathbf{b}_\ell)$ for a fully connected
-    layer with biases and ReLU as activation.
+    ReLU$(\mathbf{W}_\ell \mathbf{z}_{\ell-1} + \mathbf{b}_\ell)$ for a fully 
+    connected layer with biases and ReLU as activation.
 
     !!! note
 
@@ -50,13 +50,18 @@ def pc_energy_fn(
     **Other arguments:**
 
     - `x`: Optional prior of the generative model (for supervised training).
-    - `n_skip`: Number of layers to skip for the skip connections.
-    - `loss`: Loss function to use at the output layer (mean squared error
-        `mse` vs cross-entropy `ce`).
-    - `param_type`: Determines the parameterisation. Options are `sp`, `mupc`, or `ntp`.
-    - `weight_decay`: $\ell^2$ regulariser for the weights.
-    - `spectral_penalty`: Spectral penalty for the weights of the form ||I - W_\ell^T W_\ell||^2.
-    - `activity_decay`: $\ell^2$ regulariser for the activities.
+    - `n_skip`: Number of layers to skip for the skip connections (0 by default).
+    - `loss`: Loss function to use at the output layer. Options are mean squared 
+        error `mse` (default) or cross-entropy `ce`.
+    - `param_type`: Determines the parameterisation. Options are `sp` (standard
+        parameterisation), `mupc` ([μPC](https://arxiv.org/abs/2505.13124)), or 
+        `ntp` (neural tangent parameterisation). See [`_get_param_scalings()`](http://127.0.0.1:8000/api/Energy%20functions/#jpc._get_param_scalings) 
+        for the specific scalings of these different parameterisations. Defaults
+        to `sp`.
+    - `weight_decay`: $\ell^2$ regulariser for the weights (0 by default).
+    - `spectral_penalty`: Weight spectral penalty of the form 
+        $||\mathbf{I} - \mathbf{W}_\ell^T \mathbf{W}_\ell||^2$ (0 by default).
+    - `activity_decay`: $\ell^2$ regulariser for the activities (0 by default).
     - `record_layers`: If `True`, returns the energy of each layer.
 
     **Returns:**
@@ -146,7 +151,7 @@ def hpc_energy_fn(
         y: Optional[ArrayLike] = None,
         record_layers: bool = False
 ) -> Scalar | Array:
-    """Computes the free energy of an amortised PC network
+    """Computes the free energy of an amortised PC network ([Tscshantz et al., 2023](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1011280))
 
     $$
     \mathcal{F}(\mathbf{z}^*, \hat{\mathbf{z}}; θ) = 1/N \sum_i^N \sum_{\ell=1}^L || \mathbf{z}^*_{i, \ell} - f_\ell(\hat{\mathbf{z}}_{i, \ell-1}; θ) ||^2
@@ -164,6 +169,21 @@ def hpc_energy_fn(
         ($x$ is the generator's target and $y$ is its optional input or prior).
         Just think of $x$ and $y$ as the actual input and output of the
         amortiser, respectively.
+    
+    ??? cite "Reference"
+
+        ```bibtex
+        @article{tscshantz2023hybrid,
+            title={Hybrid predictive coding: Inferring, fast and slow},
+            author={Tscshantz, Alexander and Millidge, Beren and Seth, Anil K and Buckley, Christopher L},
+            journal={PLoS computational biology},
+            volume={19},
+            number={8},
+            pages={e1011280},
+            year={2023},
+            publisher={Public Library of Science San Francisco, CA USA}
+        }
+        ```
 
     **Main arguments:**
 
@@ -217,10 +237,11 @@ def _get_param_scalings(
     ) -> list[float]:
     """Gets layer scalings for a given parameterisation.
 
-    !!! note
+    !!! warning
 
-        param_type = `mupc` (μPC) assumes that one is using `make_mlp()` to 
-        create the model.
+        `param_type = mupc` ([μPC](https://arxiv.org/abs/2505.13124)) assumes 
+        that one is using [`make_mlp()`](https://thebuckleylab.github.io/jpc/api/Utils/#jpc.make_mlp) 
+        to create the model.
 
     **Main arguments:**
 
@@ -230,7 +251,9 @@ def _get_param_scalings(
     **Other arguments:**
 
     - `skip_model`: Optional skip connection model.
-    - `param_type`: Determines the parameterisation. Options are `sp`, `mupc`, or `ntp`.
+    - `param_type`: Determines the parameterisation. Options are `sp` (standard
+        parameterisation), `mupc` ([μPC](https://arxiv.org/abs/2505.13124)), or 
+        `ntp` (neural tangent parameterisation).
 
     **Returns:**
 
