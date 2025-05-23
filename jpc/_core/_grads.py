@@ -200,7 +200,7 @@ def compute_hpc_param_grads(
         y: Optional[ArrayLike] = None
 ) -> PyTree[Array]:
     """Computes the gradient of the [hybrid PC energy](http://127.0.0.1:8000/api/Energy%20functions/#jpc.hpc_energy_fn) 
-    with respect to an amortiser's parameters $∇_θ \mathcal{F}$.
+    with respect to the amortiser's parameters $∇_θ \mathcal{F}$.
 
     !!! warning
 

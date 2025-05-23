@@ -106,7 +106,7 @@ nav:
             - Unsupervised generative PC: 'examples/unsupervised_generative_pc.ipynb'
         - Advanced:
             - Hybrid PC: 'examples/hybrid_pc.ipynb'
-            - Linear theoretical energy: 'examples/theoretical_energy_with_linear_net.ipynb'
+            - Linear theoretical energy: 'examples/linear_net_theoretical_energy.ipynb'
     - 🌱 Basic API:
           - 'api/Training.md'
           - 'api/Testing.md'

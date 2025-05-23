@@ -1,5 +1,5 @@
-!!! info
-    JPC provides two types of API depending on the use case:
+JPC provides two types of API depending on the use case:
+
 * a simple, high-level API that allows to train and test models with predictive 
 coding in a few lines of code, and
 * a more advanced API offering greater flexibility as well as additional features.

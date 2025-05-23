@@ -1,6 +1,6 @@
 # Training
 
-JPC provides 2 single convenience function to update the parameters of any 
+JPC provides 2 single convenience functions to update the parameters of any 
 PC-compatible model with PC:
 
 * [jpc.make_pc_step()](http://127.0.0.1:8000/api/Training/#jpc.make_pc_step) to 

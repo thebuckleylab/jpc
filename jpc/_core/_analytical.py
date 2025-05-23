@@ -14,20 +14,14 @@ def compute_linear_equilib_energy(
         y: ArrayLike
 ) -> Array:
     """Computes the theoretical [PC energy](http://127.0.0.1:8000/api/Energy%20functions/#jpc.pc_energy_fn) 
-    at the solution of the activities for a deep linear network ([Innocenti et al. 2024](https://proceedings.neurips.cc/paper_files/paper/2024/hash/6075fc6540b9a3cb951752099efd86ef-Abstract-Conference.html)).
+    at the solution of the activities for a deep linear network ([Innocenti et al. 2024](https://proceedings.neurips.cc/paper_files/paper/2024/hash/6075fc6540b9a3cb951752099efd86ef-Abstract-Conference.html)):
 
     $$
     \mathcal{F}(\mathbf{z}^*) = 1/2N \sum_i^N (\mathbf{y}_i - \mathbf{W}_{L:1}\mathbf{x}_i)^T \mathbf{S}^{-1}(\mathbf{y}_i - \mathbf{W}_{L:1}\mathbf{x}_i)
     $$
 
-    where $\mathbf{S} = \mathbf{I}_{d_y} + \sum_{\ell=2}^L (\mathbf{W}_{L:\ell})(\mathbf{W}_{L:\ell})^T$,
+    where $\mathbf{S} = \mathbf{I}_{d_y} + \sum_{\ell=2}^L (\mathbf{W}_{L:\ell})(\mathbf{W}_{L:\ell})^T$
     and $\mathbf{W}_{k:\ell} = \mathbf{W}_k \dots \mathbf{W}_\ell$ for $\ell, k \in 1,\dots, L$.
-
-    In practice, this means that if you run, at any point in training, the 
-    inference dynamics of any PC linear network to equilibrium (for enough steps 
-    and as long as your network is not too deep), then [`jpc.pc_energy_fn()`](http://127.0.0.1:8000/api/Energy%20functions/#jpc.pc_energy_fn) 
-    will return the same energy value as this function. For a demonstration, see
-    [this example notebook](http://127.0.0.1:8000/examples/theoretical_energy_with_linear_net/).
 
     !!! note
 
@@ -39,6 +33,16 @@ def compute_linear_equilib_energy(
         with [`jpc.compute_linear_activity_solution`](http://127.0.0.1:8000/api/Theoretical%20tools/#jpc.compute_linear_activity_solution) 
         and then plugging this into the standard PC energy 
         [jpc.pc_energy_fn()](http://127.0.0.1:8000/api/Energy%20functions/#jpc.pc_energy_fn).
+
+    !!! example
+
+        In practice, this means that if you run, at any point in training, the 
+        inference dynamics of any PC linear network to equilibrium (for enough steps 
+        and as long as your network is not too deep), then [`jpc.pc_energy_fn()`](http://127.0.0.1:8000/api/Energy%20functions/#jpc.pc_energy_fn) 
+        will return the same energy value as this function. For a demonstration, see
+        [this example notebook](http://127.0.0.1:8000/examples/linear_net_theoretical_energy/).
+        
+        ![](linear_net_theoretical_energy.png){ width=50% }
 
     ??? cite "Reference"
 
