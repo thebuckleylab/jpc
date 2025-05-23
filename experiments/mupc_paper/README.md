@@ -57,3 +57,17 @@ the convergence behaviour of μPC to BP shown in Section 6
 
 The majority of results are plotted in `plot_results.ipynb` under informative
 headings. For details of all the experiments, see Section A.4 of the paper.
+
+
+## Citation
+If you use μPC in your work, please cite the paper:
+
+```bibtex
+@article{innocenti2025mu,
+  title={$$\backslash$mu $ PC: Scaling Predictive Coding to 100+ Layer Networks},
+  author={Innocenti, Francesco and Achour, El Mehdi and Buckley, Christopher L},
+  journal={arXiv preprint arXiv:2505.13124},
+  year={2025}
+}
+```
+Also consider starring the repo! ⭐️
