@@ -6,7 +6,7 @@ from ._core import (
     init_activities_with_amort as init_activities_with_amort,
     pc_energy_fn as pc_energy_fn,
     hpc_energy_fn as hpc_energy_fn,
-    _get_energy_scalings as _get_energy_scalings,
+    _get_param_scalings as _get_param_scalings,
     neg_activity_grad as neg_activity_grad,
     solve_inference as solve_inference,
     compute_activity_grad as compute_activity_grad,
