@@ -1,8 +1,8 @@
 """Functions to initialise the layer activities of PC networks."""
 
 from jax import vmap, random
-from jax.numpy import sqrt
 import equinox as eqx
+from ._energies import _get_energy_scalings
 from jaxtyping import PyTree, ArrayLike, Array, PRNGKeyArray, Scalar
 from typing import Callable, Optional
 
@@ -48,7 +48,7 @@ def init_activities_with_ffwd(
     if skip_model is None:
         skip_model = [None] * len(model)
         
-    scalings = _get_scalings(
+    scalings = _get_energy_scalings(
         model=model, 
         input=input, 
         skip_model=skip_model, 
@@ -149,48 +149,3 @@ def init_activities_with_amort(
         vmap(generator[-1])(activities[-1])
     )
     return activities
-
-
-def _get_scalings(
-        model: PyTree[Callable], 
-        input: ArrayLike, 
-        skip_model: Optional[PyTree[Callable]] = None, 
-        param_type: str = "sp"
-    ) -> list[float]:
-    """Gets layer scalings for a given parameterisation.
-
-    !!! note
-
-        param_type = `mupc` (μPC) assumes that one is using `make_mlp()` to 
-        create the model.
-
-    **Main arguments:**
-
-    - `model`: List of callable model (e.g. neural network) layers.
-    - `input`: input to the model.
-
-    **Other arguments:**
-
-    - `skip_model`: Optional skip connection model.
-    - `param_type`: Determines the parameterisation. Options are `sp`, `mupc`, or `ntp`.
-
-    **Returns:**
-
-    List with scalings for each layer.
-
-    """
-    L = len(model)
-
-    if param_type == "sp":
-        scalings = [1.] + [1] * (L-2) + [1]
-
-    else:
-        D = input.shape[1]
-        N = model[0][1].weight.shape[0]
-        
-        a1 = 1 / sqrt(D)
-        al = 1 / sqrt(N) if skip_model is None else 1 / sqrt(N * L)
-        aL = 1 / N if param_type == "mupc" else 1 / sqrt(N)
-        scalings = [a1] + [al] * (L-2) + [aL]
-
-    return scalings

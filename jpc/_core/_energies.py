@@ -1,8 +1,7 @@
 """Energy functions for PC networks."""
 
 from jax import vmap
-from jax.numpy import sum, array, eye
-from ._init import _get_scalings
+from jax.numpy import sum, array, eye, sqrt
 from jax.nn import log_softmax
 from jaxtyping import PyTree, ArrayLike, Scalar, Array
 from typing import Tuple, Callable, Optional
@@ -74,7 +73,7 @@ def pc_energy_fn(
     if skip_model is None:
         skip_model = [None] * len(model)
 
-    scalings = _get_scalings(
+    scalings = _get_energy_scalings(
         model=model, 
         input=x, 
         skip_model=skip_model, 
@@ -207,3 +206,49 @@ def hpc_energy_fn(
         return array(energies) / batch_size
     else:
         return sum(array(energies)) / batch_size
+
+
+def _get_energy_scalings(
+        model: PyTree[Callable], 
+        input: ArrayLike, 
+        *,
+        skip_model: Optional[PyTree[Callable]] = None, 
+        param_type: str = "sp"
+    ) -> list[float]:
+    """Gets layer scalings for a given parameterisation.
+
+    !!! note
+
+        param_type = `mupc` (μPC) assumes that one is using `make_mlp()` to 
+        create the model.
+
+    **Main arguments:**
+
+    - `model`: List of callable model (e.g. neural network) layers.
+    - `input`: input to the model.
+
+    **Other arguments:**
+
+    - `skip_model`: Optional skip connection model.
+    - `param_type`: Determines the parameterisation. Options are `sp`, `mupc`, or `ntp`.
+
+    **Returns:**
+
+    List with scalings for each layer.
+
+    """
+    L = len(model)
+
+    if param_type == "sp":
+        scalings = [1.] + [1] * (L-2) + [1]
+
+    else:
+        D = input.shape[1]
+        N = model[0][1].weight.shape[0]
+        
+        a1 = 1 / sqrt(D)
+        al = 1 / sqrt(N) if skip_model is None else 1 / sqrt(N * L)
+        aL = 1 / N if param_type == "mupc" else 1 / sqrt(N)
+        scalings = [a1] + [al] * (L-2) + [aL]
+
+    return scalings
