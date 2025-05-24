@@ -8,14 +8,12 @@ theme:
         # Light mode / dark mode
         # We deliberately don't automatically use `media` to check a user's preferences. We default to light mode as
         # (a) it looks more professional, and (b) is more obvious about the fact that it offers a (dark mode) toggle.
-        # - media: "(prefers-color-scheme: default)"
         - scheme: default
           primary: white
           accent: amber
           toggle:
              icon: material/weather-night
              name: Switch to dark mode
-        #- media: "(prefers-color-scheme: slate)"
         - scheme: slate
           primary: black
           accent: amber
@@ -61,8 +59,11 @@ markdown_extensions:
         toc_depth: 4
 
 plugins:
-    - search  # default search plugin; needs manually re-enabling when using any other plugins
-    - autorefs  # Cross-links to headings
+    - search:
+        # See https://github.com/squidfunk/mkdocs-material/discussions/8116#discussioncomment-12632752
+        # and https://github.com/patrick-kidger/equinox/issues/984
+        # In particular this allows for searching e.g. 'filter_grad' and to match 'equinox.filter_grad'.
+        separator: '[\s\-,:!=\[\]()"/]+|(?!\b)(?=[A-Z][a-z])|\.(?!\d)|&[lg]t;'
     - include_exclude_files:
         include:
             - ".htaccess"
@@ -71,6 +72,13 @@ plugins:
             - "examples/.ipynb_checkpoints/"
             - "examples/analytical_inference_with_linear_net.ipynb"
     - ipynb
+    - hippogriffe:
+        extra_public_objects:
+            - equinox.if_array
+            - jax.ShapeDtypeStruct
+            - jax.extend.core.ClosedJaxpr
+            - jax.Device
+            - jax.sharding.Sharding
     - mkdocstrings:
         handlers:
             python:

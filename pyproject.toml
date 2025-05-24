@@ -40,7 +40,7 @@ keywords = [
 license = {file = "LICENSE"}
 name = "jpc"
 readme = "README.md"
-requires-python ="~=3.10"
+requires-python =">=3.10"
 urls = {repository = "https://github.com/thebuckleylab/jpc"}
 version = "1.0.0"
 
@@ -64,10 +64,9 @@ extend-include = ["*.ipynb"]
 src = []
 
 [tool.ruff.lint]
-fixable = ["I001", "F401"]
-ignore = ["E402", "E721", "E731", "E741", "F722"]
-ignore-init-module-imports = true
-select = ["E", "F", "I001"]
+fixable = ["I001", "F401", "UP"]
+ignore = ["E402", "E721", "E731", "E741", "F722", "UP038"]
+select = ["E", "F", "I001", "UP"]
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
