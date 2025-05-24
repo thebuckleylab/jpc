@@ -32,6 +32,8 @@ jobs:
       - name: Build docs
         run: |
           mkdocs build
+          python --version
+          pip show jax jaxlib mkdocs mkdocstrings
 
       - name: Deploy docs
         run: mkdocs gh-deploy --force
