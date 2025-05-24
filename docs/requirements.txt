@@ -1,4 +1,5 @@
 jax==0.5.2               # to avoid conflict for `jax.core.ClosedJaxpr`
+jaxlib==0.5.1             
 hippogriffe==0.2.2,
 mkdocs==1.6.1,
 mkdocs-include-exclude-files==0.1.0,
