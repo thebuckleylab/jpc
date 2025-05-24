@@ -35,10 +35,12 @@ jobs:
           python --version
           echo "Platform:"
           uname -a
-          echo "Installing jaxlib..."
-          pip install jaxlib --verbose
+          echo "Installing jax and jaxlib..."
+          pip install jax jaxlib --verbose
+          echo "Installed packages:"
+          pip list
           echo "Testing import..."
-          python -c "import jaxlib; print('JAXlib imported successfully')"
+          python -c "import jax; print('JAX version:', jax.__version__)"
 
       - name: Build docs
         run: |
