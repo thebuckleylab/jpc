@@ -70,7 +70,6 @@ plugins:
         exclude:
             - "_overrides"
     - ipynb
-    #- mknotebooks  # Jupyter examples
     - mkdocstrings:
         handlers:
             python:
