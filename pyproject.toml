@@ -1,21 +1,10 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling"]
+
 [project]
-name = "jpc"
-version = "0.0.1"
-description = "Flexible Inference for Predictive Coding Networks in JAX."
-readme = "README.md"
-requires-python ="~=3.9"
-license = {file = "LICENSE"}
 authors = [
   {name = "Francesco Innocenti", email = "F.Innocenti@sussex.ac.uk"},
-]
-keywords = [
-    "jax",
-    "predictive-coding",
-    "neural-networks",
-    "hybrid-predictive-coding",
-    "deep-learning",
-    "local-learning",
-    "inference-learning"
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -30,7 +19,6 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Information Analysis",
     "Topic :: Scientific/Engineering :: Mathematics",
 ]
-urls = {repository = "https://github.com/thebuckleylab/jpc"}
 dependencies = [
     "jax>=0.4.23",
     "equinox>=0.11.2",
@@ -38,10 +26,35 @@ dependencies = [
     "optax>=0.2.4",
     "jaxtyping>=0.2.24"
 ]
+description = "Flexible Inference for Predictive Coding Networks in JAX."
+keywords = [
+    "jax",
+    "predictive-coding",
+    "neural-networks",
+    "hybrid-predictive-coding",
+    "deep-learning",
+    "local-learning",
+    "inference-learning",
+    "mupc"
+]
+license = {file = "LICENSE"}
+name = "jpc"
+readme = "README.md"
+requires-python ="~=3.9"
+urls = {repository = "https://github.com/thebuckleylab/jpc"}
+version = "1.0.0"
 
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+[project.optional-dependencies]
+docs = [
+  "hippogriffe==0.2.0",
+  "griffe==1.7.3",
+  "mkdocs==1.6.1",
+  "mkdocs-include-exclude-files==0.1.0",
+  "mkdocs-ipynb==0.1.0",
+  "mkdocs-material==9.6.7",
+  "mkdocstrings[python]==0.28.3",
+  "pymdown-extensions==10.14.3"
+]
 
 [tool.hatch.build]
 include = ["jpc/*"]

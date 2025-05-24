@@ -8,17 +8,17 @@ theme:
         # Light mode / dark mode
         # We deliberately don't automatically use `media` to check a user's preferences. We default to light mode as
         # (a) it looks more professional, and (b) is more obvious about the fact that it offers a (dark mode) toggle.
-        - media: "(prefers-color-scheme: default)"
-          scheme: default
+        # - media: "(prefers-color-scheme: default)"
+        - scheme: default
           primary: white
-          accent: orange
+          accent: amber
           toggle:
              icon: material/weather-night
              name: Switch to dark mode
-        - media: "(prefers-color-scheme: slate)"
-          scheme: slate
+        #- media: "(prefers-color-scheme: slate)"
+        - scheme: slate
           primary: black
-          accent: orange
+          accent: amber
           toggle:
              icon: material/weather-sunny
              name: Switch to light mode
@@ -32,6 +32,7 @@ theme:
 site_name: jpc
 site_description: The documentation for the jpc software library.
 site_author: Francesco Innocenti
+site_url: https://thebuckleylab.github.io/jpc/
 
 repo_url: https://github.com/thebuckleylab/jpc
 repo_name: thebuckleylab/jpc
@@ -40,10 +41,9 @@ edit_uri: ""  # No edit button, as some of our pages are in /docs and some in /e
 strict: true  # Don't allow warnings during the build process
 
 extra_javascript:
-    # The below three make MathJax work, see https://squidfunk.github.io/mkdocs-material/reference/mathjax/
+    # The below two make MathJax work, see https://squidfunk.github.io/mkdocs-material/reference/mathjax/
     - _static/mathjax.js
-    - https://polyfill.io/v3/polyfill.min.js?features=es6
-    - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+    - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
 
 extra_css:
     - _static/custom_css.css
@@ -59,7 +59,7 @@ markdown_extensions:
     - toc:
         permalink: "¤"  # Adds a clickable permalink to each section heading
         toc_depth: 4
-    - attr_list
+    #- attr_list
 
 plugins:
     - search  # default search plugin; needs manually re-enabling when using any other plugins
@@ -69,30 +69,24 @@ plugins:
             - ".htaccess"
         exclude:
             - "_overrides"
-
-    - mknotebooks  # Jupyter examples
+    - ipynb
+    #- mknotebooks  # Jupyter examples
     - mkdocstrings:
         handlers:
             python:
-                setup_commands:
-                    - import pytkdocs_tweaks
-                    - pytkdocs_tweaks.main()
-                    - import jaxtyping
-                    - jaxtyping.set_array_name_format("array")
-                    - import jax
-                    - jax.ShapeDtypeStruct.__module__ = "jax"
-                    - jax.core.ClosedJaxpr.__module__ = "jax.core"
-
-                selection:
-                    inherited_members: true  # Allow looking up inherited methods
-                rendering:
-                    show_root_heading: true  # actually display anything at all...
-                    show_root_full_path: true  # display "jpc.asdf" not just "asdf"
-                    show_if_no_docstring: true
-                    show_signature_annotations: true
-                    show_source: false  # don't include source code
-                    members_order: source  # order methods according to their order of definition in the source code, not alphabetical order
+                options:
+                    force_inspection: true
                     heading_level: 4
+                    inherited_members: true
+                    members_order: source
+                    show_bases: false
+                    show_if_no_docstring: true
+                    show_overloads: false
+                    show_root_heading: true
+                    show_signature_annotations: true
+                    show_source: false
+                    show_symbol_type_heading: true
+                    show_symbol_type_toc: true
 
 nav:
     - 'index.md'
