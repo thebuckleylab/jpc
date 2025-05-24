@@ -8,6 +8,10 @@
 
 ![status](https://img.shields.io/badge/status-active-green)
 
+> [!WARNING] 
+> We are currently working on a major update of the documentation so this will
+> be temporarily down.
+
 > [!IMPORTANT] 
 > If you're here for [μPC](https://arxiv.org/abs/2505.13124), see 
 > [`experiments/mupc_paper`](https://github.com/thebuckleylab/jpc/tree/main/experiments/mupc_paper).
