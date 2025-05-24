@@ -34,7 +34,9 @@ jobs:
 
       - name: Build docs
         run: |
-          mkdocs build --verbose
+          export JAX_PLATFORM_NAME=cpu
+          export XLA_PYTHON_CLIENT_PREALLOCATE=false
+          mkdocs build
 
       - name: Deploy docs
         run: mkdocs gh-deploy --force
