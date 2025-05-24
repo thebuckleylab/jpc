@@ -1,6 +1,22 @@
 [project]
+name = "jpc"
+version = "1.0.0"
+description = "Flexible Inference for Predictive Coding Networks in JAX."
+readme = "README.md"
+requires-python =">=3.10"
+license = {file = "LICENSE"}
 authors = [
   {name = "Francesco Innocenti", email = "F.Innocenti@sussex.ac.uk"},
+]
+keywords = [
+    "jax",
+    "predictive-coding",
+    "neural-networks",
+    "hybrid-predictive-coding",
+    "deep-learning",
+    "local-learning",
+    "inference-learning",
+    "mupc"
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -15,6 +31,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Information Analysis",
     "Topic :: Scientific/Engineering :: Mathematics",
 ]
+urls = {repository = "https://github.com/thebuckleylab/jpc"}
 dependencies = [
     "jax>=0.4.38",
     "equinox>=0.11.2",
@@ -22,23 +39,6 @@ dependencies = [
     "optax>=0.2.4",
     "jaxtyping>=0.2.24"
 ]
-description = "Flexible Inference for Predictive Coding Networks in JAX."
-keywords = [
-    "jax",
-    "predictive-coding",
-    "neural-networks",
-    "hybrid-predictive-coding",
-    "deep-learning",
-    "local-learning",
-    "inference-learning",
-    "mupc"
-]
-license = {file = "LICENSE"}
-name = "jpc"
-readme = "README.md"
-requires-python =">=3.10"
-urls = {repository = "https://github.com/thebuckleylab/jpc"}
-version = "1.0.0"
 
 [project.optional-dependencies]
 docs = [
@@ -64,9 +64,10 @@ extend-include = ["*.ipynb"]
 src = []
 
 [tool.ruff.lint]
-fixable = ["I001", "F401", "UP"]
-ignore = ["E402", "E721", "E731", "E741", "F722", "UP038"]
-select = ["E", "F", "I001", "UP"]
+fixable = ["I001", "F401"]
+ignore = ["E402", "E721", "E731", "E741", "F722"]
+ignore-init-module-imports = true
+select = ["E", "F", "I001"]
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
