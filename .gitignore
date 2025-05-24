@@ -13,4 +13,4 @@ __pycache__/
 .vscode/
 .all_objects.cache
 site/
-venv/
+venv*/
