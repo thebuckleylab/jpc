@@ -15,4 +15,4 @@ for hybrid PC models ([Tscshantz et al., 2023](https://thebuckleylab.github.io/j
 
 ---
 
-::: jpc.get_param_scalings
+::: jpc._get_param_scalings
