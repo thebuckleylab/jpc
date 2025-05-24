@@ -28,7 +28,17 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install '.[docs]'
-          pip install jaxlib
+      
+      - name: Debug JAXlib installation
+        run: |
+          echo "Python version:"
+          python --version
+          echo "Platform:"
+          uname -a
+          echo "Installing jaxlib..."
+          pip install jaxlib --verbose
+          echo "Testing import..."
+          python -c "import jaxlib; print('JAXlib imported successfully')"
 
       - name: Build docs
         run: |
