@@ -12,3 +12,5 @@ examples/data/
 __pycache__/
 .vscode/
 .all_objects.cache
+site/
+venv/
