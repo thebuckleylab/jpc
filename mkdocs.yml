@@ -69,6 +69,8 @@ plugins:
             - ".htaccess"
         exclude:
             - "_overrides"
+            - "examples/.ipynb_checkpoints/"
+            #- "examples/analytical_inference_with_linear_net.ipynb" - local testing
     - ipynb
     - mkdocstrings:
         handlers:
