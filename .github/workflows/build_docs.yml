@@ -24,6 +24,11 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Install jaxlib dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libtinfo5 libffi-dev
+            
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -33,9 +38,10 @@ jobs:
         run: python -c "import jaxlib; print('jaxlib imported, version:', jaxlib.__version__)"
 
       - name: Build docs
+        env:
+          PYTHONPATH: ${{ github.workspace }}/jpc  # or your source folder
+          LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.12/x64/lib  # or wherever jaxlib libs live
         run: |
-          export JAX_PLATFORM_NAME=cpu
-          export XLA_PYTHON_CLIENT_PREALLOCATE=false
           mkdocs build
 
       - name: Deploy docs
