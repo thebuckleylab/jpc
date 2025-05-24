@@ -46,7 +46,7 @@ version = "1.0.0"
 
 [project.optional-dependencies]
 docs = [
-  "griffe==1.7.3",
+  "hippogriffe==0.2.1",
   "mkdocs==1.6.1",
   "mkdocs-include-exclude-files==0.1.0",
   "mkdocs-ipynb==0.1.1",
