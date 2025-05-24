@@ -1,7 +1,3 @@
-[build-system]
-build-backend = "hatchling.build"
-requires = ["hatchling"]
-
 [project]
 authors = [
   {name = "Francesco Innocenti", email = "F.Innocenti@sussex.ac.uk"},
@@ -55,6 +51,10 @@ docs = [
   "mkdocstrings[python]==0.28.3",
   "pymdown-extensions==10.14.3"
 ]
+
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling"]
 
 [tool.hatch.build]
 include = ["jpc/*"]
