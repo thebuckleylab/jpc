@@ -41,6 +41,12 @@ jobs:
           pip list
           echo "Testing import..."
           python -c "import jax; print('JAX version:', jax.__version__)"
+      
+      - name: Debug Python environment before docs build
+        run: |
+          which python
+          python --version
+          python -c "import sys; print(sys.executable); import jax; print('JAX version:', jax.__version__)"
 
       - name: Build docs
         run: |
