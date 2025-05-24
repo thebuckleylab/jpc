@@ -70,12 +70,16 @@ plugins:
         exclude:
             - "_overrides"
             - "examples/.ipynb_checkpoints/"
-            #- "examples/analytical_inference_with_linear_net.ipynb" - local testing
     - ipynb
     - mkdocstrings:
         handlers:
             python:
                 options:
+                    load_external_modules: true
+                    preload_modules:
+                    - jax
+                    - jaxlib
+                    - jaxlib.xla_extension
                     force_inspection: true
                     heading_level: 4
                     inherited_members: true
