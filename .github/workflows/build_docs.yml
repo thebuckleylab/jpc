@@ -29,7 +29,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install '.[docs]'
           # Get JAX and JAXLIB together, CPU-only version
-          python -m pip install jax[jaxlib]==0.4.28
+          python -m pip install jax jaxlib
 
       - name: Build docs
         run: |
