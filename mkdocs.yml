@@ -87,12 +87,6 @@ plugins:
                     show_source: false
                     show_symbol_type_heading: true
                     show_symbol_type_toc: true
-                    extra:
-                        load_external_modules: true
-                        preload_modules:
-                        - jax
-                        - jaxlib
-                        - jaxlib.xla_extension
 
 nav:
     - 'index.md'
