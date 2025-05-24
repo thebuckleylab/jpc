@@ -28,19 +28,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install '.[docs]'
-          # Force correct versions of jax & jaxlib
-          python -m pip install --force-reinstall --no-cache-dir "jax[cpu]==0.6.1" jaxlib==0.6.1
-          # Remove any stale .pyc files or cached builds
-          find . -type d -name __pycache__ -exec rm -rf {} +
-          find . -name "*.pyc" -delete
-      
-      - name: Check jaxlib import and version
-        run: |
-          python -c "import jaxlib; print('jaxlib version:', jaxlib.__version__)"
-          python -c "import jaxlib.xla_extension as xla; print('xla extension loaded')"
-
-      - name: Check installed packages
-        run: pip list
 
       - name: Build docs
         run: |
