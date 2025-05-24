@@ -34,7 +34,7 @@ jobs:
 
       - name: Build docs
         run: |
-          mkdocs build
+          mkdocs build --verbose
 
       - name: Deploy docs
         run: mkdocs gh-deploy --force
