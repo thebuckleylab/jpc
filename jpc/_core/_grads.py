@@ -22,10 +22,10 @@ def neg_activity_grad(
             AbstractStepSizeController
         ]
     ) -> PyTree[Array]:
-    """Computes the negative gradient of the [PC energy](http://127.0.0.1:8000/api/Energy%20functions/#jpc.pc_energy_fn) 
+    """Computes the negative gradient of the [PC energy](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.pc_energy_fn) 
     with respect to the activities $- ∇_{\mathbf{z}} \mathcal{F}$.
 
-    This defines an ODE system to be integrated by [`solve_pc_inference()`](http://127.0.0.1:8000/api/Continuous%20Inference/#jpc.solve_inference).
+    This defines an ODE system to be integrated by [`jpc.solve_pc_inference()`](https://thebuckleylab.github.io/jpc/api/Continuous-time%20Inference/#jpc.solve_inference).
 
     **Main arguments:**
 
@@ -88,14 +88,14 @@ def compute_activity_grad(
         spectral_penalty: Scalar = 0.,
         activity_decay: Scalar = 0.
 ) -> PyTree[Array]:
-    """Computes the gradient of the [PC energy](http://127.0.0.1:8000/api/Energy%20functions/#jpc.pc_energy_fn)
+    """Computes the gradient of the [PC energy](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.pc_energy_fn)
     with respect to the activities $∇_{\mathbf{z}} \mathcal{F}$.
 
     !!! note
 
-        This function differs from [`jpc.neg_activity_grad()`](http://127.0.0.1:8000/api/Gradients/#jpc.neg_activity_grad) 
+        This function differs from [`jpc.neg_activity_grad()`](https://thebuckleylab.github.io/jpc/api/Gradients/#jpc.neg_activity_grad) 
         only in the sign of the gradient (positive as opposed to negative) and 
-        is called in [`update_activities()`](http://127.0.0.1:8000/api/Discrete%20updates/#jpc.update_activities) 
+        is called in [`jpc.update_activities()`](https://thebuckleylab.github.io/jpc/api/Discrete%20updates/#jpc.update_activities) 
         for use with any [optax](https://github.com/google-deepmind/optax) 
         optimiser.
 
@@ -151,7 +151,7 @@ def compute_pc_param_grads(
         spectral_penalty: Scalar = 0.,
         activity_decay: Scalar = 0.
 ) -> Tuple[PyTree[Array], PyTree[Array]]:
-    """Computes the gradient of the [PC energy](http://127.0.0.1:8000/api/Energy%20functions/#jpc.pc_energy_fn)
+    """Computes the gradient of the [PC energy](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.pc_energy_fn)
     with respect to model parameters $∇_θ \mathcal{F}$.
 
     **Main arguments:**
@@ -199,15 +199,16 @@ def compute_hpc_param_grads(
         x: ArrayLike,
         y: Optional[ArrayLike] = None
 ) -> PyTree[Array]:
-    """Computes the gradient of the [hybrid PC energy](http://127.0.0.1:8000/api/Energy%20functions/#jpc.hpc_energy_fn) 
+    """Computes the gradient of the [hybrid PC energy](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.hpc_energy_fn) 
     with respect to the amortiser's parameters $∇_θ \mathcal{F}$.
 
     !!! warning
 
         The input $x$ and output $y$ are reversed compared to 
-        `compute_pc_param_grads()` ($x$ is the generator's target and $y$ is its 
-        optional input or prior). Just think of $x$ and $y$ as the actual input 
-        and output of the amortiser, respectively.
+        [`jpc.compute_pc_param_grads()`](https://thebuckleylab.github.io/jpc/api/Gradients/#jpc.compute_pc_param_grads) 
+        ($x$ is the generator's target and $y$ is its optional input or prior). 
+        Just think of $x$ and $y$ as the actual input and output of the 
+        amortiser, respectively.
 
     **Main arguments:**
 

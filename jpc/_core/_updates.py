@@ -29,7 +29,7 @@ def update_activities(
     !!! warning
 
         `param_type = mupc` ([μPC](https://arxiv.org/abs/2505.13124)) assumes 
-        that one is using [`make_mlp()`](https://thebuckleylab.github.io/jpc/api/Utils/#jpc.make_mlp) 
+        that one is using [`jpc.make_mlp()`](https://thebuckleylab.github.io/jpc/api/Utils/#jpc.make_mlp) 
         to create the model.
 
     **Main arguments:**
@@ -48,7 +48,7 @@ def update_activities(
         error `mse` (default) or cross-entropy `ce`.
     - `param_type`: Determines the parameterisation. Options are `sp` (standard
         parameterisation), `mupc` ([μPC](https://arxiv.org/abs/2505.13124)), or 
-        `ntp` (neural tangent parameterisation). See [`_get_param_scalings()`](http://127.0.0.1:8000/api/Energy%20functions/#jpc._get_param_scalings) 
+        `ntp` (neural tangent parameterisation). See [`jpc.get_param_scalings()`](http://127.0.0.1:8000/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations. Defaults
         to `sp`.
     - `weight_decay`: Weight decay for the weights (0 by default).
@@ -113,7 +113,7 @@ def update_params(
     !!! warning
 
         `param_type = mupc` ([μPC](https://arxiv.org/abs/2505.13124)) assumes 
-        that one is using [`make_mlp()`](https://thebuckleylab.github.io/jpc/api/Utils/#jpc.make_mlp) 
+        that one is using [`jpc.make_mlp()`](https://thebuckleylab.github.io/jpc/api/Utils/#jpc.make_mlp) 
         to create the model.
 
     **Main arguments:**
@@ -132,7 +132,7 @@ def update_params(
         error `mse` (default) or cross-entropy `ce`.
     - `param_type`: Determines the parameterisation. Options are `sp` (standard
         parameterisation), `mupc` ([μPC](https://arxiv.org/abs/2505.13124)), or 
-        `ntp` (neural tangent parameterisation). See [`_get_param_scalings()`](http://127.0.0.1:8000/api/Energy%20functions/#jpc._get_param_scalings) 
+        `ntp` (neural tangent parameterisation). See [`jpc.get_param_scalings()`](http://127.0.0.1:8000/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations. Defaults
         to `sp`.
     - `weight_decay`: Weight decay for the weights (0 by default).

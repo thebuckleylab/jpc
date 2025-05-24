@@ -13,7 +13,7 @@ def compute_linear_equilib_energy(
         x: ArrayLike,
         y: ArrayLike
 ) -> Array:
-    """Computes the theoretical [PC energy](http://127.0.0.1:8000/api/Energy%20functions/#jpc.pc_energy_fn) 
+    """Computes the theoretical [PC energy](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.pc_energy_fn) 
     at the solution of the activities for a deep linear network ([Innocenti et al. 2024](https://proceedings.neurips.cc/paper_files/paper/2024/hash/6075fc6540b9a3cb951752099efd86ef-Abstract-Conference.html)):
 
     $$
@@ -30,17 +30,17 @@ def compute_linear_equilib_energy(
         (see [Innocenti et al. 2025](https://arxiv.org/abs/2505.13124)). 
         However, note that the equilibrated energy for ResNets and other
         parameterisations can still be computed by getting the activity solution
-        with [`jpc.compute_linear_activity_solution`](http://127.0.0.1:8000/api/Theoretical%20tools/#jpc.compute_linear_activity_solution) 
+        with [`jpc.compute_linear_activity_solution()`](https://thebuckleylab.github.io/jpc/api/Theoretical%20tools/#jpc.compute_linear_activity_solution) 
         and then plugging this into the standard PC energy 
-        [jpc.pc_energy_fn()](http://127.0.0.1:8000/api/Energy%20functions/#jpc.pc_energy_fn).
+        [jpc.pc_energy_fn()](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.pc_energy_fn).
 
     !!! example
 
         In practice, this means that if you run, at any point in training, the 
-        inference dynamics of any PC linear network to equilibrium (for enough steps 
-        and as long as your network is not too deep), then [`jpc.pc_energy_fn()`](http://127.0.0.1:8000/api/Energy%20functions/#jpc.pc_energy_fn) 
+        inference dynamics of any PC linear network to equilibrium, then 
+        [`jpc.pc_energy_fn()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.pc_energy_fn) 
         will return the same energy value as this function. For a demonstration, see
-        [this example notebook](http://127.0.0.1:8000/examples/linear_net_theoretical_energy/).
+        [this example notebook](https://thebuckleylab.github.io/jpc/examples/linear_net_theoretical_energy/).
         
         ![](linear_net_theoretical_energy.png){ width=50% }
 
@@ -102,7 +102,7 @@ def compute_linear_activity_hessian(
         diag: bool = True,
         off_diag: bool = True
 ) -> Array:
-    """Computes the theoretical Hessian matrix of the [PC energy](http://127.0.0.1:8000/api/Energy%20functions/#jpc.pc_energy_fn) 
+    """Computes the theoretical Hessian matrix of the [PC energy](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.pc_energy_fn) 
     with respect to the activities for a linear network, 
     $(\mathbf{H}_{\mathbf{z}})_{\ell k} := \partial^2 \mathcal{F} / \partial \mathbf{z}_\ell \partial \mathbf{z}_k \in \mathbb{R}^{(NH)×(NH)}$ 
     where $N$ and $H$ are the width and number of hidden layers, respectively ([Innocenti et al., 2025](https://arxiv.org/abs/2505.13124)).
@@ -111,7 +111,7 @@ def compute_linear_activity_hessian(
 
         This function can be used (i) to study the inference landscape of linear
         PC networks and (ii) to compute the analytical solution with 
-        [`compute_linear_activity_solution()`](http://127.0.0.1:8000/api/Theoretical%20tools/#jpc.compute_linear_activity_solution).
+        [`jpc.compute_linear_activity_solution()`](https://thebuckleylab.github.io/jpc/api/Theoretical%20tools/#jpc.compute_linear_activity_solution).
     
     !!! warning
 
@@ -140,7 +140,7 @@ def compute_linear_activity_hessian(
     - `n_skip`: Number of layers to skip for the skip connections.
     - `param_type`: Determines the parameterisation. Options are `sp` (standard
         parameterisation), `mupc` ([μPC](https://arxiv.org/abs/2505.13124)), or 
-        `ntp` (neural tangent parameterisation). See [`_get_param_scalings()`](http://127.0.0.1:8000/api/Energy%20functions/#jpc._get_param_scalings) 
+        `ntp` (neural tangent parameterisation). See [`jpc.get_param_scalings()`](http://127.0.0.1:8000/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations.
     - `activity_decay`: $\ell^2$ regulariser for the activities.
     - `diag`: Whether to compute the diagonal blocks of the Hessian.
@@ -249,7 +249,7 @@ def compute_linear_activity_solution(
     is the Hessian of the energy with respect to the activities, and 
     $\mathbf{b} \in \mathbb{R}^{NH}$ is a sparse vector depending only on the 
     data and associated weights. The activity Hessian is computed analytically 
-    using [`compute_linear_activity_hessian()`](http://127.0.0.1:8000/api/Theoretical%20tools/#jpc.compute_linear_activity_hessian).    
+    using [`jpc.compute_linear_activity_hessian()`](https://thebuckleylab.github.io/jpc/api/Theoretical%20tools/#jpc.compute_linear_activity_hessian).    
     
     !!! info
 
@@ -278,7 +278,7 @@ def compute_linear_activity_solution(
     - `n_skip`: Number of layers to skip for the skip connections.
     - `param_type`: Determines the parameterisation. Options are `sp` (standard
         parameterisation), `mupc` ([μPC](https://arxiv.org/abs/2505.13124)), or 
-        `ntp` (neural tangent parameterisation). See [`_get_param_scalings()`](http://127.0.0.1:8000/api/Energy%20functions/#jpc._get_param_scalings) 
+        `ntp` (neural tangent parameterisation). See [`jpc.get_param_scalings()`](http://127.0.0.1:8000/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations.
     - `activity_decay`: $\ell^2$ regulariser for the activities.
 

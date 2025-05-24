@@ -41,7 +41,7 @@ def solve_inference(
     """Solves the inference (activity) dynamics of a predictive coding network.
 
     This is a wrapper around [`diffrax.diffeqsolve()`](https://docs.kidger.site/diffrax/api/diffeqsolve/#diffrax.diffeqsolve) 
-    to integrate the gradient ODE system [`neg_activity_grad()`](http://127.0.0.1:8000/api/Gradients/#jpc.neg_activity_grad) 
+    to integrate the gradient ODE system [`jpc.neg_activity_grad()`](https://thebuckleylab.github.io/jpc/api/Gradients/#jpc.neg_activity_grad) 
     defining the PC inference dynamics.
 
     $$
@@ -66,7 +66,7 @@ def solve_inference(
         error `mse` (default) or cross-entropy `ce`.
     - `param_type`: Determines the parameterisation. Options are `sp` (standard
         parameterisation), `mupc` ([μPC](https://arxiv.org/abs/2505.13124)), or 
-        `ntp` (neural tangent parameterisation). See [`_get_param_scalings()`](http://127.0.0.1:8000/api/Energy%20functions/#jpc._get_param_scalings) 
+        `ntp` (neural tangent parameterisation). See [`jpc.get_param_scalings()`](http://127.0.0.1:8000/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations. Defaults
         to `sp`.
     - `solver`: Diffrax (ODE) solver to be used. Default is Heun, a 2nd order

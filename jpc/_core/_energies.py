@@ -55,7 +55,7 @@ def pc_energy_fn(
         error `mse` (default) or cross-entropy `ce`.
     - `param_type`: Determines the parameterisation. Options are `sp` (standard
         parameterisation), `mupc` ([μPC](https://arxiv.org/abs/2505.13124)), or 
-        `ntp` (neural tangent parameterisation). See [`_get_param_scalings()`](http://127.0.0.1:8000/api/Energy%20functions/#jpc._get_param_scalings) 
+        `ntp` (neural tangent parameterisation). See [`jpc.get_param_scalings()`](http://127.0.0.1:8000/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations. Defaults
         to `sp`.
     - `weight_decay`: $\ell^2$ regulariser for the weights (0 by default).
@@ -165,7 +165,7 @@ def hpc_energy_fn(
 
     !!! note
 
-        The input $x$ and output $y$ are reversed compared to `pc_energy_fn`
+        The input $x$ and output $y$ are reversed compared to [`pc_energy_fn()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.pc_energy_fn)
         ($x$ is the generator's target and $y$ is its optional input or prior).
         Just think of $x$ and $y$ as the actual input and output of the
         amortiser, respectively.
@@ -240,7 +240,7 @@ def _get_param_scalings(
     !!! warning
 
         `param_type = mupc` ([μPC](https://arxiv.org/abs/2505.13124)) assumes 
-        that one is using [`make_mlp()`](https://thebuckleylab.github.io/jpc/api/Utils/#jpc.make_mlp) 
+        that one is using [`jpc.make_mlp()`](https://thebuckleylab.github.io/jpc/api/Utils/#jpc.make_mlp) 
         to create the model.
 
     **Main arguments:**
