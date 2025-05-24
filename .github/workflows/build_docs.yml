@@ -23,24 +23,13 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
-
-      - name: Install jaxlib dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libtinfo5 libffi-dev
-            
+    
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install '.[docs]'
-      
-      - name: Check jaxlib import
-        run: python -c "import jaxlib; print('jaxlib imported, version:', jaxlib.__version__)"
+          python -m pip install -r docs/requirements.txt
 
       - name: Build docs
-        env:
-          PYTHONPATH: ${{ github.workspace }}/jpc  # or your source folder
-          LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.12/x64/lib  # or wherever jaxlib libs live
         run: |
           mkdocs build
 
