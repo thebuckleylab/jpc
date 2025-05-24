@@ -20,7 +20,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Mathematics",
 ]
 dependencies = [
-    "jax[jaxlib]>=0.5.2",
+    "jax>=0.4.38",
     "equinox>=0.11.2",
     "diffrax>=0.6.0",
     "optax>=0.2.4",
