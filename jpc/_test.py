@@ -47,7 +47,7 @@ def test_discriminative_pc(
         error `mse` (default) or cross-entropy `ce`.
     - `param_type`: Determines the parameterisation. Options are `sp` (standard
         parameterisation), `mupc` ([μPC](https://arxiv.org/abs/2505.13124)), or 
-        `ntp` (neural tangent parameterisation). See [`_get_param_scalings()`](http://127.0.0.1:8000/api/Energy%20functions/#jpc._get_param_scalings) 
+        `ntp` (neural tangent parameterisation). See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations. Defaults
         to `sp`.
 
@@ -120,7 +120,7 @@ def test_generative_pc(
         error `mse` (default) or cross-entropy `ce`.
     - `param_type`: Determines the parameterisation. Options are `sp` (standard
         parameterisation), `mupc` ([μPC](https://arxiv.org/abs/2505.13124)), or 
-        `ntp` (neural tangent parameterisation). See [`_get_param_scalings()`](http://127.0.0.1:8000/api/Energy%20functions/#jpc._get_param_scalings) 
+        `ntp` (neural tangent parameterisation). See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations. Defaults
         to `sp`.
     - `sigma`: Standard deviation for Gaussian to sample activities from.

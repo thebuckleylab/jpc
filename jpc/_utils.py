@@ -50,7 +50,12 @@ def make_mlp(
     !!! note
 
         This implementation places the activation function before the linear 
-        transformation, $\mathbf{W}_\ell \phi(\mathbf{z}_{\ell-1})$, for TODO. 
+        transformation, $\mathbf{W}_\ell \phi(\mathbf{z}_{\ell-1})$, for 
+        compatibility with the [μPC](https://arxiv.org/abs/2505.13124) 
+        scalings when `param_type = mupc` in functions including 
+        [`jpc.init_activities_with_ffwd()`](https://thebuckleylab.github.io/jpc/api/Initialisation/#jpc.init_activities_with_ffwd), 
+        [`jpc.update_activities()`](https://thebuckleylab.github.io/jpc/api/Discrete%20updates/#jpc.update_activities), 
+        and [`jpc.update_params()`](https://thebuckleylab.github.io/jpc/api/Discrete%20updates/#jpc.update_params).
 
     **Main arguments:**
 
@@ -93,7 +98,11 @@ def make_skip_model(model: PyTree[Callable]) -> PyTree[Callable]:
     """Creates a residual network with skip connections at every layer except 
     from the input and to the output.
 
-    This is used TODO.
+    This is used for compatibility with the [μPC](https://arxiv.org/abs/2505.13124) 
+    scalings when `param_type = mupc` in functions including 
+    [`jpc.init_activities_with_ffwd()`](https://thebuckleylab.github.io/jpc/api/Initialisation/#jpc.init_activities_with_ffwd), 
+    [`jpc.update_activities()`](https://thebuckleylab.github.io/jpc/api/Discrete%20updates/#jpc.update_activities), 
+    and [`jpc.update_params()`](https://thebuckleylab.github.io/jpc/api/Discrete%20updates/#jpc.update_params).
     """
     L = len(model)
     skips = [None] * L
