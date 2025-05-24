@@ -40,13 +40,14 @@ keywords = [
 license = {file = "LICENSE"}
 name = "jpc"
 readme = "README.md"
-requires-python ="~=3.9"
+requires-python ="~=3.10"
 urls = {repository = "https://github.com/thebuckleylab/jpc"}
 version = "1.0.0"
 
 [project.optional-dependencies]
 docs = [
   "hippogriffe==0.2.1",
+  "griffe==1.7.3",
   "mkdocs==1.6.1",
   "mkdocs-include-exclude-files==0.1.0",
   "mkdocs-ipynb==0.1.1",
