@@ -33,6 +33,11 @@ jobs:
           # Remove any stale .pyc files or cached builds
           find . -type d -name __pycache__ -exec rm -rf {} +
           find . -name "*.pyc" -delete
+      
+      - name: Check jaxlib import and version
+        run: |
+          python -c "import jaxlib; print('jaxlib version:', jaxlib.__version__)"
+          python -c "import jaxlib.xla_extension as xla; print('xla extension loaded')"
 
       - name: Check installed packages
         run: pip list
