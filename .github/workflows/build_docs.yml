@@ -28,6 +28,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install '.[docs]'
+          pip install jaxlib
 
       - name: Build docs
         run: |
