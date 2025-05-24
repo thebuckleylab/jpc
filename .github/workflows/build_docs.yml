@@ -28,8 +28,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install '.[docs]'
-          # Force upgrade to compatible versions after everything else
-          python -m pip install --upgrade "jax[cpu]" jaxlib
+
+      - name: Check installed packages
+        run: pip list
 
       - name: Build docs
         run: |
