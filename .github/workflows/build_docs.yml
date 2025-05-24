@@ -24,9 +24,21 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      # - name: Install dependencies
+      #   run: |
+      #     python -m pip install --upgrade pip
+      #     python -m pip install '.[docs]'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libtinfo-dev libffi-dev
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          pip uninstall -y jaxlib
+          pip install "jaxlib[cpu]==0.6.1"
           python -m pip install '.[docs]'
       
       - name: Debug JAXlib installation
@@ -42,12 +54,13 @@ jobs:
           echo "Testing import..."
           python -c "import jax; print('JAX version:', jax.__version__)"
       
-      - name: Debug Python environment before docs build
+      - name: Debug env before docs build
         run: |
-          which python
-          python --version
-          python -c "import sys; print(sys.executable); import jax; print('JAX version:', jax.__version__)"
-
+          export LD_LIBRARY_PATH=/opt/hostedtoolcache/Python/3.11.12/x64/lib:$LD_LIBRARY_PATH
+          echo $LD_LIBRARY_PATH
+          python -c "import jax; print('JAX version:', jax.__version__)"
+          mkdocs build
+      
       - name: Build docs
         run: |
           mkdocs build
