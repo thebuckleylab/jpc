@@ -138,7 +138,6 @@ def compute_infer_energies(
         y: ArrayLike,
         *,
         x: Optional[ArrayLike] = None,
-        n_skip: int = 0,
         loss: str = "mse",
         param_type: str = "sp",
         weight_decay: Scalar = 0.,
@@ -159,7 +158,6 @@ def compute_infer_energies(
     **Other arguments:**
     
     - `x`: Optional prior of the generative model.
-    - `n_skip`: Number of layers to skip for the skip connections.
     - `loss`: Loss function to use at the output layer (mean squared error
         `mse` vs cross-entropy `ce`).
     - `param_type`: Determines the parameterisation. Options are `sp`, `mupc`, or `ntp`.
@@ -182,7 +180,6 @@ def compute_infer_energies(
             activities=tree_map(lambda act: act[t], activities_iters),
             y=y,
             x=x,
-            n_skip=n_skip,
             loss=loss,
             param_type=param_type,
             weight_decay=weight_decay,

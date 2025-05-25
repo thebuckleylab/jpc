@@ -40,32 +40,29 @@ def neg_activity_grad(
 
         (iii) model input (prior),
 
-        (iv) number of layers to skip for the skip connections (0 by default),
+        (iv) loss specified at the output layer (MSE as default or cross-entropy),
 
-        (v) loss specified at the output layer (MSE as default or cross-entropy),
+        (v) parameterisation type (`sp` as default, `mupc`, or `ntp`),
 
-        (vi) parameterisation type (`sp` as default, `mupc`, or `ntp`),
+        (vi) $\ell^2$ regulariser for the weights (0 by default),
 
-        (vii) $\ell^2$ regulariser for the weights (0 by default),
+        (vii) spectral penalty for the weights (0 by default),
 
-        (viii) spectral penalty for the weights (0 by default),
+        (viii) $\ell^2$ regulariser for the activities (0 by default), and
 
-        (ix) $\ell^2$ regulariser for the activities (0 by default), and
-
-        (x) diffrax controller for step size integration.
+        (ix) diffrax controller for step size integration.
 
     **Returns:**
 
     List of negative gradients of the energy with respect to the activities.
 
     """
-    params, y, x, n_skip, loss_id, param_type, weight_decay, spectral_penalty, activity_decay, _ = args
+    params, y, x, loss_id, param_type, weight_decay, spectral_penalty, activity_decay, _ = args
     dFdzs = grad(pc_energy_fn, argnums=1)(
         params,
         activities,
         y,
         x=x,
-        n_skip=n_skip,
         loss=loss_id,
         param_type=param_type,
         weight_decay=weight_decay,
@@ -81,7 +78,6 @@ def compute_activity_grad(
         y: ArrayLike,
         *,
         x: Optional[ArrayLike],
-        n_skip: int = 0,
         loss_id: str = "mse",
         param_type: str = "sp",
         weight_decay: Scalar = 0.,
@@ -108,7 +104,6 @@ def compute_activity_grad(
     **Other arguments:**
 
     - `x`: Optional prior of the generative model.
-    - `n_skip`: Number of layers to skip for the skip connections (0 by default).
     - `loss_id`: Loss function to use at the output layer. Options are mean squared 
         error `mse` (default) or cross-entropy `ce`.
     - `param_type`: Determines the parameterisation. Options are `sp` (default), 
@@ -128,7 +123,6 @@ def compute_activity_grad(
         activities,
         y,
         x=x,
-        n_skip=n_skip,
         loss=loss_id,
         param_type=param_type,
         weight_decay=weight_decay,
@@ -144,7 +138,6 @@ def compute_pc_param_grads(
         y: ArrayLike,
         *,
         x: Optional[ArrayLike] = None,
-        n_skip: int = 0,
         loss_id: str = "mse",
         param_type: str = "sp",
         weight_decay: Scalar = 0.,
@@ -163,7 +156,6 @@ def compute_pc_param_grads(
     **Other arguments:**
 
     - `x`: Optional prior of the generative model.
-    - `n_skip`: Number of layers to skip for the skip connections (0 by default).
     - `loss_id`: Loss function to use at the output layer. Options are mean squared 
         error `mse` (default) or cross-entropy `ce`.
     - `param_type`: Determines the parameterisation. Options are `sp` (default), 
@@ -183,7 +175,6 @@ def compute_pc_param_grads(
         activities,
         y,
         x=x,
-        n_skip=n_skip,
         loss=loss_id,
         param_type=param_type,
         weight_decay=weight_decay,

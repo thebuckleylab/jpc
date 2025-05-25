@@ -23,7 +23,6 @@ def solve_inference(
         output: ArrayLike,
         *,
         input: Optional[ArrayLike] = None,
-        n_skip: int = 0,
         loss_id: str = "mse",
         param_type: str = "sp",
         solver: AbstractSolver = Heun(),
@@ -61,7 +60,6 @@ def solve_inference(
     **Other arguments:**
 
     - `input`: Optional prior of the generative model.
-    - `n_skip`: Number of layers to skip for the skip connections (0 by default).
     - `loss_id`: Loss function to use at the output layer. Options are mean squared 
         error `mse` (default) or cross-entropy `ce`.
     - `param_type`: Determines the parameterisation. Options are `sp` (standard
@@ -108,7 +106,6 @@ def solve_inference(
             params, 
             output, 
             input, 
-            n_skip, 
             loss_id, 
             param_type,
             weight_decay, 

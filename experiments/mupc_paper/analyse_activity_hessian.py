@@ -22,7 +22,7 @@ def compute_hessian_metrics(
         skip_model,
         y,
         x,
-        n_skip,
+        use_skips,
         param_type,
         activity_decay,
         mode,
@@ -35,21 +35,21 @@ def compute_hessian_metrics(
         theory_H = jpc.compute_linear_activity_hessian(
             weights,
             param_type=param_type,
-            n_skip=n_skip,
+            use_skips=use_skips,
             activity_decay=activity_decay
         )
         D = jpc.compute_linear_activity_hessian(
             weights,
             param_type=param_type,
             off_diag=False,
-            n_skip=n_skip,
+            use_skips=use_skips,
             activity_decay=activity_decay
         )
         O = jpc.compute_linear_activity_hessian(
             weights,
             param_type=param_type,
             diag=False,
-            n_skip=n_skip,
+            use_skips=use_skips,
             activity_decay=activity_decay
         )
 
@@ -59,7 +59,6 @@ def compute_hessian_metrics(
             network,
             x,
             skip_model=skip_model,
-            n_skip=n_skip,
             param_type=param_type
         )
     elif mode == "unsupervised":
@@ -76,7 +75,6 @@ def compute_hessian_metrics(
         activities,
         y,
         x=x,
-        n_skip=n_skip,
         param_type=param_type,
         activity_decay=activity_decay
     )
@@ -109,7 +107,7 @@ def run_analysis(
         act_fn,
         use_biases,
         mode,
-        n_skip,
+        use_skips,
         weight_init,
         param_type,
         activity_decay,
@@ -141,7 +139,7 @@ def run_analysis(
             model=network,
             init_fn_id=weight_init
         )
-    skip_model = jpc.make_skip_model(L) if n_skip == 1 else None
+    skip_model = jpc.make_skip_model(L) if use_skips else None
 
     # data
     if in_out_dims != "width":
@@ -161,7 +159,7 @@ def run_analysis(
         skip_model=skip_model,
         y=y,
         x=x,
-        n_skip=n_skip,
+        use_skips=use_skips,
         param_type=param_type,
         activity_decay=activity_decay,
         mode=mode,
@@ -201,7 +199,7 @@ if __name__ == "__main__":
     ACT_FNS = ["linear", "tanh", "relu"]
     USE_BIASES = [False]
     MODES = ["supervised"]  #,"unsupervised"]
-    N_SKIPS = [0, 1]
+    USE_SKIPS = [False, True]
     WEIGHT_INITS = ["one_over_N", "standard_gauss", "standard", "orthogonal"] 
     PARAM_TYPES = ["sp", "mupc", "ntp"]
     ACTIVITY_DECAY = [False, True]
@@ -213,7 +211,7 @@ if __name__ == "__main__":
         for act_fn in ACT_FNS:
             for use_biases in USE_BIASES:
                 for mode in MODES:
-                    for n_skip in N_SKIPS:
+                    for use_skips in USE_SKIPS:
                         for weight_init in WEIGHT_INITS:
                             for param_type in PARAM_TYPES:
                                 for activity_decay in ACTIVITY_DECAY:
@@ -226,7 +224,7 @@ if __name__ == "__main__":
                                                     act_fn=act_fn,
                                                     use_biases=use_biases,
                                                     mode=mode,
-                                                    n_skip=n_skip,
+                                                    use_skips=use_skips,
                                                     weight_init=weight_init,
                                                     param_type=param_type,
                                                     activity_decay=activity_decay,
@@ -241,7 +239,7 @@ if __name__ == "__main__":
                                                     act_fn=act_fn,
                                                     use_biases=use_biases,
                                                     mode=mode,
-                                                    n_skip=n_skip,
+                                                    use_skips=use_skips,
                                                     weight_init=weight_init,
                                                     param_type=param_type,
                                                     activity_decay=activity_decay,

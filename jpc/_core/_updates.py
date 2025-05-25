@@ -16,7 +16,6 @@ def update_activities(
         output: ArrayLike,
         *,
         input: Optional[ArrayLike] = None,
-        n_skip: int = 0,
         loss_id: str = "mse",
         param_type: str = "sp",
         weight_decay: Scalar = 0.,
@@ -43,7 +42,6 @@ def update_activities(
     **Other arguments:**
 
     - `input`: Optional prior of the generative model.
-    - `n_skip`: Number of layers to skip for the skip connections (0 by default).
     - `loss_id`: Loss function to use at the output layer. Options are mean squared 
         error `mse` (default) or cross-entropy `ce`.
     - `param_type`: Determines the parameterisation. Options are `sp` (standard
@@ -67,7 +65,6 @@ def update_activities(
         activities=activities,
         y=output,
         x=input,
-        n_skip=n_skip,
         loss_id=loss_id,
         param_type=param_type,
         weight_decay=weight_decay,
@@ -100,7 +97,6 @@ def update_params(
         output: ArrayLike,
         *,
         input: Optional[ArrayLike] = None,
-        n_skip: int = 0,
         loss_id: str = "mse",
         param_type: str = "sp",
         weight_decay: Scalar = 0.,
@@ -127,7 +123,6 @@ def update_params(
     **Other arguments:**
 
     - `input`: Optional prior of the generative model.
-    - `n_skip`: Number of layers to skip for the skip connections (0 by default).
     - `loss_id`: Loss function to use at the output layer. Options are mean squared 
         error `mse` (default) or cross-entropy `ce`.
     - `param_type`: Determines the parameterisation. Options are `sp` (standard
@@ -151,7 +146,6 @@ def update_params(
         activities=activities,
         y=output,
         x=input,
-        n_skip=n_skip,
         loss_id=loss_id,
         param_type=param_type,
         weight_decay=weight_decay,

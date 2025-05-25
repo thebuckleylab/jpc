@@ -48,7 +48,6 @@ def make_pc_step(
           rtol=1e-3, atol=1e-3
       ),
       skip_model: Optional[PyTree[Callable]] = None,
-      n_skip: int = 0,
       weight_decay: Scalar = 0.,
       spectral_penalty: Scalar = 0.,
       activity_decay: Scalar = 0.,
@@ -99,7 +98,6 @@ def make_pc_step(
         tolerances of the controller will also determine the steady state to
         terminate the solver.
     - `skip_model`: Optional list of callable skip connection functions.
-    - `n_skip`: Number of layers to skip for the skip connections (0 by default).
     - `weight_decay`: Weight decay for the weights (0 by default).
     - `spectral_penalty`: Weight spectral penalty of the form 
         $||\mathbf{I} - \mathbf{W}_\ell^T \mathbf{W}_\ell||^2$ (0 by default).
@@ -151,7 +149,6 @@ def make_pc_step(
         model=model,
         input=input,
         skip_model=skip_model,
-        n_skip=n_skip,
         param_type=param_type
     )
 
@@ -167,7 +164,6 @@ def make_pc_step(
         activities=activities,
         output=output,
         input=input,
-        n_skip=n_skip,
         loss_id=loss_id,
         param_type=param_type,
         solver=ode_solver,
@@ -192,7 +188,6 @@ def make_pc_step(
         t_max=t_max,
         y=output,
         x=input,
-        n_skip=n_skip,
         loss=loss_id,
         param_type=param_type,
         weight_decay=weight_decay,
@@ -206,7 +201,6 @@ def make_pc_step(
         ),
         y=output,
         x=input,
-        n_skip=n_skip,
         loss=loss_id,
         param_type=param_type,
         weight_decay=weight_decay,
@@ -226,7 +220,6 @@ def make_pc_step(
         ),
         y=output,
         x=input,
-        n_skip=n_skip,
         loss_id=loss_id,
         param_type=param_type,
         weight_decay=weight_decay,
@@ -249,7 +242,6 @@ def make_pc_step(
             model=model,
             input=input,
             skip_model=skip_model,
-            n_skip=n_skip,
             param_type=param_type
         )[-1]
     ) if calculate_accuracy else None

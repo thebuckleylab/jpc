@@ -13,7 +13,6 @@ def init_activities_with_ffwd(
         input: ArrayLike,
         *,
         skip_model: Optional[PyTree[Callable]] = None,
-        n_skip: int = 0,
         param_type: str = "sp"
 ) -> PyTree[Array]:
     """Initialises the layers' activity with a feedforward pass
@@ -34,7 +33,6 @@ def init_activities_with_ffwd(
     **Other arguments:**
 
     - `skip_model`: Optional skip connection model.
-    - `n_skip`: Number of layers to skip for the skip model (0 by default).
     - `param_type`: Determines the parameterisation. Options are `sp` (standard
         parameterisation), `mupc` ([μPC](https://arxiv.org/abs/2505.13124)), or 
         `ntp` (neural tangent parameterisation). See [`jpc._get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
@@ -66,7 +64,7 @@ def init_activities_with_ffwd(
         zl = scalings[l] * vmap(model[l])(activities[l - 1])
 
         if skip_model[l] is not None:
-            skip_output = vmap(skip_model[l])(activities[l - n_skip])
+            skip_output = vmap(skip_model[l])(activities[l - 1])
             zl += skip_output
 
         activities.append(zl)

@@ -96,7 +96,7 @@ def compute_linear_equilib_energy(
 def compute_linear_activity_hessian(
         Ws: PyTree[Array],
         *,
-        n_skip: int = 0,
+        use_skips: bool = False,
         param_type: str = "sp",
         activity_decay: bool = False,
         diag: bool = True,
@@ -137,7 +137,8 @@ def compute_linear_activity_hessian(
 
     **Other arguments:**
 
-    - `n_skip`: Number of layers to skip for the skip connections.
+    - `use_skips`: Whether to assume one-layer skip connections at every layer 
+        except from the input and to the output.
     - `param_type`: Determines the parameterisation. Options are `sp` (standard
         parameterisation), `mupc` ([μPC](https://arxiv.org/abs/2505.13124)), or 
         `ntp` (neural tangent parameterisation). See [`jpc.get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
@@ -178,20 +179,20 @@ def compute_linear_activity_hessian(
             if param_type == "sp":
                 a_l = 1
             elif param_type == "ntp":
-                a_l = 1 / np.sqrt(N) if n_skip == 0 else 1 / np.sqrt(N*L)
+                a_l = 1 / np.sqrt(N) if not use_skips else 1 / np.sqrt(N*L)
             elif param_type == "mupc":
                 if i+1 == L:
                     a_l = 1 / N
                 else:
-                    a_l = 1 / np.sqrt(N) if n_skip == 0 else 1 / np.sqrt(N*L)
+                    a_l = 1 / np.sqrt(N) if not use_skips else 1 / np.sqrt(N*L)
 
-            if n_skip == 0:
+            if not use_skips:
                 if activity_decay:
                     diagonal_block = 2*I + a_l**2 * WT_W
                 else:
                     diagonal_block = I + a_l**2 * WT_W
 
-            elif n_skip == 1:
+            elif use_skips:
                 W = Ws[i]
                 if i+1 == L:
                     if activity_decay:
@@ -209,11 +210,11 @@ def compute_linear_activity_hessian(
         if off_diag:
             # Off-diagonal block
             if i < L - 1:
-                if n_skip == 0:
+                if not use_skips:
                     a_l = 1 if param_type == "sp" else 1 / np.sqrt(N)
                     off_diagonal_block = - a_l * Ws[i].T
 
-                if n_skip == 1:
+                if use_skips:
                     I = jnp.eye(dims[i])
                     a_l = 1 if param_type == "sp" else 1 / np.sqrt(N*L)
                     off_diagonal_block = - a_l * Ws[i].T - I
@@ -235,7 +236,7 @@ def compute_linear_activity_solution(
         x: ArrayLike,
         y: ArrayLike,
         *,
-        n_skip: int = 0,
+        use_skips: bool = False,
         param_type: str = "sp",
         activity_decay: bool = False
 ) -> PyTree[Array]:
@@ -275,7 +276,8 @@ def compute_linear_activity_solution(
 
     **Other arguments:**
 
-    - `n_skip`: Number of layers to skip for the skip connections.
+    - `use_skips`: Whether to assume one-layer skip connections at every layer 
+        except from the input and to the output.
     - `param_type`: Determines the parameterisation. Options are `sp` (standard
         parameterisation), `mupc` ([μPC](https://arxiv.org/abs/2505.13124)), or 
         `ntp` (neural tangent parameterisation). See [`jpc.get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
@@ -299,7 +301,7 @@ def compute_linear_activity_solution(
     A = compute_linear_activity_hessian(
         Ws=Ws,
         param_type=param_type,
-        n_skip=n_skip,
+        use_skips=use_skips,
         activity_decay=activity_decay
     )
 

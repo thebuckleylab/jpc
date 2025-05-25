@@ -13,7 +13,6 @@ def pc_energy_fn(
         y: ArrayLike,
         *,
         x: Optional[ArrayLike] = None,
-        n_skip: int = 0,
         loss: str = "mse",
         param_type: str = "sp",
         weight_decay: Scalar = 0.,
@@ -50,7 +49,6 @@ def pc_energy_fn(
     **Other arguments:**
 
     - `x`: Optional prior of the generative model (for supervised training).
-    - `n_skip`: Number of layers to skip for the skip connections (0 by default).
     - `loss`: Loss function to use at the output layer. Options are mean squared 
         error `mse` (default) or cross-entropy `ce`.
     - `param_type`: Determines the parameterisation. Options are `sp` (standard
@@ -99,7 +97,7 @@ def pc_energy_fn(
     ):
         err = activities[act_l] - scalings[net_l] * vmap(model[net_l])(activities[act_l - 1])
         if skip_model[net_l] is not None:
-            err -= vmap(skip_model[net_l])(activities[act_l - n_skip])
+            err -= vmap(skip_model[net_l])(activities[act_l - 1])
 
         energies.append(0.5 * sum(err ** 2))
 

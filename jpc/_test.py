@@ -27,7 +27,6 @@ def test_discriminative_pc(
         input: ArrayLike,
         *,
         skip_model: Optional[PyTree[Callable]] = None,
-        n_skip: int = 0,
         loss: str = "mse",
         param_type: str = "sp"
 ) -> Tuple[Scalar, Scalar]:
@@ -42,7 +41,6 @@ def test_discriminative_pc(
     **Other arguments:**
 
     - `skip_model`: Optional skip connection model.
-    - `n_skip`: Number of layers to skip for the skip connections (0 by default).
     - `loss`: Loss function to use at the output layer. Options are mean squared 
         error `mse` (default) or cross-entropy `ce`.
     - `param_type`: Determines the parameterisation. Options are `sp` (standard
@@ -60,7 +58,6 @@ def test_discriminative_pc(
         model=model,
         input=input,
         skip_model=skip_model,
-        n_skip=n_skip,
         param_type=param_type
     )[-1]
 
@@ -83,7 +80,6 @@ def test_generative_pc(
         batch_size: int,
         *,
         skip_model: Optional[PyTree[Callable]] = None,
-        n_skip: int = 0,
         loss_id: str = "mse",
         param_type: str = "sp",
         sigma: Scalar = 0.05,
@@ -115,7 +111,6 @@ def test_generative_pc(
     **Other arguments:**
 
     - `skip_model`: Optional skip connection model.
-    - `n_skip`: Number of layers to skip for the skip connections (0 by default).
     - `loss_id`: Loss function to use at the output layer. Options are mean squared 
         error `mse` (default) or cross-entropy `ce`.
     - `param_type`: Determines the parameterisation. Options are `sp` (standard
@@ -156,7 +151,6 @@ def test_generative_pc(
         params=params,
         activities=activities,
         output=output,
-        n_skip=n_skip,
         loss_id=loss_id,
         param_type=param_type,
         solver=ode_solver,
@@ -172,7 +166,6 @@ def test_generative_pc(
         model=model,
         input=input,
         skip_model=skip_model,
-        n_skip=n_skip,
         param_type=param_type
     )[-1]
     return input_acc, output_preds

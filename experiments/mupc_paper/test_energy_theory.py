@@ -16,7 +16,7 @@ def run_test(
         width,
         n_hidden,
         act_fn,
-        n_skip,
+        use_skips,
         param_type,
         param_optim_id,
         param_lr,
@@ -46,7 +46,7 @@ def run_test(
             model=model,
             init_fn_id="standard_gauss"
         )
-    skip_model = jpc.make_skip_model(L) if n_skip == 1 else None
+    skip_model = jpc.make_skip_model(L) if use_skips else None
 
     # optimisers
     if param_optim_id == "sgd":
@@ -71,7 +71,6 @@ def run_test(
             model=model,
             input=x,
             skip_model=skip_model,
-            n_skip=n_skip,
             param_type=param_type
         )
         loss = 0.5 * np.sum((y - activities[-1])**2) / batch_size
@@ -81,7 +80,7 @@ def run_test(
             network=model,
             x=x,
             y=y,
-            n_skip=n_skip,
+            use_skips=use_skips,
             param_type=param_type
         )       
         energy = jpc.pc_energy_fn(
@@ -89,7 +88,6 @@ def run_test(
             activities=activities,
             y=y,
             x=x,
-            n_skip=n_skip,
             param_type=param_type
         )
                                                           
@@ -101,7 +99,6 @@ def run_test(
             opt_state=param_opt_state,
             output=y,
             input=x,
-            n_skip=n_skip,
             param_type=param_type
         )
         model = param_update_result["model"]
@@ -127,7 +124,7 @@ if __name__ == "__main__":
 
     RESULTS_DIR = "energy_theory_results"
     DATASET = "MNIST"
-    N_SKIP = 1
+    USE_SKIPS = True
     PARAM_OPTIM_ID = "adam"
     PARAM_LR = 1e-2
     BATCH_SIZE = 64
@@ -145,7 +142,7 @@ if __name__ == "__main__":
                     print(
                         f"\nAct fn: {act_fn}\n"
                         f"Param type: {param_type}\n"
-                        f"N skip: {N_SKIP}\n"
+                        f"Use skips: {USE_SKIPS}\n"
                         f"Param optim: {PARAM_OPTIM_ID}\n"
                         f"Param lr: {PARAM_LR}\n"
                         f"Width: {width}\n"
@@ -156,7 +153,7 @@ if __name__ == "__main__":
                         RESULTS_DIR,
                         act_fn,
                         param_type,
-                        f"{N_SKIP}_skip",
+                        "skips" if USE_SKIPS else "no_skips",
                         PARAM_OPTIM_ID,
                         f"param_lr_{PARAM_LR}",
                         f"width_{width}",
@@ -169,7 +166,7 @@ if __name__ == "__main__":
                         width=width,
                         n_hidden=n_hidden,
                         act_fn=act_fn,
-                        n_skip=N_SKIP,
+                        use_skips=USE_SKIPS,
                         param_type=param_type,
                         param_optim_id=PARAM_OPTIM_ID,
                         param_lr=PARAM_LR,

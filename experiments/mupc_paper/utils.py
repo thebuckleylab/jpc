@@ -25,7 +25,7 @@ def setup_hessian_analysis(
         act_fn,
         use_biases,
         mode,
-        n_skip,
+        use_skips,
         weight_init,
         param_type,
         activity_decay,
@@ -41,7 +41,7 @@ Starting Hessian analysis with configuration:
   Act fn: {act_fn}
   Use biases: {use_biases}
   Mode: {mode}
-  N skip: {n_skip}
+  Skips: {use_skips}
   Weight init: {weight_init}
   Param type: {param_type}
   Activity decay: {activity_decay}
@@ -58,7 +58,7 @@ Starting Hessian analysis with configuration:
         act_fn,
         use_biases,
         mode,
-        f"{n_skip}_skip",
+        "skips" if use_skips else "no_skips",
         f"{weight_init}_weight_init",
         f"{param_type}_param",
         activity_decay,
@@ -74,7 +74,7 @@ def setup_experiment(
         width,
         n_hidden,
         act_fn,
-        n_skip,
+        use_skips,
         weight_init,
         param_type,
         param_optim_id,
@@ -97,7 +97,7 @@ Starting training experiment with configuration:
   Width: {width}
   N hidden: {n_hidden}
   Act fn: {act_fn}
-  N skip: {n_skip}
+  Use skips: {use_skips}
   Weight init: {weight_init}
   Param type: {param_type}
   Param optim: {param_optim_id}
@@ -119,7 +119,7 @@ Starting training experiment with configuration:
         f"width_{width}",
         f"{n_hidden}_n_hidden",
         act_fn,
-        f"{n_skip}_skip",
+        "skips" if use_skips else "no_skips",
         f"{weight_init}_weight_init",
         f"{param_type}_param",
         f"param_optim_{param_optim_id}",
@@ -132,53 +132,6 @@ Starting training experiment with configuration:
         f"weight_decay_{weight_decay}",
         f"spectral_penalty_{spectral_penalty}",
         f"{max_epochs}_epochs",
-        str(seed)
-    )
-
-
-def setup_chain_experiment(
-        results_dir,
-        n_hidden,
-        param_type,
-        n_skip,
-        activity_init,
-        act_fn,
-        activity_lr,
-        n_infer_iters,
-        n_train_iters,
-        param_lr,
-        batch_size,
-        seed
-):
-    print(
-        f"""
-Starting training chain experiment with configuration:
-
-  N hidden: {n_hidden}
-  Param type: {param_type}
-  N skip: {n_skip}
-  Activity init: {activity_init}
-  Act fn: {act_fn}
-  Activity lr: {activity_lr}
-  N infer iters: {n_infer_iters}
-  N train iters: {n_train_iters}
-  Param lr: {param_lr}
-  Batch size: {batch_size}
-  Seed: {seed}
-"""
-    )
-    return os.path.join(
-        results_dir,
-        f"{n_hidden}_n_hidden",
-        f"{param_type}_param",
-        f"{n_skip}_skip",
-        f"{activity_init}_activity_init",
-        act_fn,
-        f"activity_lr_{activity_lr}",
-        f"{n_infer_iters}_n_infer_iters",
-        f"{n_train_iters}_n_train_iters",
-        f"param_lr_{param_lr}",
-        f"batch_size_{batch_size}",
         str(seed)
     )
 
@@ -384,7 +337,6 @@ def compute_hessian_eigens(
         activities,
         y,
         x,
-        n_skip,
         param_type,
         activity_decay=0,
         weight_decay=0,
@@ -395,7 +347,6 @@ def compute_hessian_eigens(
         activities,
         y,
         x=x,
-        n_skip=n_skip,
         param_type=param_type,
         activity_decay=activity_decay,
         weight_decay=weight_decay,

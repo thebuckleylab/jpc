@@ -36,7 +36,7 @@ from plotting import (
 )
 
 
-def evaluate(params, test_loader, n_skip, param_type):
+def evaluate(params, test_loader, param_type):
     model, skip_model = params
     avg_test_loss, avg_test_acc = 0, 0
     for _, (img_batch, label_batch) in enumerate(test_loader):
@@ -47,7 +47,6 @@ def evaluate(params, test_loader, n_skip, param_type):
             output=label_batch,
             input=img_batch,
             skip_model=skip_model,
-            n_skip=n_skip,
             param_type=param_type
         )
         avg_test_loss += test_loss
@@ -62,7 +61,7 @@ def train_mlp(
         width,
         n_hidden,
         act_fn,
-        n_skip,
+        use_skips,
         weight_init,
         param_type,
         param_optim_id,
@@ -105,7 +104,7 @@ def train_mlp(
             init_fn_id=weight_init,
             gain=gain
         )
-    skip_model = jpc.make_skip_model(L) if n_skip == 1 else None
+    skip_model = jpc.make_skip_model(model) if use_skips else None
 
     # optimisers
     if param_optim_id == "sgd":
@@ -167,7 +166,6 @@ def train_mlp(
                 model=model,
                 input=img_batch,
                 skip_model=skip_model,
-                n_skip=n_skip,
                 param_type=param_type
             )
             activity_opt_state = activity_optim.init(activities)
@@ -191,7 +189,7 @@ def train_mlp(
                         network=model,
                         x=img_batch,
                         y=label_batch,
-                        n_skip=n_skip,
+                        use_skips=use_skips,
                         param_type=param_type,
                         activity_decay=activity_decay
                     )
@@ -200,7 +198,6 @@ def train_mlp(
                         activities=theory_activities,
                         y=label_batch,
                         x=img_batch,
-                        n_skip=n_skip,
                         param_type=param_type,
                         activity_decay=activity_decay,
                         weight_decay=weight_decay,
@@ -230,7 +227,6 @@ def train_mlp(
                         activities=tree_map(lambda a: a[[0], :], activities),
                         y=label_batch[[0], :],
                         x=img_batch[[0], :],
-                        n_skip=n_skip,
                         param_type=param_type,
                         activity_decay=activity_decay,
                         weight_decay=weight_decay,
@@ -250,7 +246,6 @@ def train_mlp(
                     opt_state=activity_opt_state,
                     output=label_batch,
                     input=img_batch,
-                    n_skip=n_skip,
                     param_type=param_type,
                     activity_decay=activity_decay,
                     weight_decay=weight_decay,
@@ -269,7 +264,6 @@ def train_mlp(
                         activities=activities,
                         y=label_batch,
                         x=img_batch,
-                        n_skip=n_skip,
                         param_type=param_type,
                         activity_decay=activity_decay,
                         weight_decay=weight_decay,
@@ -308,7 +302,6 @@ def train_mlp(
                 opt_state=param_opt_state,
                 output=label_batch,
                 input=img_batch,
-                n_skip=n_skip,
                 param_type=param_type,
                 activity_decay=activity_decay,
                 weight_decay=weight_decay,
@@ -338,7 +331,6 @@ def train_mlp(
                 avg_test_loss, avg_test_acc = evaluate(
                     params=(model, skip_model),
                     test_loader=test_loader,
-                    n_skip=n_skip,
                     param_type=param_type
                 )
                 test_losses.append(avg_test_loss)
@@ -352,7 +344,6 @@ def train_mlp(
                         activities=tree_map(lambda a: a[[0], :], activities),
                         y=label_batch[[0], :],
                         x=img_batch[[0], :],
-                        n_skip=n_skip,
                         param_type=param_type,
                         activity_decay=activity_decay,
                         weight_decay=weight_decay,
@@ -367,7 +358,7 @@ def train_mlp(
                         network=model,
                         x=img_batch,
                         y=label_batch,
-                        n_skip=n_skip,
+                        use_skips=use_skips,
                         param_type=param_type,
                         activity_decay=activity_decay
                     )
@@ -376,7 +367,6 @@ def train_mlp(
                         activities=theory_activities,
                         y=label_batch,
                         x=img_batch,
-                        n_skip=n_skip,
                         param_type=param_type,
                         activity_decay=activity_decay,
                         weight_decay=weight_decay,
@@ -576,7 +566,7 @@ if __name__ == "__main__":
     parser.add_argument("--widths", type=int, nargs='+', default=[128])
     parser.add_argument("--n_hiddens", type=int, nargs='+', default=[8])
     parser.add_argument("--act_fns", type=str, nargs='+', default=["linear", "tanh", "relu"])  # , "tanh", "relu"]
-    parser.add_argument("--n_skips", type=int, nargs='+', default=[1])  # , 1]
+    parser.add_argument("--use_skips", type=int, nargs='+', default=[True])  
     parser.add_argument("--weight_inits", type=str, nargs='+', default=["standard_gauss"])  # "one_over_N", "standard_gauss", "orthogonal"]
     parser.add_argument("--param_types", type=str, nargs='+', default=["mupc"])  # , "ntp", "sp"]
     parser.add_argument("--param_lrs", type=float, nargs='+', default=[1e-1])
@@ -599,7 +589,7 @@ if __name__ == "__main__":
         for width in args.widths:
             for n_hidden in args.n_hiddens:
                 for act_fn in args.act_fns:
-                    for n_skip in args.n_skips:
+                    for use_skips in args.use_skips:
                         for weight_init in args.weight_inits:
                             for param_type in args.param_types:
                                 for param_optim_id in args.param_optim_ids:
@@ -619,7 +609,7 @@ if __name__ == "__main__":
                                                                     width=width,
                                                                     n_hidden=n_hidden,
                                                                     act_fn=act_fn,
-                                                                    n_skip=n_skip,
+                                                                    use_skips=use_skips,
                                                                     weight_init=weight_init,
                                                                     param_type=param_type,
                                                                     param_optim_id=param_optim_id,
@@ -640,7 +630,7 @@ if __name__ == "__main__":
                                                                     width=width,
                                                                     n_hidden=n_hidden,
                                                                     act_fn=act_fn,
-                                                                    n_skip=n_skip,
+                                                                    use_skips=use_skips,
                                                                     weight_init=weight_init,
                                                                     param_type=param_type,
                                                                     param_optim_id=param_optim_id,
