@@ -237,7 +237,7 @@ def _get_param_scalings(
 
     !!! warning
 
-        `param_type = mupc` ([μPC](https://arxiv.org/abs/2505.13124)) assumes 
+        `param_type = "mupc"` ([μPC](https://arxiv.org/abs/2505.13124)) assumes 
         that one is using [`jpc.make_mlp()`](https://thebuckleylab.github.io/jpc/api/Utils/#jpc.make_mlp) 
         to create the model.
 
