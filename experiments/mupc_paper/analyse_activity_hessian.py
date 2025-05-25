@@ -125,11 +125,12 @@ def run_analysis(
     d_out = width if in_out_dims == "width" else in_out_dims[1]
 
     # create and initialise model
+    L = n_hidden+1
     network = jpc.make_mlp(
         key=keys[0],
         input_dim=d_in,
         width=width,
-        depth=n_hidden+1,
+        depth=L,
         output_dim=d_out,
         act_fn=act_fn,
         use_bias=use_biases
@@ -140,7 +141,7 @@ def run_analysis(
             model=network,
             init_fn_id=weight_init
         )
-    skip_model = jpc.make_skip_model(network) if n_skip == 1 else None
+    skip_model = jpc.make_skip_model(L) if n_skip == 1 else None
 
     # data
     if in_out_dims != "width":

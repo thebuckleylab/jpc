@@ -105,7 +105,7 @@ def train_mlp(
             init_fn_id=weight_init,
             gain=gain
         )
-    skip_model = jpc.make_skip_model(model) if n_skip == 1 else None
+    skip_model = jpc.make_skip_model(L) if n_skip == 1 else None
 
     # optimisers
     if param_optim_id == "sgd":

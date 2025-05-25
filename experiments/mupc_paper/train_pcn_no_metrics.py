@@ -30,6 +30,7 @@ def evaluate(params, test_loader, n_skip, param_type):
             input=img_batch,
             skip_model=skip_model,
             n_skip=n_skip,
+            loss="ce",  # NOTE: testing
             param_type=param_type
         )
         avg_test_loss += test_loss
@@ -66,7 +67,8 @@ def train_mlp(
     os.makedirs(save_dir, exist_ok=True)
 
     # create and initialise model
-    d_in, d_out = 784, 10
+    d_in = 32*32*3 if dataset == "CIFAR10" else 28*28
+    d_out = 10
     L = n_hidden + 1
     model = jpc.make_mlp(
         key=keys[0],
@@ -85,7 +87,7 @@ def train_mlp(
             init_fn_id=weight_init,
             gain=gain
         )
-    skip_model = jpc.make_skip_model(model) if n_skip == 1 else None
+    skip_model = jpc.make_skip_model(L) if n_skip == 1 else None
 
     # optimisers
     if param_optim_id == "sgd":
@@ -129,7 +131,8 @@ def train_mlp(
                 param_type=param_type
             )
             activity_opt_state = activity_optim.init(activities)
-            train_loss = jpc.mse_loss(activities[-1], label_batch)
+            #train_loss = jpc.mse_loss(activities[-1], label_batch)
+            train_loss = jpc.cross_entropy_loss(activities[-1], label_batch)
 
             # inference
             for t in range(max_infer_iters):
@@ -141,6 +144,7 @@ def train_mlp(
                     output=label_batch,
                     input=img_batch,
                     n_skip=n_skip,
+                    loss_id="ce",  # NOTE: testing
                     param_type=param_type,
                     activity_decay=activity_decay,
                     weight_decay=weight_decay,
@@ -161,6 +165,7 @@ def train_mlp(
                 output=label_batch,
                 input=img_batch,
                 n_skip=n_skip,
+                loss_id="ce",  # NOTE: testing
                 param_type=param_type,
                 activity_decay=activity_decay,
                 weight_decay=weight_decay,
@@ -219,15 +224,15 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--results_dir", type=str, default="pcn_results")
-    parser.add_argument("--datasets", type=str, nargs='+', default=["MNIST"])
+    parser.add_argument("--datasets", type=str, nargs='+', default=["CIFAR10"])
     parser.add_argument("--widths", type=int, nargs='+', default=[512])
     parser.add_argument("--n_hiddens", type=int, nargs='+', default=[8])
     parser.add_argument("--act_fns", type=str, nargs='+', default=["relu"])
     parser.add_argument("--n_skips", type=int, nargs='+', default=[1])
     parser.add_argument("--weight_inits", type=str, nargs='+', default=["standard_gauss"]) 
     parser.add_argument("--param_types", type=str, nargs='+', default=["mupc"]) 
-    parser.add_argument("--param_lrs", type=float, nargs='+', default=[1e-1])
-    parser.add_argument("--batch_size", type=int, default=64)
+    parser.add_argument("--param_lrs", type=float, nargs='+', default=[5e-2])
+    parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--max_infer_iters", type=int, default=8)
     parser.add_argument("--param_optim_ids", type=str, nargs='+', default=["adam"])
     parser.add_argument("--activity_optim_ids", type=str, nargs='+', default=["gd"])
@@ -235,10 +240,13 @@ if __name__ == "__main__":
     parser.add_argument("--activity_decays", type=float, nargs='+', default=[0])
     parser.add_argument("--weight_decays", type=float, nargs='+', default=[0])
     parser.add_argument("--spectral_penalties", type=float, nargs='+', default=[0])
-    parser.add_argument("--max_epochs", type=int, default=1)
-    parser.add_argument("--test_every", type=int, default=300)
+    parser.add_argument("--max_epochs", type=int, default=50)
+    parser.add_argument("--test_every", type=int, default=390)
     parser.add_argument("--n_seeds", type=int, default=1)
     args = parser.parse_args()
+    # NOTE: 8 layers top at ~42% after 7 epochs with lr 1e-1
+    # NOTE: CE with lr 5e-2 seems to plateau at ~%44-5 at around 20 epochs
+    # NOTE: 49% in 50 epochs
 
     for dataset in args.datasets:
         for width in args.widths:
