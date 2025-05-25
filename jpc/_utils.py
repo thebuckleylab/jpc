@@ -95,11 +95,12 @@ def make_mlp(
 
 
 def make_skip_model(depth: int) -> PyTree[Callable]:
-    """Creates a residual network with skip connections at every layer except 
-    from the input and to the output.
+    """Creates a residual network with one-layer skip connections at every layer 
+    except from the input to the next layer and from the penultimate layer to 
+    the output.
 
     This is used for compatibility with the [μPC](https://arxiv.org/abs/2505.13124) 
-    scalings when `param_type = "mupc"` in functions including 
+    parameterisation when `param_type = "mupc"` in functions including 
     [`jpc.init_activities_with_ffwd()`](https://thebuckleylab.github.io/jpc/api/Initialisation/#jpc.init_activities_with_ffwd), 
     [`jpc.update_activities()`](https://thebuckleylab.github.io/jpc/api/Discrete%20updates/#jpc.update_activities), 
     and [`jpc.update_params()`](https://thebuckleylab.github.io/jpc/api/Discrete%20updates/#jpc.update_params).
