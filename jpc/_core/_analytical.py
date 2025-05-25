@@ -42,7 +42,7 @@ def compute_linear_equilib_energy(
         will return the same energy value as this function. For a demonstration, see
         [this example notebook](https://thebuckleylab.github.io/jpc/examples/linear_net_theoretical_energy/).
         
-        <img src="linear_net_theoretical_energy.png" width="50%">
+        ![](linear_net_theoretical_energy.png)
 
     ??? cite "Reference"
 

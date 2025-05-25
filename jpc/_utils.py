@@ -52,7 +52,7 @@ def make_mlp(
         This implementation places the activation function before the linear 
         transformation, $\mathbf{W}_\ell \phi(\mathbf{z}_{\ell-1})$, for 
         compatibility with the [μPC](https://arxiv.org/abs/2505.13124) 
-        scalings when `param_type = mupc` in functions including 
+        scalings when `param_type = "mupc"` in functions including 
         [`jpc.init_activities_with_ffwd()`](https://thebuckleylab.github.io/jpc/api/Initialisation/#jpc.init_activities_with_ffwd), 
         [`jpc.update_activities()`](https://thebuckleylab.github.io/jpc/api/Discrete%20updates/#jpc.update_activities), 
         and [`jpc.update_params()`](https://thebuckleylab.github.io/jpc/api/Discrete%20updates/#jpc.update_params).
