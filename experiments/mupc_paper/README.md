@@ -11,6 +11,8 @@ This folder contains code to reproduce all the experiments of the paper
 For a high-level summary, see [this blog post](https://francesco-innocenti.github.io/posts/2025/05/20/Scaling-Predictive-Coding-to-100+-Layer-Networks/). And for a tutorial, see 
 [this example notebook](https://thebuckleylab.github.io/jpc/examples/mupc/).
 
+## Quickstart
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/thebuckleylab/jpc/blob/main/examples/mupc.ipynb)
 
 ## Setup
 Clone the `jpc` repo. We recommend using a virtual environment, e.g. 

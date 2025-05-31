@@ -10,7 +10,7 @@
 
 > [!IMPORTANT] 
 > If you're here for [μPC](https://arxiv.org/abs/2505.13124), see [this example
-> notebook](https://thebuckleylab.github.io/jpc/examples/mupc/) and paper 
+> notebook](https://thebuckleylab.github.io/jpc/examples/mupc/) and the paper's 
 > experiments in [`experiments/mupc_paper`](https://github.com/thebuckleylab/jpc/tree/main/experiments/mupc_paper).
 
 JPC is a [**J**AX](https://github.com/google/jax) library for training neural 
