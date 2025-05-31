@@ -1,10 +1,5 @@
 # μPC paper
 
-> [!NOTE] 
-> We are currently working on updating all the documentation to make the μPC 
-> changes more clear. An example notebook showcasing μPC will also be released 
-> soon.
-
 <p align='center'>
   <a href='https://github.com/thebuckleylab/jpc/blob/main/experiments/mupc_paper/spotlight_fig.png'>
     <img src='spotlight_fig.png' />
@@ -13,7 +8,8 @@
 
 This folder contains code to reproduce all the experiments of the paper 
 ["μPC": Scaling Predictive Coding to 100+ Layer Networks](https://arxiv.org/abs/2505.13124).
-For a high-level summary, see [this blog post](https://francesco-innocenti.github.io/posts/2025/05/20/Scaling-Predictive-Coding-to-100+-Layer-Networks/).
+For a high-level summary, see [this blog post](https://francesco-innocenti.github.io/posts/2025/05/20/Scaling-Predictive-Coding-to-100+-Layer-Networks/). And for a tutorial, see 
+[this example notebook](https://thebuckleylab.github.io/jpc/examples/mupc/).
 
 
 ## Setup
