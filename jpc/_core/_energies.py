@@ -5,6 +5,7 @@ from jax.numpy import sum, array, eye, sqrt
 from jax.nn import log_softmax
 from jaxtyping import PyTree, ArrayLike, Scalar, Array
 from typing import Tuple, Callable, Optional
+from ._errors import _check_param_type
 
 
 def pc_energy_fn(
@@ -67,6 +68,8 @@ def pc_energy_fn(
     The total or layer-wise energy normalised by the batch size.
 
     """
+    _check_param_type(param_type)
+
     model, skip_model = params
     batch_size = y.shape[0]
     start_activity_l = 1 if x is not None else 2

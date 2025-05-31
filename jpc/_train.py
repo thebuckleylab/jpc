@@ -24,7 +24,8 @@ from jpc import (
     compute_param_norms,
     compute_accuracy,
     hpc_energy_fn,
-    compute_hpc_param_grads
+    compute_hpc_param_grads,
+    _check_param_type
 )
 from optax import GradientTransformation, GradientTransformationExtraArgs, OptState
 from jaxtyping import PyTree, ArrayLike, Scalar, PRNGKeyArray
@@ -74,24 +75,25 @@ def make_pc_step(
 
     !!! note
 
-        `key`, `layer_sizes` and `batch_size` must be passed if `input` is
-        `None`, since unsupervised training will be assumed and activities need
-        to be initialised randomly.
+        `key`, `layer_sizes` and `batch_size` must be passed if `input = None`, 
+        since unsupervised training will be assumed and activities need to be 
+        initialised randomly.
 
     **Other arguments:**
 
     - `input`: Optional prior of the generative model.
     - `loss_id`: Loss function to use at the output layer. Options are mean squared 
-        error `mse` (default) or cross-entropy `ce`.
-    - `param_type`: Determines the parameterisation. Options are `sp` (standard
-        parameterisation), `mupc` ([μPC](https://arxiv.org/abs/2505.13124)), or 
-        `ntp` (neural tangent parameterisation). See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
+        error `"mse"` (default) or cross-entropy `"ce"`.
+    - `param_type`: Determines the parameterisation. Options are `"sp"` 
+        (standard parameterisation), `"mupc"` ([μPC](https://arxiv.org/abs/2505.13124)), 
+        or `"ntp"` (neural tangent parameterisation). 
+        See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations. Defaults
-        to `sp`.
+        to `"sp"`.
     - `ode_solver`: Diffrax ODE solver to be used. Default is Heun, a 2nd order
         explicit Runge--Kutta method.
     - `max_t1`: Maximum end of integration region (20 by default).
-    - `dt`: Integration step size. Defaults to None since the default
+    - `dt`: Integration step size. Defaults to `None` since the default
         `stepsize_controller` will automatically determine it.
     - `stepsize_controller`: diffrax controller for step size integration.
         Defaults to `PIDController`. Note that the relative and absolute
@@ -129,9 +131,10 @@ def make_pc_step(
     - `ValueError` for inconsistent inputs and invalid losses.
 
     """
+    _check_param_type(param_type)
     if input is None and any(arg is None for arg in (key, layer_sizes, batch_size)):
         raise ValueError("""
-            If there is no input (i.e. `x` is None), then unsupervised training 
+            If there is no input (i.e. `x = None`), then unsupervised training 
             is assumed, and `key`, `layer_sizes` and `batch_size` must be 
             passed for random initialisation of activities.
         """)
@@ -319,7 +322,7 @@ def make_hpc_step(
     - `ode_solver`: Diffrax ODE solver to be used. Default is Heun, a 2nd order
         explicit Runge--Kutta method..
     - `max_t1`: Maximum end of integration region (300 by default).
-    - `dt`: Integration step size. Defaults to None since the default
+    - `dt`: Integration step size. Defaults to `None` since the default
         `stepsize_controller` will automatically determine it.
     - `stepsize_controller`: diffrax controller for step size integration.
         Defaults to `PIDController`. Note that the relative and absolute

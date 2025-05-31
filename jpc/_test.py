@@ -8,7 +8,8 @@ from jpc import (
     mse_loss,
     cross_entropy_loss,
     compute_accuracy,
-    solve_inference
+    solve_inference,
+    _check_param_type
 )
 from diffrax import (
     AbstractSolver,
@@ -54,6 +55,7 @@ def test_discriminative_pc(
     Test loss and accuracy of output predictions.
 
     """
+    _check_param_type(param_type)
     preds = init_activities_with_ffwd(
         model=model,
         input=input,
@@ -139,6 +141,7 @@ def test_generative_pc(
     Accuracy and output predictions.
 
     """
+    check_param_type(param_type)
     params = model, skip_model
     activities = init_activities_from_normal(
         key=key,

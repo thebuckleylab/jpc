@@ -8,7 +8,7 @@ from jaxlib.xla_extension import PjitFunction
 from typing import Callable, Optional, Tuple
 
 
-ACT_FNS = [
+_ACT_FNS = [
     "linear", "tanh", "hard_tanh", "relu", "leaky_relu", "gelu", "selu", "silu"
 ]
 
@@ -32,7 +32,7 @@ def get_act_fn(name: str) -> Callable:
         return jax.nn.silu
     else:
         raise ValueError(f"""
-                Invalid activation function ID. Options are {ACT_FNS}.
+                Invalid activation function ID. Options are {_ACT_FNS}.
         """)
 
 

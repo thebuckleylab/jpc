@@ -24,3 +24,4 @@ from ._analytical import (
     compute_linear_activity_hessian as compute_linear_activity_hessian,
     compute_linear_activity_solution as compute_linear_activity_solution
 )
+from ._errors import _check_param_type as _check_param_type

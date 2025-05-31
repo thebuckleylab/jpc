@@ -16,7 +16,8 @@ from ._core import (
     update_params as update_params,
     compute_linear_equilib_energy as compute_linear_equilib_energy,
     compute_linear_activity_hessian as compute_linear_activity_hessian,
-    compute_linear_activity_solution as compute_linear_activity_solution
+    compute_linear_activity_solution as compute_linear_activity_solution,
+    _check_param_type as _check_param_type
 )
 from ._utils import (
     make_mlp as make_mlp,

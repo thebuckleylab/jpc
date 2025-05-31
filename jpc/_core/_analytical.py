@@ -6,6 +6,7 @@ import numpy as np
 import equinox as eqx
 import equinox.nn as nn
 from jaxtyping import PyTree, ArrayLike, Array
+from ._errors import _check_param_type
 
 
 def compute_linear_equilib_energy(
@@ -153,6 +154,8 @@ def compute_linear_activity_hessian(
     is the number of hidden layers.
 
     """
+    _check_param_type(param_type)
+
     L = len(Ws)
     N = Ws[0].shape[0]
 
@@ -289,6 +292,8 @@ def compute_linear_activity_solution(
     List of theoretical activities for each layer.
 
     """
+    _check_param_type(param_type)
+
     # extract all weight matrices from the network
     Ws = [
         layer.weight for seq in network for layer in seq if hasattr(layer, "weight")
