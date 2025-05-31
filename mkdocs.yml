@@ -99,6 +99,7 @@ nav:
         - Advanced:
             - Hybrid PC: 'examples/hybrid_pc.ipynb'
             - Linear theoretical energy: 'examples/linear_net_theoretical_energy.ipynb'
+            - μPC: 'examples/mupc.ipynb'
     - 🌱 Basic API:
           - 'api/Training.md'
           - 'api/Testing.md'

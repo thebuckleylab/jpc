@@ -1,8 +1,9 @@
 import jax
 import jax.numpy as jnp
 from jax.tree_util import tree_map, tree_leaves
+from equinox import tree_at
 import equinox.nn as nn
-from jpc import pc_energy_fn
+from jpc import pc_energy_fn, _check_param_type
 from jaxtyping import PRNGKeyArray, PyTree, ArrayLike, Scalar, Array
 from jaxlib.xla_extension import PjitFunction
 from typing import Callable, Optional, Tuple
@@ -43,7 +44,8 @@ def make_mlp(
         depth: int, 
         output_dim: int, 
         act_fn: str, 
-        use_bias: bool = False
+        use_bias: bool = False,
+        param_type: str = "sp"
     ) -> PyTree[Callable]:
     """Creates a multi-layer perceptron compatible with predictive coding updates.
 
@@ -66,30 +68,41 @@ def make_mlp(
     - `output_dim`: Output dimension.
     - `act_fn`: Activation function (for all layers except the output).
     - `use_bias`: `False` by default.
+    - `param_type`: Determines the parameterisation. Options are `sp` (standard
+        parameterisation), `mupc` ([μPC](https://arxiv.org/abs/2505.13124)), or 
+        `ntp` (neural tangent parameterisation). See [`jpc._get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
+        for the specific scalings of these different parameterisations. Defaults
+        to `sp`.
 
     **Returns:**
 
     List of callable fully connected layers.
 
     """
+    _check_param_type(param_type)
+    
     subkeys = jax.random.split(key, depth)
     layers = []
     for i in range(depth):
         act_fn_l = nn.Identity() if i == 0 else get_act_fn(act_fn)
         _in = input_dim if i == 0 else width
         _out = output_dim if (i + 1) == depth else width
-        layer = nn.Sequential(
-            [
-                nn.Lambda(act_fn_l),
-                nn.Linear(
-                    _in,
-                    _out,
-                    use_bias=use_bias,
-                    key=subkeys[i]
-                )
-            ]
+
+        linear = nn.Linear(
+            _in,
+            _out,
+            use_bias=use_bias,
+            key=subkeys[i]
         )
-        layers.append(layer)
+        if param_type == "mupc":
+            W = jax.random.normal(subkeys[i], linear.weight.shape)
+            linear = tree_at(lambda l: l.weight, linear, W)
+
+        layers.append(
+            nn.Sequential(
+                [nn.Lambda(act_fn_l), linear]
+            )
+        )
 
     return layers
 

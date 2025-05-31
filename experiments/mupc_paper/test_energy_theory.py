@@ -6,7 +6,6 @@ import jpc
 import optax
 import equinox as eqx
 
-from utils import set_seed, init_weights
 from experiments.datasets import get_dataloaders
 
 
@@ -38,14 +37,9 @@ def run_test(
         depth=L,
         output_dim=d_out,
         act_fn=act_fn,
-        use_bias=False
+        use_bias=False,
+        param_type=param_type
     )
-    if param_type != "sp":
-        model = init_weights(
-            key=init_key,
-            model=model,
-            init_fn_id="standard_gauss"
-        )
     skip_model = jpc.make_skip_model(L) if use_skips else None
 
     # optimisers

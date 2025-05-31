@@ -5,6 +5,7 @@ import equinox as eqx
 from ._energies import _get_param_scalings
 from jaxtyping import PyTree, ArrayLike, Array, PRNGKeyArray, Scalar
 from typing import Callable, Optional
+from ._errors import _check_param_type
 
 
 @eqx.filter_jit
@@ -44,6 +45,8 @@ def init_activities_with_ffwd(
     List with activity values of each layer.
 
     """
+    _check_param_type(param_type)
+
     L = len(model)
     if skip_model is None:
         skip_model = [None] * len(model)

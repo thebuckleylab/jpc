@@ -76,9 +76,10 @@ def train_mlp(
         depth=L,
         output_dim=d_out,
         act_fn=act_fn,
-        use_bias=False
+        use_bias=False,
+        param_type=param_type
     )
-    if weight_init != "standard":
+    if weight_init == "orthogonal":
         gain = 1.05 if (weight_init == "orthogonal" and act_fn == "tanh") else 1
         model = init_weights(
             key=keys[1],

@@ -131,7 +131,8 @@ def run_analysis(
         depth=L,
         output_dim=d_out,
         act_fn=act_fn,
-        use_bias=use_biases
+        use_bias=use_biases,
+        param_type=param_type
     )
     if weight_init != "standard":
         network = init_weights(
@@ -200,7 +201,7 @@ if __name__ == "__main__":
     USE_BIASES = [False]
     MODES = ["supervised"]  #,"unsupervised"]
     USE_SKIPS = [False, True]
-    WEIGHT_INITS = ["one_over_N", "standard_gauss", "standard", "orthogonal"] 
+    WEIGHT_INITS = ["one_over_N", "standard", "orthogonal"] 
     PARAM_TYPES = ["sp", "mupc", "ntp"]
     ACTIVITY_DECAY = [False, True]
     WIDTHS = [2 ** i for i in range(1, 8)]
