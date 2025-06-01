@@ -90,15 +90,16 @@ def make_pc_step(
         See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations. Defaults
         to `"sp"`.
-    - `ode_solver`: Diffrax ODE solver to be used. Default is Heun, a 2nd order
-        explicit Runge--Kutta method.
+    - `ode_solver`: [diffrax ODE solver](https://docs.kidger.site/diffrax/api/solvers/ode_solvers/) 
+        to be used. Default is [`Heun`](https://docs.kidger.site/diffrax/api/solvers/ode_solvers/#diffrax.Heun), 
+        a 2nd order explicit Runge--Kutta method.
     - `max_t1`: Maximum end of integration region (20 by default).
     - `dt`: Integration step size. Defaults to `None` since the default
         `stepsize_controller` will automatically determine it.
-    - `stepsize_controller`: diffrax controller for step size integration.
-        Defaults to `PIDController`. Note that the relative and absolute
-        tolerances of the controller will also determine the steady state to
-        terminate the solver.
+    - `stepsize_controller`: [diffrax controller](https://docs.kidger.site/diffrax/api/stepsize_controller/) 
+        for step size integration. Defaults to [`PIDController`](https://docs.kidger.site/diffrax/api/stepsize_controller/#diffrax.PIDController). 
+        Note that the relative and absolute tolerances of the controller will 
+        also determine the steady state to terminate the solver.
     - `skip_model`: Optional list of callable skip connection functions.
     - `weight_decay`: Weight decay for the weights (0 by default).
     - `spectral_penalty`: Weight spectral penalty of the form 
@@ -319,15 +320,16 @@ def make_hpc_step(
 
     **Other arguments:**
 
-    - `ode_solver`: Diffrax ODE solver to be used. Default is Heun, a 2nd order
-        explicit Runge--Kutta method..
+    - `ode_solver`: [diffrax ODE solver](https://docs.kidger.site/diffrax/api/solvers/ode_solvers/) 
+        to be used. Default is [`Heun`](https://docs.kidger.site/diffrax/api/solvers/ode_solvers/#diffrax.Heun), 
+        a 2nd order explicit Runge--Kutta method.
     - `max_t1`: Maximum end of integration region (300 by default).
     - `dt`: Integration step size. Defaults to `None` since the default
         `stepsize_controller` will automatically determine it.
-    - `stepsize_controller`: diffrax controller for step size integration.
-        Defaults to `PIDController`. Note that the relative and absolute
-        tolerances of the controller will also determine the steady state to
-        terminate the solver.
+    - `stepsize_controller`: [diffrax controller](https://docs.kidger.site/diffrax/api/stepsize_controller/) 
+        for step size integration. Defaults to [`PIDController`](https://docs.kidger.site/diffrax/api/stepsize_controller/#diffrax.PIDController). 
+        Note that the relative and absolute tolerances of the controller will 
+        also determine the steady state to terminate the solver.
     - `record_activities`: If `True`, returns activities at every inference
         iteration.
      - `record_energies`: If `True`, returns layer-wise energies at every

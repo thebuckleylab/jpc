@@ -139,11 +139,13 @@ def compute_linear_activity_hessian(
     **Other arguments:**
 
     - `use_skips`: Whether to assume one-layer skip connections at every layer 
-        except from the input and to the output.
-    - `param_type`: Determines the parameterisation. Options are `sp` (standard
-        parameterisation), `mupc` ([μPC](https://arxiv.org/abs/2505.13124)), or 
-        `ntp` (neural tangent parameterisation). See [`jpc.get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
-        for the specific scalings of these different parameterisations.
+        except from the input and to the output. `False` by default.
+    - `param_type`: Determines the parameterisation. Options are `"sp"` 
+        (standard parameterisation), `"mupc"` ([μPC](https://arxiv.org/abs/2505.13124)), 
+        or `"ntp"` (neural tangent parameterisation). 
+        See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
+        for the specific scalings of these different parameterisations. Defaults
+        to `"sp"`.
     - `activity_decay`: $\ell^2$ regulariser for the activities.
     - `diag`: Whether to compute the diagonal blocks of the Hessian.
     - `off-diag`: Whether to compute the off-diagonal blocks of the Hessian.
@@ -280,11 +282,13 @@ def compute_linear_activity_solution(
     **Other arguments:**
 
     - `use_skips`: Whether to assume one-layer skip connections at every layer 
-        except from the input and to the output.
-    - `param_type`: Determines the parameterisation. Options are `sp` (standard
-        parameterisation), `mupc` ([μPC](https://arxiv.org/abs/2505.13124)), or 
-        `ntp` (neural tangent parameterisation). See [`jpc.get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
-        for the specific scalings of these different parameterisations.
+        except from the input and to the output. `False` by default.
+    - `param_type`: Determines the parameterisation. Options are `"sp"` 
+        (standard parameterisation), `"mupc"` ([μPC](https://arxiv.org/abs/2505.13124)), 
+        or `"ntp"` (neural tangent parameterisation). 
+        See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
+        for the specific scalings of these different parameterisations. Defaults
+        to `"sp"`.
     - `activity_decay`: $\ell^2$ regulariser for the activities.
 
     **Returns:**

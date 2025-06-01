@@ -34,11 +34,12 @@ def init_activities_with_ffwd(
     **Other arguments:**
 
     - `skip_model`: Optional skip connection model.
-    - `param_type`: Determines the parameterisation. Options are `sp` (standard
-        parameterisation), `mupc` ([μPC](https://arxiv.org/abs/2505.13124)), or 
-        `ntp` (neural tangent parameterisation). See [`jpc._get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
+    - `param_type`: Determines the parameterisation. Options are `"sp"` 
+        (standard parameterisation), `"mupc"` ([μPC](https://arxiv.org/abs/2505.13124)), 
+        or `"ntp"` (neural tangent parameterisation). 
+        See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations. Defaults
-        to `sp`.
+        to `"sp"`.
 
     **Returns:**
 
@@ -90,8 +91,8 @@ def init_activities_from_normal(
     - `key`: `jax.random.PRNGKey` for sampling.
     - `layer_sizes`: List with dimension of all layers (input, hidden and
         output).
-    - `mode`: If `supervised`, all hidden layers are initialised. If
-        `unsupervised` the input layer $\mathbf{z}_0$ is also initialised.
+    - `mode`: If `"supervised"`, all hidden layers are initialised. If
+        `"unsupervised"` the input layer $\mathbf{z}_0$ is also initialised.
     - `batch_size`: Dimension of data batch.
     - `sigma`: Standard deviation for Gaussian to sample activities from.
         Defaults to 5e-2.

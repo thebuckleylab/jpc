@@ -43,12 +43,12 @@ def test_discriminative_pc(
 
     - `skip_model`: Optional skip connection model.
     - `loss`: Loss function to use at the output layer. Options are mean squared 
-        error `mse` (default) or cross-entropy `ce`.
-    - `param_type`: Determines the parameterisation. Options are `sp` (standard
-        parameterisation), `mupc` ([μPC](https://arxiv.org/abs/2505.13124)), or 
-        `ntp` (neural tangent parameterisation). See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
+        error `"mse"` (default) or cross-entropy `"ce"`.
+    - `param_type`: Determines the parameterisation. Options are `"sp"` 
+        (standard parameterisation), `"mupc"` ([μPC](https://arxiv.org/abs/2505.13124)), 
+        or `"ntp"` (neural tangent parameterisation). See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations. Defaults
-        to `sp`.
+        to `"sp"`.
 
     **Returns:**
 
@@ -56,6 +56,7 @@ def test_discriminative_pc(
 
     """
     _check_param_type(param_type)
+
     preds = init_activities_with_ffwd(
         model=model,
         input=input,
@@ -114,23 +115,24 @@ def test_generative_pc(
 
     - `skip_model`: Optional skip connection model.
     - `loss_id`: Loss function to use at the output layer. Options are mean squared 
-        error `mse` (default) or cross-entropy `ce`.
-    - `param_type`: Determines the parameterisation. Options are `sp` (standard
-        parameterisation), `mupc` ([μPC](https://arxiv.org/abs/2505.13124)), or 
-        `ntp` (neural tangent parameterisation). See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
+        error `"mse"` (default) or cross-entropy `"ce"`.
+    - `param_type`: Determines the parameterisation. Options are `"sp"` 
+        (standard parameterisation), `"mupc"` ([μPC](https://arxiv.org/abs/2505.13124)), 
+        or `"ntp"` (neural tangent parameterisation). See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations. Defaults
-        to `sp`.
+        to `"sp"`.
     - `sigma`: Standard deviation for Gaussian to sample activities from.
         Defaults to 5e-2.
-    - `ode_solver`: Diffrax ODE solver to be used. Default is Heun, a 2nd order
-        explicit Runge--Kutta method.
+    - `ode_solver`: [diffrax ODE solver](https://docs.kidger.site/diffrax/api/solvers/ode_solvers/) 
+        to be used. Default is [`Heun`](https://docs.kidger.site/diffrax/api/solvers/ode_solvers/#diffrax.Heun), 
+        a 2nd order explicit Runge--Kutta method.
     - `max_t1`: Maximum end of integration region (500 by default).
     - `dt`: Integration step size. Defaults to None since the default
         `stepsize_controller` will automatically determine it.
-    - `stepsize_controller`: diffrax controller for step size integration.
-        Defaults to `PIDController`. Note that the relative and absolute
-        tolerances of the controller will also determine the steady state to
-        terminate the solver.
+    - `stepsize_controller`: [diffrax controller](https://docs.kidger.site/diffrax/api/stepsize_controller/) 
+        for step size integration. Defaults to [`PIDController`](https://docs.kidger.site/diffrax/api/stepsize_controller/#diffrax.PIDController). 
+        Note that the relative and absolute tolerances of the controller will 
+        also determine the steady state to terminate the solver.
     - `weight_decay`: Weight decay for the weights (0 by default).
     - `spectral_penalty`: Weight spectral penalty of the form 
         $||\mathbf{I} - \mathbf{W}_\ell^T \mathbf{W}_\ell||^2$ (0 by default).
@@ -141,7 +143,8 @@ def test_generative_pc(
     Accuracy and output predictions.
 
     """
-    check_param_type(param_type)
+    _check_param_type(param_type)
+
     params = model, skip_model
     activities = init_activities_from_normal(
         key=key,
@@ -217,15 +220,16 @@ def test_hpc(
 
     - `sigma`: Standard deviation for Gaussian to sample activities from.
         Defaults to 5e-2.
-    - `ode_solver`: Diffrax ODE solver to be used. Default is Heun, a 2nd order
-        explicit Runge--Kutta method.
+    - `ode_solver`: [diffrax ODE solver](https://docs.kidger.site/diffrax/api/solvers/ode_solvers/) 
+        to be used. Default is [`Heun`](https://docs.kidger.site/diffrax/api/solvers/ode_solvers/#diffrax.Heun), 
+        a 2nd order explicit Runge--Kutta method.
     - `max_t1`: Maximum end of integration region (500 by default).
     - `dt`: Integration step size. Defaults to None since the default
         `stepsize_controller` will automatically determine it.
-    - `stepsize_controller`: diffrax controller for step size integration.
-        Defaults to `PIDController`. Note that the relative and absolute
-        tolerances of the controller will also determine the steady state to
-        terminate the solver.
+    - `stepsize_controller`: [diffrax controller](https://docs.kidger.site/diffrax/api/stepsize_controller/) 
+        for step size integration. Defaults to [`PIDController`](https://docs.kidger.site/diffrax/api/stepsize_controller/#diffrax.PIDController). 
+        Note that the relative and absolute tolerances of the controller will 
+        also determine the steady state to terminate the solver.
 
     **Returns:**
 

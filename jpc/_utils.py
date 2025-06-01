@@ -68,11 +68,11 @@ def make_mlp(
     - `output_dim`: Output dimension.
     - `act_fn`: Activation function (for all layers except the output).
     - `use_bias`: `False` by default.
-    - `param_type`: Determines the parameterisation. Options are `sp` (standard
-        parameterisation), `mupc` ([μPC](https://arxiv.org/abs/2505.13124)), or 
-        `ntp` (neural tangent parameterisation). See [`jpc._get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
+    - `param_type`: Determines the parameterisation. Options are `"sp"` 
+        (standard parameterisation), `"mupc"` ([μPC](https://arxiv.org/abs/2505.13124)), 
+        or `"ntp"` (neural tangent parameterisation). See [`jpc._get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations. Defaults
-        to `sp`.
+        to `"sp"`.
 
     **Returns:**
 
@@ -173,8 +173,9 @@ def compute_infer_energies(
     
     - `x`: Optional prior of the generative model.
     - `loss`: Loss function to use at the output layer (mean squared error
-        `mse` vs cross-entropy `ce`).
-    - `param_type`: Determines the parameterisation. Options are `sp`, `mupc`, or `ntp`.
+        `"mse"` vs cross-entropy `"ce"`).
+    - `param_type`: Determines the parameterisation. Options are `"sp"`, 
+        `"mupc"`, or `"ntp"`.
     - `weight_decay`: Weight decay for the weights.
     - `spectral_penalty`: Spectral penalty for the weights.
     - `activity_decay`: Activity decay for the activities.

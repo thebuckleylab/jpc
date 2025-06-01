@@ -40,9 +40,9 @@ def neg_activity_grad(
 
         (iii) model input (prior),
 
-        (iv) loss specified at the output layer (MSE as default or cross-entropy),
+        (iv) loss specified at the output layer (`"mse"` as default or `"ce"`),
 
-        (v) parameterisation type (`sp` as default, `mupc`, or `ntp`),
+        (v) parameterisation type (`"sp"` as default, `"mupc"`, or `"ntp"`),
 
         (vi) $\ell^2$ regulariser for the weights (0 by default),
 
@@ -105,9 +105,13 @@ def compute_activity_grad(
 
     - `x`: Optional prior of the generative model.
     - `loss_id`: Loss function to use at the output layer. Options are mean squared 
-        error `mse` (default) or cross-entropy `ce`.
-    - `param_type`: Determines the parameterisation. Options are `sp` (default), 
-        `mupc`, or `ntp`.
+        error `"mse"` (default) or cross-entropy `"ce"`.
+    - `param_type`: Determines the parameterisation. Options are `"sp"` 
+        (standard parameterisation), `"mupc"` ([μPC](https://arxiv.org/abs/2505.13124)), 
+        or `"ntp"` (neural tangent parameterisation). 
+        See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
+        for the specific scalings of these different parameterisations. Defaults
+        to `"sp"`.
     - `weight_decay`: $\ell^2$ regulariser for the weights (0 by default).
     - `spectral_penalty`: Weight spectral penalty of the form 
         $||\mathbf{I} - \mathbf{W}_\ell^T \mathbf{W}_\ell||^2$ (0 by default).
@@ -157,9 +161,13 @@ def compute_pc_param_grads(
 
     - `x`: Optional prior of the generative model.
     - `loss_id`: Loss function to use at the output layer. Options are mean squared 
-        error `mse` (default) or cross-entropy `ce`.
-    - `param_type`: Determines the parameterisation. Options are `sp` (default), 
-        `mupc`, or `ntp`.
+        error `"mse"` (default) or cross-entropy `"ce"`.
+    - `param_type`: Determines the parameterisation. Options are `"sp"` 
+        (standard parameterisation), `"mupc"` ([μPC](https://arxiv.org/abs/2505.13124)), 
+        or `"ntp"` (neural tangent parameterisation). 
+        See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
+        for the specific scalings of these different parameterisations. Defaults
+        to `"sp"`.
     - `weight_decay`: $\ell^2$ regulariser for the weights (0 by default).
     - `spectral_penalty`: Weight spectral penalty of the form 
         $||\mathbf{I} - \mathbf{W}_\ell^T \mathbf{W}_\ell||^2$ (0 by default).
