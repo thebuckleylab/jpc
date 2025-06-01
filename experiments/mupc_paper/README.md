@@ -1,5 +1,7 @@
 # μPC paper
 
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/thebuckleylab/jpc/blob/main/examples/mupc.ipynb)
+
 <p align='center'>
   <a href='https://github.com/thebuckleylab/jpc/blob/main/experiments/mupc_paper/spotlight_fig.png'>
     <img src='spotlight_fig.png' />
