@@ -10,12 +10,12 @@ import jpc
 import optax
 from optimistix import rms_norm
 
-from utils import (
+from experiments.datasets import get_dataloaders
+from experiments.mupc_paper.utils import (
     setup_experiment,
     set_seed,
     init_weights
 )
-from experiments.datasets import get_dataloaders
 
 
 def evaluate(params, test_loader, param_type):

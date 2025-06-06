@@ -13,7 +13,8 @@ import jpc
 import optax
 from optimistix import rms_norm
 
-from utils import (
+from experiments.datasets import get_dataloaders
+from experiments.mupc_paper.utils import (
     setup_experiment,
     set_seed,
     init_weights,
@@ -22,8 +23,7 @@ from utils import (
     compute_hessian_eigens,
     compute_cond_num
 )
-from experiments.datasets import get_dataloaders
-from plotting import (
+from experiments.mupc_paper.plotting import (
     plot_loss,
     plot_loss_and_accuracy,
     plot_n_infer_iters,

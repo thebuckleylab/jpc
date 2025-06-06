@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import plotly.graph_objs as go
 import plotly.colors as pc
-from utils import compute_metric_stats
+from experiments.mupc_paper.utils import compute_metric_stats
 
 
 def plot_activity_hessian(coeff_matrix, save_path, title=None):

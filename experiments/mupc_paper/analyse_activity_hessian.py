@@ -5,7 +5,7 @@ import jax.numpy as jnp
 import numpy as np
 
 from experiments.datasets import make_gaussian_dataset, get_dataloaders
-from utils import (
+from experiments.mupc_paper.utils import (
     setup_hessian_analysis,
     set_seed,
     init_weights,
@@ -13,7 +13,7 @@ from utils import (
     unwrap_hessian_pytree
 )
 import jpc
-from plotting import plot_activity_hessian
+from experiments.mupc_paper.plotting import plot_activity_hessian
 
 
 def compute_hessian_metrics(

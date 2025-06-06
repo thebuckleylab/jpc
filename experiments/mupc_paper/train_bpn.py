@@ -12,7 +12,7 @@ import optax
 import jpc
 
 from experiments.datasets import get_dataloaders
-from utils import set_seed, init_weights
+from experiments.mupc_paper.utils import set_seed, init_weights
 
 
 class MLP(eqx.Module):

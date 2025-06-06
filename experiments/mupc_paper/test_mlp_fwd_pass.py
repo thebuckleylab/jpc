@@ -12,7 +12,7 @@ import optax
 import jpc
 
 from experiments.datasets import get_dataloaders
-from utils import (
+from experiments.mupc_paper.utils import (
     set_seed,
     init_weights,
     compute_param_l2_norms,
