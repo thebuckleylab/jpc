@@ -33,7 +33,7 @@ classifiers = [
 ]
 urls = {repository = "https://github.com/thebuckleylab/jpc"}
 dependencies = [
-    "jax>=0.4.38",
+    "jax>=0.4.38,<=0.5.2",  # to prevent jaxlib import error
     "equinox>=0.11.2",
     "diffrax>=0.6.0",
     "optax>=0.2.4",
