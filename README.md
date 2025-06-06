@@ -51,13 +51,8 @@ Clone the repo and in the project's directory run
 pip install jpc
 ```
 
-Requires Python 3.10+, JAX 0.4.23+, [Equinox](https://github.com/patrick-kidger/equinox) 
-0.11.2+, [Diffrax](https://github.com/patrick-kidger/diffrax) 0.6.0+, 
-[Optax](https://github.com/google-deepmind/optax) 0.2.4+, and
-[jaxtyping](https://github.com/patrick-kidger/jaxtyping) 0.2.24+.
-
-For GPU usage, upgrade jax to the appropriate cuda version (12 as an example 
-here).
+Requires Python 3.10+ and JAX 0.4.38–0.5.2 (inclusive). For GPU usage, upgrade 
+jax to the appropriate cuda version (12 as an example here).
 
 ```
 pip install --upgrade "jax[cuda12]"
