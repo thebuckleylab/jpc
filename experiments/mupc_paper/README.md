@@ -23,15 +23,16 @@ Install `jpc`
 ```
 pip install -e .
 ```
-Now navigate to `mupc_paper` and install all the requirements
-```
-pip install -r requirements.txt
-```
 For GPU usage, upgrade jax to the appropriate cuda version (12 as an example 
 here).
 
 ```
-pip install --upgrade "jax[cuda12]"
+pip install --upgrade "jax[cuda12]==0.5.2"
+```
+Now navigate to `mupc_paper` and install all the requirements
+
+```
+pip install -r requirements.txt
 ```
 
 
