@@ -1,6 +1,6 @@
 # μPC paper
 
-[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/thebuckleylab/jpc/blob/main/examples/mupc.ipynb)
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/thebuckleylab/jpc/blob/main/examples/mupc.ipynb) [![Paper](https://img.shields.io/badge/Paper-arXiv:2508.01191-%23f2806bff.svg)](https://arxiv.org/abs/2505.13124)
 
 <p align='center'>
   <a href='https://github.com/thebuckleylab/jpc/blob/main/experiments/mupc_paper/spotlight_fig.png'>

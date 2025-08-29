@@ -6,7 +6,7 @@
 
 <h2 align='center'>🧠 Flexible Inference for Predictive Coding Networks in JAX ⚡️</h2>
 
-![status](https://img.shields.io/badge/status-active-green)
+![status](https://img.shields.io/badge/status-active-green) [![Paper](https://img.shields.io/badge/Paper-arXiv:2508.01191-%23f2806bff.svg)](https://arxiv.org/abs/2412.03676)
 
 > [!IMPORTANT] 
 > If you're here for [μPC](https://arxiv.org/abs/2505.13124), see [this example
