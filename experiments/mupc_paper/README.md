@@ -29,7 +29,7 @@ here).
 ```
 pip install --upgrade "jax[cuda12]==0.5.2"
 ```
-Now navigate to `mupc_paper` and install all the requirements
+Now navigate to `experiments/mupc_paper` and install all the requirements
 
 ```
 pip install -r requirements.txt
