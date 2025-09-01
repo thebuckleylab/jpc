@@ -71,6 +71,7 @@ Starting Hessian analysis with configuration:
 def setup_experiment(
         results_dir,
         dataset,
+        loss_id,
         width,
         n_hidden,
         act_fn,
@@ -94,6 +95,7 @@ def setup_experiment(
 Starting training experiment with configuration:
 
   Dataset: {dataset}
+  Loss: {loss_id}
   Width: {width}
   N hidden: {n_hidden}
   Act fn: {act_fn}
@@ -116,6 +118,7 @@ Starting training experiment with configuration:
     return os.path.join(
         results_dir,
         dataset,
+        f"{loss_id}_loss",
         f"width_{width}",
         f"{n_hidden}_n_hidden",
         act_fn,

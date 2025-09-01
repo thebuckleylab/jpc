@@ -41,6 +41,7 @@ def evaluate(params, test_loader, param_type):
 def train_mlp(
         seed,
         dataset,
+        loss_id,
         width,
         n_hidden,
         act_fn,
@@ -130,8 +131,10 @@ def train_mlp(
                 param_type=param_type
             )
             activity_opt_state = activity_optim.init(activities)
-            #train_loss = jpc.mse_loss(activities[-1], label_batch)
-            train_loss = jpc.cross_entropy_loss(activities[-1], label_batch)
+            if loss_id == "mse":
+                train_loss = jpc.mse_loss(activities[-1], label_batch)
+            elif loss_id == "ce":
+                train_loss = jpc.cross_entropy_loss(activities[-1], label_batch)
 
             # inference
             for t in range(max_infer_iters):
@@ -142,7 +145,7 @@ def train_mlp(
                     opt_state=activity_opt_state,
                     output=label_batch,
                     input=img_batch,
-                    loss_id="ce",  # NOTE: testing
+                    loss_id=loss_id,
                     param_type=param_type,
                     activity_decay=activity_decay,
                     weight_decay=weight_decay,
@@ -162,7 +165,7 @@ def train_mlp(
                 opt_state=param_opt_state,
                 output=label_batch,
                 input=img_batch,
-                loss_id="ce",  # NOTE: testing
+                loss_id=loss_id,
                 param_type=param_type,
                 activity_decay=activity_decay,
                 weight_decay=weight_decay,
@@ -221,28 +224,26 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--results_dir", type=str, default="pcn_results")
     parser.add_argument("--datasets", type=str, nargs='+', default=["CIFAR10"])
+    parser.add_argument("--loss_id", type=str, default="ce")
     parser.add_argument("--widths", type=int, nargs='+', default=[512])
     parser.add_argument("--n_hiddens", type=int, nargs='+', default=[8])
     parser.add_argument("--act_fns", type=str, nargs='+', default=["relu"])
     parser.add_argument("--use_skips", type=int, nargs='+', default=[True])
     parser.add_argument("--weight_inits", type=str, nargs='+', default=["standard_gauss"]) 
     parser.add_argument("--param_types", type=str, nargs='+', default=["mupc"]) 
-    parser.add_argument("--param_lrs", type=float, nargs='+', default=[5e-2])
-    parser.add_argument("--batch_size", type=int, default=128)
+    parser.add_argument("--param_lrs", type=float, nargs='+', default=[5e-1, 1e-1, 5e-2])
+    parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--max_infer_iters", type=int, default=8)
     parser.add_argument("--param_optim_ids", type=str, nargs='+', default=["adam"])
     parser.add_argument("--activity_optim_ids", type=str, nargs='+', default=["gd"])
-    parser.add_argument("--activity_lrs", type=float, nargs='+', default=[5e-1])
+    parser.add_argument("--activity_lrs", type=float, nargs='+', default=[1e0, 5e-1, 1e-1])
     parser.add_argument("--activity_decays", type=float, nargs='+', default=[0])
     parser.add_argument("--weight_decays", type=float, nargs='+', default=[0])
     parser.add_argument("--spectral_penalties", type=float, nargs='+', default=[0])
-    parser.add_argument("--max_epochs", type=int, default=50)
-    parser.add_argument("--test_every", type=int, default=390)
-    parser.add_argument("--n_seeds", type=int, default=1)
+    parser.add_argument("--max_epochs", type=int, default=20)
+    parser.add_argument("--test_every", type=int, default=780)
+    parser.add_argument("--n_seeds", type=int, default=3)
     args = parser.parse_args()
-    # NOTE: 8 layers top at ~42% after 7 epochs with lr 1e-1
-    # NOTE: CE with lr 5e-2 seems to plateau at ~%44-5 at around 20 epochs
-    # NOTE: 49% in 50 epochs
 
     for dataset in args.datasets:
         for width in args.widths:
@@ -261,6 +262,7 @@ if __name__ == "__main__":
                                                             for seed in range(args.n_seeds):
                                                                 save_dir = setup_experiment(
                                                                     results_dir=args.results_dir,
+                                                                    loss_id=args.loss_id,
                                                                     dataset=dataset,
                                                                     width=width,
                                                                     n_hidden=n_hidden,
@@ -283,6 +285,7 @@ if __name__ == "__main__":
                                                                 train_mlp(
                                                                     seed=seed,
                                                                     dataset=dataset,
+                                                                    loss_id=args.loss_id,
                                                                     width=width,
                                                                     n_hidden=n_hidden,
                                                                     act_fn=act_fn,
