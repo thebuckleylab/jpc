@@ -53,7 +53,7 @@ def get_dataset(id, train, normalise, flatten=True):
         dataset = CIFAR10(train=train, normalise=normalise, flatten=flatten)
     else:
         raise ValueError(
-            "Invalid dataset ID. Options are 'MNIST', 'Fashion-MNIST' and 'CIFAR10'"
+            "Invalid dataset ID. Options are `MNIST`, `Fashion-MNIST` and `CIFAR10`"
         )
     return dataset
 
@@ -131,20 +131,25 @@ class CIFAR10(datasets.CIFAR10):
     def __init__(self, train, normalise=True, flatten=True, save_dir=f"{DATA_DIR}/CIFAR10"):
         self.flatten = flatten
         if normalise:
-            transform = transforms.Compose(
-                [
-                    transforms.RandomResizedCrop(32),
-                    transforms.RandomHorizontalFlip(),
-                    transforms.RandomRotation(degrees=10),
-                    #transforms.RandomAffine(degrees=10, translate=(0.1, 0.1), scale=(0.8, 1.2), shear=10),
-                    #transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
-                    transforms.ToTensor(),
-                    transforms.Normalize(
-                        mean=(0.4914, 0.4822, 0.4465),
-                        std=(0.2470, 0.2435, 0.2616)
-                    )
-                ]
-            )
+            if train:
+                transform = transforms.Compose(
+                    [
+                        transforms.Resize((32,32)), 
+                        transforms.RandomCrop(32, padding=4),
+                        transforms.RandomHorizontalFlip(), 
+                        transforms.RandomRotation(10),
+                        transforms.ToTensor(), 
+                        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+                    ]
+                )
+            else:
+                transform = transforms.Compose(
+                    [
+                        transforms.Resize((32,32)),
+                        transforms.ToTensor(),
+                        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+                    ]
+                )
         else:
             transform = transforms.Compose([transforms.ToTensor()])
         super().__init__(save_dir, download=True, train=train, transform=transform)
