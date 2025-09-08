@@ -1,4 +1,6 @@
 import os
+import sys
+import logging
 import argparse
 import numpy as np
 
@@ -18,6 +20,18 @@ from experiments.mupc_paper.utils import (
 )
 
 
+def setup_logger(save_dir):
+    os.makedirs(save_dir, exist_ok=True)
+
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+
+    file_handler = logging.FileHandler(f"{save_dir}/training.log")
+    logger.addHandler(file_handler)
+
+    return logger
+
+
 def evaluate(params, test_loader, param_type):
     model, skip_model = params
     avg_test_loss, avg_test_acc = 0, 0
@@ -29,7 +43,7 @@ def evaluate(params, test_loader, param_type):
             output=label_batch,
             input=img_batch,
             skip_model=skip_model,
-            loss="ce",  # NOTE: testing
+            loss="ce",
             param_type=param_type
         )
         avg_test_loss += test_loss
@@ -64,7 +78,7 @@ def train_mlp(
     set_seed(seed)
     key = jax.random.PRNGKey(seed)
     keys = jr.split(key, 4)
-    os.makedirs(save_dir, exist_ok=True)
+    logger = setup_logger(save_dir)
 
     # create and initialise model
     d_in = 32*32*3 if dataset == "CIFAR10" else 28*28
@@ -118,7 +132,7 @@ def train_mlp(
     diverged = no_learning = False
     global_batch_id = 0
     for epoch in range(1, max_epochs + 1):
-        print(f"\nEpoch {epoch}\n-------------------------------")
+        logger.info(f"\nEpoch {epoch}\n-------------------------------")
 
         for train_iter, (img_batch, label_batch) in enumerate(train_loader):
             img_batch, label_batch = img_batch.numpy(), label_batch.numpy()
@@ -179,7 +193,7 @@ def train_mlp(
             global_batch_id += 1
 
             if global_batch_id % test_every == 0:
-                print(
+                logger.info(
                     f"Train loss: {train_loss:.7f} [{train_iter * len(img_batch)}/{len(train_loader.dataset)}]"
                 )
                 avg_test_loss, avg_test_acc = evaluate(
@@ -189,7 +203,7 @@ def train_mlp(
                 )
                 test_losses.append(avg_test_loss)
                 test_accs.append(avg_test_acc)
-                print(f"Avg test accuracy: {avg_test_acc:.4f}\n")
+                logger.info(f"Avg test accuracy: {avg_test_acc:.4f}\n")
 
             if np.isinf(train_loss) or np.isnan(train_loss):
                 diverged = True
@@ -200,13 +214,13 @@ def train_mlp(
                 break
         
         if diverged:
-            print(
+            logger.info(
                 f"Stopping training because of diverging loss: {train_loss}"
             )
             break
         
         if no_learning:
-            print(
+            logger.info(
                 f"Stopping training because of chance accuracy (no learning): {avg_test_acc}"
             )
             break
@@ -218,9 +232,6 @@ def train_mlp(
 
 
 if __name__ == "__main__":
-    device = jax.devices()[0]
-    print(f"device: {device}")
-
     parser = argparse.ArgumentParser()
     parser.add_argument("--results_dir", type=str, default="pcn_results")
     parser.add_argument("--datasets", type=str, nargs='+', default=["CIFAR10"])
@@ -231,17 +242,17 @@ if __name__ == "__main__":
     parser.add_argument("--use_skips", type=int, nargs='+', default=[True])
     parser.add_argument("--weight_inits", type=str, nargs='+', default=["standard_gauss"]) 
     parser.add_argument("--param_types", type=str, nargs='+', default=["mupc"]) 
-    parser.add_argument("--param_lrs", type=float, nargs='+', default=[5e-1, 1e-1, 5e-2])
-    parser.add_argument("--batch_size", type=int, default=64)
+    parser.add_argument("--param_lrs", type=float, nargs='+', default=[5e-1, 1e-1, 5e-2, 1e-2])
+    parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--max_infer_iters", type=int, default=8)
     parser.add_argument("--param_optim_ids", type=str, nargs='+', default=["adam"])
     parser.add_argument("--activity_optim_ids", type=str, nargs='+', default=["gd"])
-    parser.add_argument("--activity_lrs", type=float, nargs='+', default=[1e0, 5e-1, 1e-1])
+    parser.add_argument("--activity_lrs", type=float, nargs='+', default=[1e3, 5e2, 1e2, 5e1, 1e1, 5e0, 1e0, 5e-1, 1e-1, 5e-2, 1e-2])
     parser.add_argument("--activity_decays", type=float, nargs='+', default=[0])
     parser.add_argument("--weight_decays", type=float, nargs='+', default=[0])
     parser.add_argument("--spectral_penalties", type=float, nargs='+', default=[0])
     parser.add_argument("--max_epochs", type=int, default=20)
-    parser.add_argument("--test_every", type=int, default=780)
+    parser.add_argument("--test_every", type=int, default=389)
     parser.add_argument("--n_seeds", type=int, default=3)
     args = parser.parse_args()
 
