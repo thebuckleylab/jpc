@@ -13,7 +13,7 @@ import optax
 import jpc
 
 from experiments.datasets import get_dataloaders
-from experiments.mupc_paper.utils import set_seed, init_weights
+from experiments.mupc_paper.utils import set_seed, setup_logger, init_weights
 
 
 class MLP(eqx.Module):
@@ -153,7 +153,7 @@ def train_mlp(
     set_seed(seed)
     key = jr.PRNGKey(seed)
     model_key, init_key = jr.split(key, 2)
-    os.makedirs(save_dir, exist_ok=True)
+    logger = setup_logger(save_dir)
 
     model = MLP(
         key=model_key,
@@ -252,9 +252,9 @@ if __name__ == "__main__":
     parser.add_argument("--param_type", type=str, default="depth_mup") 
     parser.add_argument("--optim_id", type=str, default="adam")
     parser.add_argument("--lrs", type=float, nargs='+', default=[1e-2])
-    parser.add_argument("--batch_size", type=int, default=64)
+    parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--max_epochs", type=int, default=20)
-    parser.add_argument("--test_every", type=int, default=780)
+    parser.add_argument("--test_every", type=int, default=389)
     parser.add_argument("--n_seeds", type=int, default=3)
     args = parser.parse_args()
 

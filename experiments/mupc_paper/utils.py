@@ -1,4 +1,5 @@
 import os
+import logging
 import random
 import numpy as np
 from torch import manual_seed
@@ -17,6 +18,18 @@ def set_seed(seed):
     np.random.seed(seed)
     random.seed(seed)
     manual_seed(seed)
+
+
+def setup_logger(save_dir):
+    os.makedirs(save_dir, exist_ok=True)
+
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+
+    file_handler = logging.FileHandler(f"{save_dir}/training.log")
+    logger.addHandler(file_handler)
+
+    return logger
 
 
 def setup_hessian_analysis(

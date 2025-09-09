@@ -1,6 +1,4 @@
 import os
-import sys
-import logging
 import argparse
 import numpy as np
 
@@ -16,20 +14,9 @@ from experiments.datasets import get_dataloaders
 from experiments.mupc_paper.utils import (
     setup_experiment,
     set_seed,
+    setup_logger,
     init_weights
 )
-
-
-def setup_logger(save_dir):
-    os.makedirs(save_dir, exist_ok=True)
-
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.INFO)
-
-    file_handler = logging.FileHandler(f"{save_dir}/training.log")
-    logger.addHandler(file_handler)
-
-    return logger
 
 
 def evaluate(params, test_loader, param_type):
