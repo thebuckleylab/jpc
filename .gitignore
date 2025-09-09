@@ -14,3 +14,4 @@ __pycache__/
 .all_objects.cache
 site/
 venv*/
+*.log
