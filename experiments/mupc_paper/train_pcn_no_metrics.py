@@ -19,7 +19,7 @@ from experiments.mupc_paper.utils import (
 )
 
 
-def evaluate(params, test_loader, param_type):
+def evaluate(params, test_loader, loss_id, param_type):
     model, skip_model = params
     avg_test_loss, avg_test_acc = 0, 0
     for _, (img_batch, label_batch) in enumerate(test_loader):
@@ -30,7 +30,7 @@ def evaluate(params, test_loader, param_type):
             output=label_batch,
             input=img_batch,
             skip_model=skip_model,
-            loss="ce",
+            loss=loss_id,
             param_type=param_type
         )
         avg_test_loss += test_loss
@@ -186,6 +186,7 @@ def train_mlp(
                 avg_test_loss, avg_test_acc = evaluate(
                     params=(model, skip_model),
                     test_loader=test_loader,
+                    loss_id=loss_id,
                     param_type=param_type
                 )
                 test_losses.append(avg_test_loss)
@@ -222,7 +223,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--results_dir", type=str, default="pcn_results")
     parser.add_argument("--datasets", type=str, nargs='+', default=["CIFAR10"])
-    parser.add_argument("--loss_id", type=str, default="ce")
+    parser.add_argument("--loss_id", type=str, default="mse")
     parser.add_argument("--widths", type=int, nargs='+', default=[512])
     parser.add_argument("--n_hiddens", type=int, nargs='+', default=[8])
     parser.add_argument("--act_fns", type=str, nargs='+', default=["relu"])
@@ -231,7 +232,7 @@ if __name__ == "__main__":
     parser.add_argument("--param_types", type=str, nargs='+', default=["mupc"]) 
     parser.add_argument("--param_lrs", type=float, nargs='+', default=[5e-1, 1e-1, 5e-2, 1e-2])
     parser.add_argument("--batch_size", type=int, default=128)
-    parser.add_argument("--max_infer_iters", type=int, default=8)
+    parser.add_argument("--max_infer_iters", type=int, default=16)
     parser.add_argument("--param_optim_ids", type=str, nargs='+', default=["adam"])
     parser.add_argument("--activity_optim_ids", type=str, nargs='+', default=["gd"])
     parser.add_argument("--activity_lrs", type=float, nargs='+', default=[1e3, 5e2, 1e2, 5e1, 1e1, 5e0, 1e0, 5e-1, 1e-1, 5e-2, 1e-2])
