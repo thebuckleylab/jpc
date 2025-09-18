@@ -8,8 +8,8 @@
   </a> 
 </p>
 
-This folder contains code to reproduce all the experiments of the paper 
-["μPC": Scaling Predictive Coding to 100+ Layer Networks](https://arxiv.org/abs/2505.13124).
+This folder contains code to reproduce all the experiments for the NeurIPS 2025 
+paper ["μPC": Scaling Predictive Coding to 100+ Layer Networks](https://arxiv.org/abs/2505.13124).
 For a high-level summary, see [this blog post](https://francesco-innocenti.github.io/posts/2025/05/20/Scaling-Predictive-Coding-to-100+-Layer-Networks/). And for a tutorial, see 
 [this example notebook](https://thebuckleylab.github.io/jpc/examples/mupc/).
 
