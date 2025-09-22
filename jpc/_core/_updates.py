@@ -1,7 +1,7 @@
 """Functions to update activities and parameters of PC networks."""
 
 import equinox as eqx
-from ._grads import compute_activity_grad, compute_pc_param_grads
+from ._grads import compute_activity_grad, compute_pc_param_grads, compute_bpc_activity_grad, compute_bpc_param_grads
 from jaxtyping import PyTree, ArrayLike, Scalar
 from typing import Tuple, Callable, Optional, Dict
 from optax import GradientTransformation, GradientTransformationExtraArgs, OptState
@@ -168,4 +168,90 @@ def update_params(
         "skip_model": skip_model,
         "grads": grads,
         "opt_state": opt_state
+    }
+
+
+@eqx.filter_jit
+def update_bpc_activities(
+        top_down_model: PyTree[Callable], 
+        bottom_up_model: PyTree[Callable],
+        activities: PyTree[ArrayLike],
+        optim: GradientTransformation | GradientTransformationExtraArgs,
+        opt_state: OptState,
+        output: ArrayLike,
+        input: ArrayLike,
+        *,
+        param_type: str = "sp"
+) -> Dict:
+
+    energy, grads = compute_bpc_activity_grad(
+        top_down_model=top_down_model,
+        bottom_up_model=bottom_up_model,
+        activities=activities,
+        y=output,
+        x=input,
+        param_type=param_type
+    )
+    updates, opt_state = optim.update(
+        updates=grads,
+        state=opt_state,
+        params=activities
+    )
+    activities = eqx.apply_updates(
+        model=activities,
+        updates=updates
+    )
+    return {
+        "energy": energy,
+        "activities": activities,
+        "grads": grads,
+        "opt_state": opt_state
+    }
+
+
+@eqx.filter_jit
+def update_bpc_params(
+        top_down_model: PyTree[Callable], 
+        bottom_up_model: PyTree[Callable],
+        activities: PyTree[ArrayLike],
+        top_down_optim: GradientTransformation | GradientTransformationExtraArgs,
+        bottom_up_optim: GradientTransformation | GradientTransformationExtraArgs,
+        top_down_opt_state: OptState,
+        bottom_up_opt_state: OptState,
+        output: ArrayLike,
+        input: ArrayLike,
+        *,
+        param_type: str = "sp"
+) -> Dict:
+
+    top_down_grads, bottom_up_grads = compute_bpc_param_grads(
+        top_down_model=top_down_model,
+        bottom_up_model=bottom_up_model,
+        activities=activities,
+        y=output,
+        x=input,
+        param_type=param_type
+    )
+    top_down_updates, top_down_opt_state = top_down_optim.update(
+        updates=top_down_grads,
+        state=top_down_opt_state,
+        params=top_down_model
+    )
+    bottom_up_updates, bottom_up_opt_state = bottom_up_optim.update(
+        updates=bottom_up_grads,
+        state=bottom_up_opt_state,
+        params=bottom_up_model
+    )
+    top_down_model = eqx.apply_updates(
+        model=top_down_model,
+        updates=top_down_updates
+    )
+    bottom_up_model = eqx.apply_updates(
+        model=bottom_up_model,
+        updates=bottom_up_updates
+    )
+    return {
+        "models": (top_down_model, bottom_up_model),
+        "grads": (top_down_grads, bottom_up_grads),
+        "opt_states": (top_down_opt_state, bottom_up_opt_state)
     }

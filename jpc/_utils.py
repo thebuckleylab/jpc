@@ -7,6 +7,7 @@ from jpc import pc_energy_fn, _check_param_type
 from jaxtyping import PRNGKeyArray, PyTree, ArrayLike, Scalar, Array
 from jaxlib.xla_extension import PjitFunction
 from typing import Callable, Optional, Tuple
+from dataclasses import dataclass
 
 
 _ACT_FNS = [
@@ -103,6 +104,86 @@ def make_mlp(
                 [nn.Lambda(act_fn_l), linear]
             )
         )
+
+    return layers
+
+
+
+@dataclass
+class BasisLayer:
+    B: Array                # coefficient matrix (M x out_dim)
+    basis_fn: Callable      # maps (batch, in_dim) -> (batch, M)
+
+    def __call__(self, x: Array) -> Array:
+        Φx = self.basis_fn(x)          # shape (batch, M)
+        return Φx @ self.B             # shape (batch, out_dim)
+
+
+# --- PyTree registration ---
+def _basislayer_flatten(layer: BasisLayer):
+    # B is dynamic, basis_fn is static
+    return ((layer.B,), (layer.basis_fn,))
+
+def _basislayer_unflatten(aux, children):
+    (basis_fn,) = aux
+    (B,) = children
+    return BasisLayer(B=B, basis_fn=basis_fn)
+
+jax.tree_util.register_pytree_node(BasisLayer,
+                                   _basislayer_flatten,
+                                   _basislayer_unflatten)
+
+
+def make_basis_mlp(
+    key: PRNGKeyArray,
+    input_dim: int,
+    width: int,
+    depth: int,
+    output_dim: int,
+    basis_fn: Callable[[Array], Array],
+    use_bias: bool = False
+) -> PyTree[Callable]:
+    """Creates an SPE-style MLP: each layer is a linear combination
+    of fixed basis functions Φ(r) with learned coefficients B.
+
+    Args:
+        key: jax.random.PRNGKey for init.
+        input_dim: Dimension of input vector r.
+        width: Hidden dimension (output dim of each hidden layer).
+        depth: Number of layers.
+        output_dim: Output dimension.
+        basis_fn: Callable mapping x -> Φ(x).
+        use_bias: If True, adds bias term (as extra basis function 1).
+
+    Returns:
+        List of BasisLayer objects.
+    """
+    subkeys = jax.random.split(key, depth)
+    layers = []
+    in_dim = input_dim
+
+    for i in range(depth):
+        out_dim = output_dim if i == depth - 1 else width
+
+        dummy = jnp.zeros((1, in_dim))
+        phi_dummy = basis_fn(dummy)
+        M = phi_dummy.shape[-1]
+
+        if use_bias:
+            def basis_with_bias(x, bf=basis_fn):
+                phi_out = bf(x)
+                ones = jnp.ones((phi_out.shape[0], 1))
+                return jnp.concatenate([Φ, ones], axis=-1)
+            M += 1
+            this_basis_fn = basis_with_bias
+        else:
+            this_basis_fn = basis_fn
+
+        B_shape = (M, out_dim)
+        B = jax.random.normal(subkeys[i], B_shape) / jnp.sqrt(M)
+
+        layers.append(BasisLayer(B=B, basis_fn=this_basis_fn))
+        in_dim = out_dim
 
     return layers
 

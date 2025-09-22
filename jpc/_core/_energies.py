@@ -277,3 +277,50 @@ def _get_param_scalings(
         scalings = [a1] + [al] * (L-2) + [aL]
 
     return scalings
+
+
+def bpc_energy_fn(
+        top_down_model: PyTree[Callable], 
+        bottom_up_model: PyTree[Callable],
+        activities: PyTree[ArrayLike],
+        y: ArrayLike,
+        x: ArrayLike,
+        *,
+        param_type: str = "sp",
+        record_layers: bool = False
+    ) -> Scalar | Array:
+
+    _check_param_type(param_type)
+
+    batch_size = activities[0].shape[0]
+    H = len(top_down_model) - 1
+    energies = []
+
+    # discriminative loss
+    delta_0 = x - vmap(bottom_up_model[0])(activities[0])
+    bottom_up_energy = 0.5 * sum(delta_0 ** 2)
+
+    # generative loss
+    e_L = y - vmap(top_down_model[-1])(activities[-2])
+    top_down_energy = 0.5 * sum(e_L ** 2)
+
+    energies.append((top_down_energy, bottom_up_energy))
+
+    for l in range(H):
+        act_prev = x if l == 0 else activities[l - 1]
+        e_l = activities[l] - vmap(top_down_model[l])(act_prev)
+        
+        act_next = y if l == H - 1 else activities[l + 1]
+        delta_l = activities[l] - vmap(bottom_up_model[l + 1])(act_next)
+
+        top_down_energy = 0.5 * sum(e_l ** 2)
+        bottom_up_energy = 0.5 * sum(delta_l ** 2)
+
+        energies.append((top_down_energy, bottom_up_energy))
+
+    total_energy = (sum(array(energies)) / batch_size)
+
+    if record_layers:
+        return array([val for pair in energies for val in pair]) / batch_size
+    else:
+        return total_energy

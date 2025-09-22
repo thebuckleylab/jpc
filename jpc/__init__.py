@@ -12,8 +12,12 @@ from ._core import (
     compute_activity_grad as compute_activity_grad,
     compute_pc_param_grads as compute_pc_param_grads,
     compute_hpc_param_grads as compute_hpc_param_grads,
+    compute_bpc_activity_grad as compute_bpc_activity_grad,
+    compute_bpc_param_grads as compute_bpc_param_grads,
     update_activities as update_activities,
     update_params as update_params,
+    update_bpc_activities as update_bpc_activities,
+    update_bpc_params as update_bpc_params,
     compute_linear_equilib_energy as compute_linear_equilib_energy,
     compute_linear_activity_hessian as compute_linear_activity_hessian,
     compute_linear_activity_solution as compute_linear_activity_solution,
@@ -21,6 +25,7 @@ from ._core import (
 )
 from ._utils import (
     make_mlp as make_mlp,
+    make_basis_mlp as make_basis_mlp,
     make_skip_model as make_skip_model,
     get_act_fn as get_act_fn,
     mse_loss as mse_loss,

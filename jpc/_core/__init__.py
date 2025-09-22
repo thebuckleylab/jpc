@@ -12,12 +12,16 @@ from ._grads import (
     neg_activity_grad as neg_activity_grad,
     compute_activity_grad as compute_activity_grad,
     compute_pc_param_grads as compute_pc_param_grads,
-    compute_hpc_param_grads as compute_hpc_param_grads
+    compute_hpc_param_grads as compute_hpc_param_grads,
+    compute_bpc_activity_grad as compute_bpc_activity_grad,
+    compute_bpc_param_grads as compute_bpc_param_grads
 )
 from ._infer import solve_inference as solve_inference
 from ._updates import (
     update_activities as update_activities,
-    update_params as update_params
+    update_params as update_params,
+    update_bpc_activities as update_bpc_activities,
+    update_bpc_params as update_bpc_params
 )
 from ._analytical import (
     compute_linear_equilib_energy as compute_linear_equilib_energy,

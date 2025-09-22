@@ -6,7 +6,7 @@ from equinox import filter_grad
 from jaxtyping import PyTree, ArrayLike, Array, Scalar
 from typing import Tuple, Callable, Optional
 from diffrax import AbstractStepSizeController
-from ._energies import pc_energy_fn, hpc_energy_fn
+from ._energies import pc_energy_fn, hpc_energy_fn, bpc_energy_fn
 
 
 def neg_activity_grad(
@@ -230,4 +230,55 @@ def compute_hpc_param_grads(
         amort_activities,
         x,
         y
+    )
+
+
+def compute_bpc_activity_grad(
+        top_down_model: PyTree[Callable], 
+        bottom_up_model: PyTree[Callable],
+        activities: PyTree[ArrayLike],
+        y: ArrayLike,
+        x: ArrayLike,
+        *,
+        param_type: str = "sp"
+) -> PyTree[Array]:
+
+    energy, dFdzs = value_and_grad(bpc_energy_fn, argnums=2)(
+        top_down_model,
+        bottom_up_model,
+        activities,
+        y,
+        x,
+        param_type=param_type
+    )
+    return energy, dFdzs
+
+
+def compute_bpc_param_grads(
+        top_down_model: PyTree[Callable], 
+        bottom_up_model: PyTree[Callable],
+        activities: PyTree[ArrayLike],
+        y: ArrayLike,
+        x: ArrayLike,
+        *,
+        param_type: str = "sp"
+) -> Tuple[PyTree[Array], PyTree[Array]]:
+
+    def wrapped_energy_fn(models, activities, y, x, param_type="sp"):
+        top_down_model, bottom_up_model = models
+        return bpc_energy_fn(
+            top_down_model, 
+            bottom_up_model, 
+            activities, 
+            y, 
+            x, 
+            param_type=param_type
+        )
+    
+    return filter_grad(wrapped_energy_fn)(
+        (top_down_model, bottom_up_model), 
+        activities, 
+        y, 
+        x, 
+        param_type=param_type
     )
