@@ -97,10 +97,10 @@ nav:
             - Supervised generative PC: 'examples/supervised_generative_pc.ipynb'
             - Unsupervised generative PC: 'examples/unsupervised_generative_pc.ipynb'
         - Advanced:
+            - μPC: 'examples/mupc.ipynb'
             - Hybrid PC: 'examples/hybrid_pc.ipynb'
             - Bidirectional PC: 'examples/bidirectional_pc.ipynb'
             - Linear theoretical energy: 'examples/linear_net_theoretical_energy.ipynb'
-            - μPC: 'examples/mupc.ipynb'
     - 🌱 Basic API:
           - 'api/Training.md'
           - 'api/Testing.md'
