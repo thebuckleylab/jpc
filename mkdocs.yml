@@ -101,6 +101,7 @@ nav:
             - Hybrid PC: 'examples/hybrid_pc.ipynb'
             - Bidirectional PC: 'examples/bidirectional_pc.ipynb'
             - Linear theoretical energy: 'examples/linear_net_theoretical_energy.ipynb'
+            - JPC from scratch: 'examples/jpc_from_scratch.ipynb'
     - 🌱 Basic API:
           - 'api/Training.md'
           - 'api/Testing.md'
