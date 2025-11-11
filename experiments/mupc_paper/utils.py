@@ -409,7 +409,6 @@ def unwrap_hessian_pytree(hessian_pytree, activities):
 
     start_row_idx = 0
     for l, pytree_l in enumerate(hessian_pytree):
-        import jax
 
         start_col_idx = 0
         for k, pytree_k in enumerate(pytree_l[:-1]):            
