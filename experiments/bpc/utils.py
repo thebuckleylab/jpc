@@ -54,6 +54,7 @@ def setup_hessian_analysis(
         act_fn,
         width,
         n_hidden,
+        use_skips,
         seed
 ):
     print(
@@ -64,6 +65,7 @@ Starting Hessian analysis with configuration:
   Act fn: {act_fn}
   Width: {width}
   N hidden: {n_hidden}
+  Use skips: {use_skips}
   Seed: {seed}
 """
     )
@@ -73,5 +75,6 @@ Starting Hessian analysis with configuration:
         act_fn,
         f"width_{width}",
         f"{n_hidden}_n_hidden",
+        "skips" if use_skips else "no_skips",
         str(seed)
     )
