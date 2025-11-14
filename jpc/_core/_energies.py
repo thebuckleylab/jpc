@@ -1,6 +1,7 @@
 """Energy functions for PC networks."""
 
 from jax import vmap
+from jax._src.api import F
 from jax.numpy import sum, array, eye, sqrt
 from jax.nn import log_softmax
 from jaxtyping import PyTree, ArrayLike, Scalar, Array
@@ -25,7 +26,7 @@ def pc_energy_fn(
     connections of the form
 
     $$
-    \mathcal{F}(\mathbf{z}; θ) = 1/N \sum_i^N \sum_{\ell=1}^L || \mathbf{z}_{i, \ell} - f_\ell(\mathbf{z}_{i, \ell-1}; θ) ||^2
+    \mathcal{F}(\mathbf{z}; θ) = 1/2N \sum_i^N \sum_{\ell=1}^L || \mathbf{z}_{i, \ell} - f_\ell(\mathbf{z}_{i, \ell-1}; θ) ||^2
     $$
 
     given parameters $θ$, activities $\mathbf{z}$, output 
@@ -230,6 +231,107 @@ def hpc_energy_fn(
         return sum(array(energies)) / batch_size
 
 
+def bpc_energy_fn(
+        top_down_model: PyTree[Callable], 
+        bottom_up_model: PyTree[Callable],
+        activities: PyTree[ArrayLike],
+        y: ArrayLike,
+        x: ArrayLike,
+        *,
+        skip_model: Optional[PyTree[Callable]] = None,
+        param_type: str = "sp",
+        record_layers: bool = False
+    ) -> Scalar | Array:
+    """Computes the energy of a bidirectional PC network (BPC, [Oliviers et al., 2025](https://arxiv.org/abs/2505.23415)).
+
+    $$
+    \mathcal{F}(\mathbf{z}; \theta, \phi) = 1/N \sum_i^N \sum_{\ell=1}^L \frac{1}{2}|| \mathbf{z}_{i, \ell} - f_\ell(\mathbf{z}_{i, \ell-1}; \mathbf{W}_\ell) ||^2 + \sum_{\ell=0}^{L-1} \frac{1}{2} || \mathbf{z}_{i, \ell} - g_{\ell+1}(\mathbf{z}_{i, \ell+1}; \mathbf{V}_{\ell+1}) ||^2
+    $$
+
+    where $f_\ell$ and $g_{\ell+1}$ are the forward/top-down and 
+    backward/bottom-up models, respectively. See the reference below for more 
+    details.
+
+    ??? cite "Reference"
+
+        ```bibtex
+        @article{oliviers2025bidirectional,
+            title={Bidirectional predictive coding},
+            author={Oliviers, Gaspard and Tang, Mufeng and Bogacz, Rafal},
+            journal={arXiv preprint arXiv:2505.23415},
+            year={2025}
+        }
+        ```
+
+    **Main arguments:**
+
+    - `top_down_model`: List of callable model (e.g. neural network) layers for 
+        the forward model.
+    - `bottom_up_model`: List of callable model (e.g. neural network) layers for 
+        the backward model.
+    - `activities`: List of activities for each layer free to vary.
+    - `y`: Target of the `top_down_model` and input to the `bottom_up_model`.
+    - `x`: Input to the `top_down_model` and target of the `bottom_up_model`.
+
+    **Other arguments:**
+
+    - `skip_model`: Optional skip connection model.
+    - `param_type`: Determines the parameterisation. Options are `"sp"` 
+        (standard parameterisation), `"mupc"` ([μPC](https://arxiv.org/abs/2505.13124)), 
+        or `"ntp"` (neural tangent parameterisation). 
+        See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
+        for the specific scalings of these different parameterisations. Defaults
+        to `"sp"`.
+    - `record_layers`: If `True`, returns the energy of each layer.
+
+    **Returns:**
+
+    The total or layer-wise BPC energy normalised by batch size.
+
+    """
+    _check_param_type(param_type)
+
+    batch_size = activities[0].shape[0]
+    H = len(top_down_model) - 1
+    energies = []
+
+    if skip_model is None:
+        skip_model = [None] * (H + 1)
+
+    # discriminative (bottom-up) loss
+    delta_0 = x - vmap(bottom_up_model[0])(activities[0])
+    bottom_up_energy = 0.5 * sum(delta_0 ** 2)
+
+    # generative (top-down) loss
+    e_L = y - vmap(top_down_model[-1])(activities[-2])
+    top_down_energy = 0.5 * sum(e_L ** 2)
+
+    energies.append((top_down_energy, bottom_up_energy))
+
+    for l in range(H):
+        act_prev = x if l == 0 else activities[l - 1]
+        e_l = activities[l] - vmap(top_down_model[l])(act_prev)
+        if skip_model[l] is not None and l > 0:
+            e_l -= vmap(skip_model[l])(act_prev)
+        
+        act_next = y if l == H - 1 else activities[l + 1]
+        delta_l = activities[l] - vmap(bottom_up_model[l + 1])(act_next)
+        if skip_model[l + 1] is not None and l < H - 1:
+            delta_l -= vmap(skip_model[l + 1])(act_next)
+
+        top_down_energy = 0.5 * sum(e_l ** 2)
+        bottom_up_energy = 0.5 * sum(delta_l ** 2)
+
+        energies.append((top_down_energy, bottom_up_energy))
+
+    total_energy = (sum(array(energies)) / batch_size)
+
+    if record_layers:
+        return array([val for pair in energies for val in pair]) / batch_size
+    else:
+        return total_energy
+
+
 def _get_param_scalings(
         model: PyTree[Callable], 
         input: ArrayLike, 
@@ -277,50 +379,3 @@ def _get_param_scalings(
         scalings = [a1] + [al] * (L-2) + [aL]
 
     return scalings
-
-
-def bpc_energy_fn(
-        top_down_model: PyTree[Callable], 
-        bottom_up_model: PyTree[Callable],
-        activities: PyTree[ArrayLike],
-        y: ArrayLike,
-        x: ArrayLike,
-        *,
-        param_type: str = "sp",
-        record_layers: bool = False
-    ) -> Scalar | Array:
-
-    _check_param_type(param_type)
-
-    batch_size = activities[0].shape[0]
-    H = len(top_down_model) - 1
-    energies = []
-
-    # discriminative loss
-    delta_0 = x - vmap(bottom_up_model[0])(activities[0])
-    bottom_up_energy = 0.5 * sum(delta_0 ** 2)
-
-    # generative loss
-    e_L = y - vmap(top_down_model[-1])(activities[-2])
-    top_down_energy = 0.5 * sum(e_L ** 2)
-
-    energies.append((top_down_energy, bottom_up_energy))
-
-    for l in range(H):
-        act_prev = x if l == 0 else activities[l - 1]
-        e_l = activities[l] - vmap(top_down_model[l])(act_prev)
-        
-        act_next = y if l == H - 1 else activities[l + 1]
-        delta_l = activities[l] - vmap(bottom_up_model[l + 1])(act_next)
-
-        top_down_energy = 0.5 * sum(e_l ** 2)
-        bottom_up_energy = 0.5 * sum(delta_l ** 2)
-
-        energies.append((top_down_energy, bottom_up_energy))
-
-    total_energy = (sum(array(energies)) / batch_size)
-
-    if record_layers:
-        return array([val for pair in energies for val in pair]) / batch_size
-    else:
-        return total_energy
