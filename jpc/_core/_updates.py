@@ -1,26 +1,31 @@
 """Functions to update activities and parameters of PC networks."""
 
 import equinox as eqx
-from ._grads import compute_activity_grad, compute_pc_param_grads, compute_bpc_activity_grad, compute_bpc_param_grads
 from jaxtyping import PyTree, ArrayLike, Scalar
 from typing import Tuple, Callable, Optional, Dict
 from optax import GradientTransformation, GradientTransformationExtraArgs, OptState
+from ._grads import (
+    compute_activity_grad, 
+    compute_pc_param_grads, 
+    compute_bpc_activity_grad, 
+    compute_bpc_param_grads
+)
 
 
 @eqx.filter_jit
 def update_activities(
-        params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
-        activities: PyTree[ArrayLike],
-        optim: GradientTransformation | GradientTransformationExtraArgs,
-        opt_state: OptState,
-        output: ArrayLike,
-        *,
-        input: Optional[ArrayLike] = None,
-        loss_id: str = "mse",
-        param_type: str = "sp",
-        weight_decay: Scalar = 0.,
-        spectral_penalty: Scalar = 0.,
-        activity_decay: Scalar = 0.
+    params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
+    activities: PyTree[ArrayLike],
+    optim: GradientTransformation | GradientTransformationExtraArgs,
+    opt_state: OptState,
+    output: ArrayLike,
+    *,
+    input: Optional[ArrayLike] = None,
+    loss_id: str = "mse",
+    param_type: str = "sp",
+    weight_decay: Scalar = 0.,
+    spectral_penalty: Scalar = 0.,
+    activity_decay: Scalar = 0.
 ) -> Dict:
     """Updates activities of a predictive coding network with a given 
     [optax](https://github.com/google-deepmind/optax) optimiser.
@@ -91,18 +96,18 @@ def update_activities(
 
 @eqx.filter_jit
 def update_params(
-        params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
-        activities: PyTree[ArrayLike],
-        optim: GradientTransformation | GradientTransformationExtraArgs,
-        opt_state: OptState,
-        output: ArrayLike,
-        *,
-        input: Optional[ArrayLike] = None,
-        loss_id: str = "mse",
-        param_type: str = "sp",
-        weight_decay: Scalar = 0.,
-        spectral_penalty: Scalar = 0.,
-        activity_decay: Scalar = 0.
+    params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
+    activities: PyTree[ArrayLike],
+    optim: GradientTransformation | GradientTransformationExtraArgs,
+    opt_state: OptState,
+    output: ArrayLike,
+    *,
+    input: Optional[ArrayLike] = None,
+    loss_id: str = "mse",
+    param_type: str = "sp",
+    weight_decay: Scalar = 0.,
+    spectral_penalty: Scalar = 0.,
+    activity_decay: Scalar = 0.
 ) -> Dict:
     """Updates parameters of a predictive coding network with a given 
     [optax](https://github.com/google-deepmind/optax) optimiser.
@@ -173,15 +178,17 @@ def update_params(
 
 @eqx.filter_jit
 def update_bpc_activities(
-        top_down_model: PyTree[Callable], 
-        bottom_up_model: PyTree[Callable],
-        activities: PyTree[ArrayLike],
-        optim: GradientTransformation | GradientTransformationExtraArgs,
-        opt_state: OptState,
-        output: ArrayLike,
-        input: ArrayLike,
-        *,
-        param_type: str = "sp"
+    top_down_model: PyTree[Callable], 
+    bottom_up_model: PyTree[Callable],
+    activities: PyTree[ArrayLike],
+    optim: GradientTransformation | GradientTransformationExtraArgs,
+    opt_state: OptState,
+    output: ArrayLike,
+    input: ArrayLike,
+    *,
+    skip_model: Optional[PyTree[Callable]] = None,
+    param_type: str = "sp",
+    only_predicted_terms: bool = False
 ) -> Dict:
 
     energy, grads = compute_bpc_activity_grad(
@@ -190,7 +197,9 @@ def update_bpc_activities(
         activities=activities,
         y=output,
         x=input,
-        param_type=param_type
+        skip_model=skip_model,
+        param_type=param_type,
+        only_predicted_terms=only_predicted_terms
     )
     updates, opt_state = optim.update(
         updates=grads,
@@ -211,17 +220,18 @@ def update_bpc_activities(
 
 @eqx.filter_jit
 def update_bpc_params(
-        top_down_model: PyTree[Callable], 
-        bottom_up_model: PyTree[Callable],
-        activities: PyTree[ArrayLike],
-        top_down_optim: GradientTransformation | GradientTransformationExtraArgs,
-        bottom_up_optim: GradientTransformation | GradientTransformationExtraArgs,
-        top_down_opt_state: OptState,
-        bottom_up_opt_state: OptState,
-        output: ArrayLike,
-        input: ArrayLike,
-        *,
-        param_type: str = "sp"
+    top_down_model: PyTree[Callable], 
+    bottom_up_model: PyTree[Callable],
+    activities: PyTree[ArrayLike],
+    top_down_optim: GradientTransformation | GradientTransformationExtraArgs,
+    bottom_up_optim: GradientTransformation | GradientTransformationExtraArgs,
+    top_down_opt_state: OptState,
+    bottom_up_opt_state: OptState,
+    output: ArrayLike,
+    input: ArrayLike,
+    *,
+    skip_model: Optional[PyTree[Callable]] = None,
+    param_type: str = "sp"
 ) -> Dict:
 
     top_down_grads, bottom_up_grads = compute_bpc_param_grads(
@@ -230,6 +240,7 @@ def update_bpc_params(
         activities=activities,
         y=output,
         x=input,
+        skip_model=skip_model,
         param_type=param_type
     )
     top_down_updates, top_down_opt_state = top_down_optim.update(
@@ -250,6 +261,7 @@ def update_bpc_params(
         model=bottom_up_model,
         updates=bottom_up_updates
     )
+    
     return {
         "models": (top_down_model, bottom_up_model),
         "grads": (top_down_grads, bottom_up_grads),
