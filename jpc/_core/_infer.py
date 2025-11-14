@@ -3,7 +3,7 @@
 from jaxtyping import PyTree, ArrayLike, Array, Scalar
 import jax.numpy as jnp
 from typing import Tuple, Callable, Optional
-from ._grads import neg_activity_grad
+from ._grads import neg_pc_activity_grad
 from optimistix import rms_norm
 from diffrax import (
     AbstractSolver,
@@ -98,7 +98,7 @@ def solve_inference(
         saveat = SaveAt(t1=True, steps=record_iters)
 
     solution = diffeqsolve(
-        terms=ODETerm(neg_activity_grad),
+        terms=ODETerm(neg_pc_activity_grad),
         solver=solver,
         t0=0,
         t1=max_t1,

@@ -5,7 +5,7 @@ from jaxtyping import PyTree, ArrayLike, Scalar
 from typing import Tuple, Callable, Optional, Dict
 from optax import GradientTransformation, GradientTransformationExtraArgs, OptState
 from ._grads import (
-    compute_activity_grad, 
+    compute_pc_activity_grad, 
     compute_pc_param_grads, 
     compute_bpc_activity_grad, 
     compute_bpc_param_grads
@@ -66,7 +66,7 @@ def update_activities(
     optimiser state.
 
     """
-    energy, grads = compute_activity_grad(
+    energy, grads = compute_pc_activity_grad(
         params=params,
         activities=activities,
         y=output,
