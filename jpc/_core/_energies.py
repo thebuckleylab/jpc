@@ -1,7 +1,6 @@
 """Energy functions for PC networks."""
 
 from jax import vmap
-from jax._src.api import F
 from jax.numpy import sum, array, eye, sqrt
 from jax.nn import log_softmax
 from jaxtyping import PyTree, ArrayLike, Scalar, Array
@@ -10,17 +9,17 @@ from ._errors import _check_param_type
 
 
 def pc_energy_fn(
-        params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
-        activities: PyTree[ArrayLike],
-        y: ArrayLike,
-        *,
-        x: Optional[ArrayLike] = None,
-        loss: str = "mse",
-        param_type: str = "sp",
-        weight_decay: Scalar = 0.,
-        spectral_penalty: Scalar = 0.,
-        activity_decay: Scalar = 0.,
-        record_layers: bool = False
+    params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
+    activities: PyTree[ArrayLike],
+    y: ArrayLike,
+    *,
+    x: Optional[ArrayLike] = None,
+    loss: str = "mse",
+    param_type: str = "sp",
+    weight_decay: Scalar = 0.,
+    spectral_penalty: Scalar = 0.,
+    activity_decay: Scalar = 0.,
+    record_layers: bool = False
 ) -> Scalar | Array:
     """Computes the free energy for a neural network with optional skip 
     connections of the form
@@ -147,12 +146,12 @@ def pc_energy_fn(
 
 
 def hpc_energy_fn(
-        model: PyTree[Callable],
-        equilib_activities: PyTree[ArrayLike],
-        amort_activities: PyTree[ArrayLike],
-        x: ArrayLike,
-        y: Optional[ArrayLike] = None,
-        record_layers: bool = False
+    model: PyTree[Callable],
+    equilib_activities: PyTree[ArrayLike],
+    amort_activities: PyTree[ArrayLike],
+    x: ArrayLike,
+    y: Optional[ArrayLike] = None,
+    record_layers: bool = False
 ) -> Scalar | Array:
     """Computes the free energy of an amortised PC network ([Tscshantz et al., 2023](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1011280))
 
@@ -232,15 +231,15 @@ def hpc_energy_fn(
 
 
 def bpc_energy_fn(
-        top_down_model: PyTree[Callable], 
-        bottom_up_model: PyTree[Callable],
-        activities: PyTree[ArrayLike],
-        y: ArrayLike,
-        x: ArrayLike,
-        *,
-        skip_model: Optional[PyTree[Callable]] = None,
-        param_type: str = "sp",
-        record_layers: bool = False
+    top_down_model: PyTree[Callable], 
+    bottom_up_model: PyTree[Callable],
+    activities: PyTree[ArrayLike],
+    y: ArrayLike,
+    x: ArrayLike,
+    *,
+    skip_model: Optional[PyTree[Callable]] = None,
+    param_type: str = "sp",
+    record_layers: bool = False
     ) -> Scalar | Array:
     """Computes the energy of a bidirectional PC network (BPC, [Oliviers et al., 2025](https://arxiv.org/abs/2505.23415)).
 
@@ -333,12 +332,12 @@ def bpc_energy_fn(
 
 
 def _get_param_scalings(
-        model: PyTree[Callable], 
-        input: ArrayLike, 
-        *,
-        skip_model: Optional[PyTree[Callable]] = None, 
-        param_type: str = "sp"
-    ) -> list[float]:
+    model: PyTree[Callable], 
+    input: ArrayLike, 
+    *,
+    skip_model: Optional[PyTree[Callable]] = None, 
+    param_type: str = "sp"
+) -> list[float]:
     """Gets layer scalings for a given parameterisation.
 
     !!! warning
