@@ -54,7 +54,7 @@ def make_mlp(
 
         This implementation places the activation function before the linear 
         transformation, $\mathbf{W}_\ell \phi(\mathbf{z}_{\ell-1})$, for 
-        compatibility with the [μPC](https://arxiv.org/abs/2505.13124) 
+        compatibility with the [μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1)) 
         scalings when `param_type = "mupc"` in functions including 
         [`jpc.init_activities_with_ffwd()`](https://thebuckleylab.github.io/jpc/api/Initialisation/#jpc.init_activities_with_ffwd), 
         [`jpc.update_activities()`](https://thebuckleylab.github.io/jpc/api/Discrete%20updates/#jpc.update_activities), 
@@ -70,7 +70,7 @@ def make_mlp(
     - `act_fn`: Activation function (for all layers except the output).
     - `use_bias`: `False` by default.
     - `param_type`: Determines the parameterisation. Options are `"sp"` 
-        (standard parameterisation), `"mupc"` ([μPC](https://arxiv.org/abs/2505.13124)), 
+        (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
         or `"ntp"` (neural tangent parameterisation). See [`jpc._get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations. Defaults
         to `"sp"`.
@@ -193,7 +193,7 @@ def make_skip_model(depth: int) -> PyTree[Callable]:
     except from the input to the next layer and from the penultimate layer to 
     the output.
 
-    This is used for compatibility with the [μPC](https://arxiv.org/abs/2505.13124) 
+    This is used for compatibility with the [μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1)) 
     parameterisation when `param_type = "mupc"` in functions including 
     [`jpc.init_activities_with_ffwd()`](https://thebuckleylab.github.io/jpc/api/Initialisation/#jpc.init_activities_with_ffwd), 
     [`jpc.update_activities()`](https://thebuckleylab.github.io/jpc/api/Discrete%20updates/#jpc.update_activities), 

@@ -63,7 +63,7 @@ def solve_inference(
     - `loss_id`: Loss function to use at the output layer. Options are mean squared 
         error `"mse"` (default) or cross-entropy `"ce"`.
     - `param_type`: Determines the parameterisation. Options are `"sp"` 
-        (standard parameterisation), `"mupc"` ([μPC](https://arxiv.org/abs/2505.13124)), 
+        (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
         or `"ntp"` (neural tangent parameterisation). 
         See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations. Defaults

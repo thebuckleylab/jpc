@@ -9,9 +9,9 @@
 ![status](https://img.shields.io/badge/status-active-green) [![Paper](https://img.shields.io/badge/Paper-arXiv:2508.01191-%23f2806bff.svg)](https://arxiv.org/abs/2412.03676)
 
 > [!IMPORTANT] 
-> If you're here for [μPC](https://arxiv.org/abs/2505.13124), see [this example
-> notebook](https://thebuckleylab.github.io/jpc/examples/mupc/) and the paper's 
-> experiments in [`experiments/mupc_paper`](https://github.com/thebuckleylab/jpc/tree/main/experiments/mupc_paper).
+> If you're here for [μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1)), 
+> see [this example notebook](https://thebuckleylab.github.io/jpc/examples/mupc/) 
+> and the paper's experiments in [`experiments/mupc_paper`](https://github.com/thebuckleylab/jpc/tree/main/experiments/mupc_paper).
 
 JPC is a [**J**AX](https://github.com/google/jax) library for training neural 
 networks with **P**redictive **C**oding (PC). It is built on top of three main 

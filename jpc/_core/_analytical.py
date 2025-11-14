@@ -28,7 +28,7 @@ def compute_linear_equilib_energy(
 
         This expression assumes no biases. It could also be generalised to 
         other network architectures (e.g. ResNets) and parameterisations
-        (see [Innocenti et al. 2025](https://arxiv.org/abs/2505.13124)). 
+        (see [Innocenti et al. 2025](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))). 
         However, note that the equilibrated energy for ResNets and other
         parameterisations can still be computed by getting the activity solution
         with [`jpc.compute_linear_activity_solution()`](https://thebuckleylab.github.io/jpc/api/Theoretical%20tools/#jpc.compute_linear_activity_solution) 
@@ -106,7 +106,7 @@ def compute_linear_activity_hessian(
     """Computes the theoretical Hessian matrix of the [PC energy](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.pc_energy_fn) 
     with respect to the activities for a linear network, 
     $(\mathbf{H}_{\mathbf{z}})_{\ell k} := \partial^2 \mathcal{F} / \partial \mathbf{z}_\ell \partial \mathbf{z}_k \in \mathbb{R}^{(NH)×(NH)}$ 
-    where $N$ and $H$ are the width and number of hidden layers, respectively ([Innocenti et al., 2025](https://arxiv.org/abs/2505.13124)).
+    where $N$ and $H$ are the width and number of hidden layers, respectively ([Innocenti et al., 2025](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))).
 
     !!! info
 
@@ -141,7 +141,7 @@ def compute_linear_activity_hessian(
     - `use_skips`: Whether to assume one-layer skip connections at every layer 
         except from the input and to the output. `False` by default.
     - `param_type`: Determines the parameterisation. Options are `"sp"` 
-        (standard parameterisation), `"mupc"` ([μPC](https://arxiv.org/abs/2505.13124)), 
+        (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
         or `"ntp"` (neural tangent parameterisation). 
         See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations. Defaults
@@ -245,7 +245,7 @@ def compute_linear_activity_solution(
         param_type: str = "sp",
         activity_decay: bool = False
 ) -> PyTree[Array]:
-    """Computes the theoretical solution for the PC activities of a linear network ([Innocenti et al., 2025](https://arxiv.org/abs/2505.13124)).
+    """Computes the theoretical solution for the PC activities of a linear network ([Innocenti et al., 2025](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))).
 
     $$
     \mathbf{z}^* = \mathbf{H}_{\mathbf{z}}^{-1}\mathbf{b}
@@ -284,7 +284,7 @@ def compute_linear_activity_solution(
     - `use_skips`: Whether to assume one-layer skip connections at every layer 
         except from the input and to the output. `False` by default.
     - `param_type`: Determines the parameterisation. Options are `"sp"` 
-        (standard parameterisation), `"mupc"` ([μPC](https://arxiv.org/abs/2505.13124)), 
+        (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
         or `"ntp"` (neural tangent parameterisation). 
         See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations. Defaults
