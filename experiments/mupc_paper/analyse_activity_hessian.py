@@ -196,16 +196,16 @@ def run_analysis(
 
 if __name__ == "__main__":
     RESULTS_DIR = "activity_hessian_results"
-    IN_OUT_DIMS = ["width"]  #, [784, 10], [10, 784]]
-    ACT_FNS = ["linear", "tanh", "relu"]
+    IN_OUT_DIMS = [[784, 10]]  #, [784, 10], [10, 784]]
+    ACT_FNS = ["linear"]#, "tanh", "relu"]
     USE_BIASES = [False]
     MODES = ["supervised"]  #,"unsupervised"]
     USE_SKIPS = [False, True]
-    WEIGHT_INITS = ["one_over_N", "standard", "orthogonal"] 
-    PARAM_TYPES = ["sp", "mupc", "ntp"]
-    ACTIVITY_DECAY = [False, True]
-    WIDTHS = [2 ** i for i in range(1, 8)]
-    N_HIDDENS = [2 ** i for i in range(1, 8)]
+    WEIGHT_INITS = ["standard"]#["one_over_N", "standard", "orthogonal"] 
+    PARAM_TYPES = ["sp"]#, "mupc", "ntp"]
+    ACTIVITY_DECAY = [False]#, True]
+    WIDTHS = [2 ** i for i in range(11)]
+    N_HIDDENS = [2 ** i for i in range(4)]
     N_SEEDS = 3
 
     for in_out_dims in IN_OUT_DIMS:
