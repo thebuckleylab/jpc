@@ -9,7 +9,9 @@ from diffrax import AbstractStepSizeController
 from ._energies import pc_energy_fn, hpc_energy_fn, bpc_energy_fn, pdm_energy_fn
 
 
-def neg_activity_grad(
+########################### ACTIVITY GRADIENTS #################################
+################################################################################
+def neg_pc_activity_grad(
     t: float | int,
     activities: PyTree[ArrayLike],
     args: Tuple[
@@ -72,7 +74,7 @@ def neg_activity_grad(
     return tree_map(lambda dFdz: -dFdz, dFdzs)
 
 
-def compute_activity_grad(
+def compute_pc_activity_grad(
     params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
     activities: PyTree[ArrayLike],
     y: ArrayLike,
@@ -136,6 +138,77 @@ def compute_activity_grad(
     return energy, dFdzs
 
 
+def compute_bpc_activity_grad(
+    top_down_model: PyTree[Callable], 
+    bottom_up_model: PyTree[Callable],
+    activities: PyTree[ArrayLike],
+    y: ArrayLike,
+    x: ArrayLike,
+    *,
+    skip_model: Optional[PyTree[Callable]] = None,
+    param_type: str = "sp",
+    only_predicted_terms: bool = False
+) -> PyTree[Array]:
+    """Computes the gradient of the [BPC energy](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.bpc_energy_fn)
+    with respect to the activities $∇_{\mathbf{z}} \mathcal{F}$.
+
+    **Main arguments:**
+
+    - `top_down_model`: List of callable model (e.g. neural network) layers for 
+        the forward model.
+    - `bottom_up_model`: List of callable model (e.g. neural network) layers for 
+        the backward model.
+    - `activities`: List of activities for each layer free to vary.
+    - `y`: Target of the `top_down_model` and input to the `bottom_up_model`.
+    - `x`: Input to the `top_down_model` and target of the `bottom_up_model`.
+
+    **Other arguments:**
+
+    - `skip_model`: Optional skip connection model.
+    - `param_type`: Determines the parameterisation. Options are `"sp"` 
+        (standard parameterisation), `"mupc"` ([μPC](https://arxiv.org/abs/2505.13124)), 
+        or `"ntp"` (neural tangent parameterisation). 
+        See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
+        for the specific scalings of these different parameterisations. Defaults
+        to `"sp"`.
+    - `only_predicted_terms`: If `True`, only includes terms where the activity 
+        is the predicted variable.
+
+    **Returns:**
+
+    The energy and gradient of the energy with respect to the activities for the 
+    BPC or PDM model.
+
+    """
+    energy = bpc_energy_fn(
+        top_down_model,
+        bottom_up_model,
+        activities,
+        y,
+        x,
+        skip_model=skip_model,
+        param_type=param_type
+    )
+    
+    if only_predicted_terms:
+        energy_fn_for_grad = pdm_energy_fn
+    else:
+        energy_fn_for_grad = bpc_energy_fn
+    
+    dFdzs = grad(energy_fn_for_grad, argnums=2)(
+        top_down_model,
+        bottom_up_model,
+        activities,
+        y,
+        x,
+        skip_model=skip_model,
+        param_type=param_type
+    )
+    return energy, dFdzs
+
+
+########################### PARAMETER GRADIENTS ################################
+################################################################################
 def compute_pc_param_grads(
     params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
     activities: PyTree[ArrayLike],
@@ -233,44 +306,6 @@ def compute_hpc_param_grads(
     )
 
 
-def compute_bpc_activity_grad(
-    top_down_model: PyTree[Callable], 
-    bottom_up_model: PyTree[Callable],
-    activities: PyTree[ArrayLike],
-    y: ArrayLike,
-    x: ArrayLike,
-    *,
-    skip_model: Optional[PyTree[Callable]] = None,
-    param_type: str = "sp",
-    only_predicted_terms: bool = False
-) -> PyTree[Array]:
-    energy = bpc_energy_fn(
-        top_down_model,
-        bottom_up_model,
-        activities,
-        y,
-        x,
-        skip_model=skip_model,
-        param_type=param_type
-    )
-    
-    if only_predicted_terms:
-        energy_fn_for_grad = pdm_energy_fn
-    else:
-        energy_fn_for_grad = bpc_energy_fn
-    
-    dFdzs = grad(energy_fn_for_grad, argnums=2)(
-        top_down_model,
-        bottom_up_model,
-        activities,
-        y,
-        x,
-        skip_model=skip_model,
-        param_type=param_type
-    )
-    return energy, dFdzs
-
-
 def compute_bpc_param_grads(
     top_down_model: PyTree[Callable], 
     bottom_up_model: PyTree[Callable],
@@ -281,6 +316,34 @@ def compute_bpc_param_grads(
     skip_model: Optional[PyTree[Callable]] = None,
     param_type: str = "sp"
 ) -> Tuple[PyTree[Array], PyTree[Array]]:
+    """Computes the gradient of the [BPC energy](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.bpc_energy_fn)
+    with respect to all the model parameters $∇_θ \mathcal{F}$.
+
+    **Main arguments:**
+
+    - `top_down_model`: List of callable model (e.g. neural network) layers for 
+        the forward model.
+    - `bottom_up_model`: List of callable model (e.g. neural network) layers for 
+        the backward model.
+    - `activities`: List of activities for each layer free to vary.
+    - `y`: Target of the `top_down_model` and input to the `bottom_up_model`.
+    - `x`: Input to the `top_down_model` and target of the `bottom_up_model`.
+
+    **Other arguments:**
+
+    - `skip_model`: Optional skip connection model.
+    - `param_type`: Determines the parameterisation. Options are `"sp"` 
+        (standard parameterisation), `"mupc"` ([μPC](https://arxiv.org/abs/2505.13124)), 
+        or `"ntp"` (neural tangent parameterisation). 
+        See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
+        for the specific scalings of these different parameterisations. Defaults
+        to `"sp"`.
+
+    **Returns:**
+
+    Tuple of parameter gradients for the top-down and bottom-up models.
+
+    """
     def wrapped_energy_fn(models, activities, y, x, skip_model, param_type):
         top_down_model, bottom_up_model = models
         return bpc_energy_fn(
@@ -298,5 +361,6 @@ def compute_bpc_param_grads(
         activities, 
         y, 
         x, 
+        skip_model=skip_model,
         param_type=param_type
     )
