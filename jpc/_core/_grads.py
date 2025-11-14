@@ -1,4 +1,4 @@
-"""Functions to compute gradients of the PC energy."""
+"""Functions to compute gradients of the predictive coding energies."""
 
 from jax import grad, value_and_grad
 from jax.tree_util import tree_map
@@ -6,22 +6,22 @@ from equinox import filter_grad
 from jaxtyping import PyTree, ArrayLike, Array, Scalar
 from typing import Tuple, Callable, Optional
 from diffrax import AbstractStepSizeController
-from ._energies import pc_energy_fn, hpc_energy_fn, bpc_energy_fn
+from ._energies import pc_energy_fn, hpc_energy_fn, bpc_energy_fn, pdm_energy_fn
 
 
 def neg_activity_grad(
-        t: float | int,
-        activities: PyTree[ArrayLike],
-        args: Tuple[
-            Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
-            ArrayLike,
-            Optional[ArrayLike],
-            int,
-            str,
-            str,
-            AbstractStepSizeController
-        ]
-    ) -> PyTree[Array]:
+    t: float | int,
+    activities: PyTree[ArrayLike],
+    args: Tuple[
+        Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
+        ArrayLike,
+        Optional[ArrayLike],
+        int,
+        str,
+        str,
+        AbstractStepSizeController
+    ]
+) -> PyTree[Array]:
     """Computes the negative gradient of the [PC energy](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.pc_energy_fn) 
     with respect to the activities $- ∇_{\mathbf{z}} \mathcal{F}$.
 
@@ -73,16 +73,16 @@ def neg_activity_grad(
 
 
 def compute_activity_grad(
-        params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
-        activities: PyTree[ArrayLike],
-        y: ArrayLike,
-        *,
-        x: Optional[ArrayLike],
-        loss_id: str = "mse",
-        param_type: str = "sp",
-        weight_decay: Scalar = 0.,
-        spectral_penalty: Scalar = 0.,
-        activity_decay: Scalar = 0.
+    params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
+    activities: PyTree[ArrayLike],
+    y: ArrayLike,
+    *,
+    x: Optional[ArrayLike],
+    loss_id: str = "mse",
+    param_type: str = "sp",
+    weight_decay: Scalar = 0.,
+    spectral_penalty: Scalar = 0.,
+    activity_decay: Scalar = 0.
 ) -> PyTree[Array]:
     """Computes the gradient of the [PC energy](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.pc_energy_fn)
     with respect to the activities $∇_{\mathbf{z}} \mathcal{F}$.
@@ -137,16 +137,16 @@ def compute_activity_grad(
 
 
 def compute_pc_param_grads(
-        params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
-        activities: PyTree[ArrayLike],
-        y: ArrayLike,
-        *,
-        x: Optional[ArrayLike] = None,
-        loss_id: str = "mse",
-        param_type: str = "sp",
-        weight_decay: Scalar = 0.,
-        spectral_penalty: Scalar = 0.,
-        activity_decay: Scalar = 0.
+    params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
+    activities: PyTree[ArrayLike],
+    y: ArrayLike,
+    *,
+    x: Optional[ArrayLike] = None,
+    loss_id: str = "mse",
+    param_type: str = "sp",
+    weight_decay: Scalar = 0.,
+    spectral_penalty: Scalar = 0.,
+    activity_decay: Scalar = 0.
 ) -> Tuple[PyTree[Array], PyTree[Array]]:
     """Computes the gradient of the [PC energy](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.pc_energy_fn)
     with respect to model parameters $∇_θ \mathcal{F}$.
@@ -192,11 +192,11 @@ def compute_pc_param_grads(
 
 
 def compute_hpc_param_grads(
-        model: PyTree[Callable],
-        equilib_activities: PyTree[ArrayLike],
-        amort_activities: PyTree[ArrayLike],
-        x: ArrayLike,
-        y: Optional[ArrayLike] = None
+    model: PyTree[Callable],
+    equilib_activities: PyTree[ArrayLike],
+    amort_activities: PyTree[ArrayLike],
+    x: ArrayLike,
+    y: Optional[ArrayLike] = None
 ) -> PyTree[Array]:
     """Computes the gradient of the [hybrid PC energy](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.hpc_energy_fn) 
     with respect to the amortiser's parameters $∇_θ \mathcal{F}$.
@@ -234,37 +234,54 @@ def compute_hpc_param_grads(
 
 
 def compute_bpc_activity_grad(
-        top_down_model: PyTree[Callable], 
-        bottom_up_model: PyTree[Callable],
-        activities: PyTree[ArrayLike],
-        y: ArrayLike,
-        x: ArrayLike,
-        *,
-        param_type: str = "sp"
+    top_down_model: PyTree[Callable], 
+    bottom_up_model: PyTree[Callable],
+    activities: PyTree[ArrayLike],
+    y: ArrayLike,
+    x: ArrayLike,
+    *,
+    skip_model: Optional[PyTree[Callable]] = None,
+    param_type: str = "sp",
+    only_predicted_terms: bool = False
 ) -> PyTree[Array]:
-
-    energy, dFdzs = value_and_grad(bpc_energy_fn, argnums=2)(
+    energy = bpc_energy_fn(
         top_down_model,
         bottom_up_model,
         activities,
         y,
         x,
+        skip_model=skip_model,
+        param_type=param_type
+    )
+    
+    if only_predicted_terms:
+        energy_fn_for_grad = pdm_energy_fn
+    else:
+        energy_fn_for_grad = bpc_energy_fn
+    
+    dFdzs = grad(energy_fn_for_grad, argnums=2)(
+        top_down_model,
+        bottom_up_model,
+        activities,
+        y,
+        x,
+        skip_model=skip_model,
         param_type=param_type
     )
     return energy, dFdzs
 
 
 def compute_bpc_param_grads(
-        top_down_model: PyTree[Callable], 
-        bottom_up_model: PyTree[Callable],
-        activities: PyTree[ArrayLike],
-        y: ArrayLike,
-        x: ArrayLike,
-        *,
-        param_type: str = "sp"
+    top_down_model: PyTree[Callable], 
+    bottom_up_model: PyTree[Callable],
+    activities: PyTree[ArrayLike],
+    y: ArrayLike,
+    x: ArrayLike,
+    *,
+    skip_model: Optional[PyTree[Callable]] = None,
+    param_type: str = "sp"
 ) -> Tuple[PyTree[Array], PyTree[Array]]:
-
-    def wrapped_energy_fn(models, activities, y, x, param_type="sp"):
+    def wrapped_energy_fn(models, activities, y, x, skip_model, param_type):
         top_down_model, bottom_up_model = models
         return bpc_energy_fn(
             top_down_model, 
@@ -272,6 +289,7 @@ def compute_bpc_param_grads(
             activities, 
             y, 
             x, 
+            skip_model=skip_model,
             param_type=param_type
         )
     
