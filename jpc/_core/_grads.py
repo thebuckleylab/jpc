@@ -171,8 +171,8 @@ def compute_bpc_activity_grad(
         See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations. Defaults
         to `"sp"`.
-    - `only_predicted_terms`: If `True`, only includes terms where the activity 
-        is the predicted variable.
+    - `only_predicted_terms`: If `True`, computes truncated gradient of the PDM
+        model, including only terms where the activity is the predicted variable.
 
     **Returns:**
 
