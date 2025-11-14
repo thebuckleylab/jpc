@@ -7,11 +7,12 @@ from ._energies import (
     pc_energy_fn as pc_energy_fn,
     hpc_energy_fn as hpc_energy_fn,
     bpc_energy_fn as bpc_energy_fn,
+    pdm_energy_fn as pdm_energy_fn,
     _get_param_scalings as _get_param_scalings
 )
 from ._grads import (
-    neg_activity_grad as neg_activity_grad,
-    compute_activity_grad as compute_activity_grad,
+    neg_pc_activity_grad as neg_pc_activity_grad, 
+    compute_pc_activity_grad as compute_pc_activity_grad,
     compute_pc_param_grads as compute_pc_param_grads,
     compute_hpc_param_grads as compute_hpc_param_grads,
     compute_bpc_activity_grad as compute_bpc_activity_grad,
@@ -19,8 +20,8 @@ from ._grads import (
 )
 from ._infer import solve_inference as solve_inference
 from ._updates import (
-    update_activities as update_activities,
-    update_params as update_params,
+    update_pc_activities as update_pc_activities,
+    update_pc_params as update_pc_params,
     update_bpc_activities as update_bpc_activities,
     update_bpc_params as update_bpc_params
 )

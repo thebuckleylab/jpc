@@ -331,6 +331,64 @@ def bpc_energy_fn(
         return total_energy
 
 
+def pdm_energy_fn( 
+    top_down_model: PyTree[Callable], 
+    bottom_up_model: PyTree[Callable],
+    activities: PyTree[ArrayLike],
+    y: ArrayLike,
+    x: ArrayLike,
+    *,
+    skip_model: Optional[PyTree[Callable]] = None,
+    param_type: str = "sp"
+) -> Scalar | Array:
+    """Energy function that only includes terms where z_l is the predicted variable.
+    
+    This is used for gradient computation when only_predicted_terms=True.
+    The energy value itself is not meaningful - only the gradients matter.
+    """
+    _check_param_type(param_type)
+
+    batch_size = activities[0].shape[0]
+    H = len(top_down_model) - 1
+    energies = []
+
+    if skip_model is None:
+        skip_model = [None] * (H + 1)
+
+    # Only include terms where z_l is the predicted variable (z_l - ...)
+    # This excludes terms where z_l is used to predict other layers
+    # For each z_l, we keep:
+    #   - e_l = z_l - top_down_model[l](z_{l-1})  [z_l is predicted]
+    #   - delta_l = z_l - bottom_up_model[l+1](z_{l+1})  [z_l is predicted]
+    # We exclude:
+    #   - e_{l+1} = z_{l+1} - top_down_model[l+1](z_l)  [z_l is predictor]
+    #   - delta_0 = x - bottom_up_model[0](z_0) for z_0 [z_0 is predictor]
+    #   - e_L = y - top_down_model[-1](z_{H-1}) as separate term [z_{H-1} is predictor]
+    
+    # Initialize: exclude delta_0 (x predicted from z_0) and e_L as separate term
+    energies.append((0., 0.))
+    
+    # For each hidden layer l: both e_l and delta_l (z_l is predicted in both)
+    for l in range(H):
+        act_prev = x if l == 0 else activities[l - 1]
+        e_l = activities[l] - vmap(top_down_model[l])(act_prev)
+        if skip_model[l] is not None and l > 0:
+            e_l -= vmap(skip_model[l])(act_prev)
+        
+        act_next = y if l == H - 1 else activities[l + 1]
+        delta_l = activities[l] - vmap(bottom_up_model[l + 1])(act_next)
+        if skip_model[l + 1] is not None and l < H - 1:
+            delta_l -= vmap(skip_model[l + 1])(act_next)
+
+        top_down_energy = 0.5 * sum(e_l ** 2)
+        bottom_up_energy = 0.5 * sum(delta_l ** 2)
+
+        energies.append((top_down_energy, bottom_up_energy))
+
+    total_energy = (sum(array(energies)) / batch_size)
+    return total_energy
+
+
 def _get_param_scalings(
     model: PyTree[Callable], 
     input: ArrayLike, 
