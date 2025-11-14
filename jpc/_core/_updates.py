@@ -13,7 +13,7 @@ from ._grads import (
 
 
 @eqx.filter_jit
-def update_activities(
+def update_pc_activities(
     params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
     activities: PyTree[ArrayLike],
     optim: GradientTransformation | GradientTransformationExtraArgs,
@@ -95,7 +95,7 @@ def update_activities(
 
 
 @eqx.filter_jit
-def update_params(
+def update_pc_params(
     params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
     activities: PyTree[ArrayLike],
     optim: GradientTransformation | GradientTransformationExtraArgs,
@@ -190,7 +190,38 @@ def update_bpc_activities(
     param_type: str = "sp",
     only_predicted_terms: bool = False
 ) -> Dict:
+    """Updates activities of a bidirectional PC network.
 
+    **Main arguments:**
+
+    - `top_down_model`: List of callable model (e.g. neural network) layers for 
+        the forward model.
+    - `bottom_up_model`: List of callable model (e.g. neural network) layers for 
+        the backward model.
+    - `activities`: List of activities for each layer free to vary.
+    - `optim`: optax optimiser, e.g. `optax.sgd()`.
+    - `opt_state`: State of optax optimiser.
+    - `output`: Target of the `top_down_model` and input to the `bottom_up_model`.
+
+    **Other arguments:**
+
+    - `input`: Input to the `top_down_model` and target of the `bottom_up_model`.
+    - `skip_model`: Optional skip connection model.
+    - `param_type`: Determines the parameterisation. Options are `"sp"` 
+        (standard parameterisation), `"mupc"` ([μPC](https://arxiv.org/abs/2505.13124)), 
+        or `"ntp"` (neural tangent parameterisation). 
+        See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
+        for the specific scalings of these different parameterisations. Defaults
+        to `"sp"`.
+    - `only_predicted_terms`: If `True`, only includes terms where the activity 
+        is the predicted variable.
+
+    **Returns:**
+
+    Dictionary with energy, updated activities, activity gradients, and 
+    optimiser state.
+
+    """
     energy, grads = compute_bpc_activity_grad(
         top_down_model=top_down_model,
         bottom_up_model=bottom_up_model,
@@ -233,7 +264,38 @@ def update_bpc_params(
     skip_model: Optional[PyTree[Callable]] = None,
     param_type: str = "sp"
 ) -> Dict:
+    """Updates parameters of a bidirectional PC network.
 
+    **Main arguments:**
+
+    - `top_down_model`: List of callable model (e.g. neural network) layers for 
+        the forward model.
+    - `bottom_up_model`: List of callable model (e.g. neural network) layers for 
+        the backward model.
+    - `activities`: List of activities for each layer free to vary.
+    - `top_down_optim`: optax optimiser for the top-down model.
+    - `bottom_up_optim`: optax optimiser for the bottom-up model.
+    - `top_down_opt_state`: State of the top-down optimiser.
+    - `bottom_up_opt_state`: State of the bottom-up optimiser.
+    - `output`: Target of the `top_down_model` and input to the `bottom_up_model`.
+
+    **Other arguments:**
+
+    - `input`: Input to the `top_down_model` and target of the `bottom_up_model`.
+    - `skip_model`: Optional skip connection model.
+    - `param_type`: Determines the parameterisation. Options are `"sp"` 
+        (standard parameterisation), `"mupc"` ([μPC](https://arxiv.org/abs/2505.13124)), 
+        or `"ntp"` (neural tangent parameterisation). 
+        See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
+        for the specific scalings of these different parameterisations. Defaults
+        to `"sp"`.
+
+    **Returns:**
+
+    Dictionary with models with updated parameters, parameter gradients, and 
+    optimiser states.
+
+    """
     top_down_grads, bottom_up_grads = compute_bpc_param_grads(
         top_down_model=top_down_model,
         bottom_up_model=bottom_up_model,
