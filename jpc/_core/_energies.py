@@ -244,12 +244,12 @@ def bpc_energy_fn(
     """Computes the energy of a bidirectional PC network (BPC, [Oliviers et al., 2025](https://arxiv.org/abs/2505.23415)).
 
     $$
-    \mathcal{F}(\mathbf{z}; \theta, \phi) = 1/N \sum_i^N \sum_{\ell=1}^L \frac{1}{2}|| \mathbf{z}_{i, \ell} - f_\ell(\mathbf{z}_{i, \ell-1}; \mathbf{W}_\ell) ||^2 + \sum_{\ell=0}^{L-1} \frac{1}{2} || \mathbf{z}_{i, \ell} - g_{\ell+1}(\mathbf{z}_{i, \ell+1}; \mathbf{V}_{\ell+1}) ||^2
+    \mathcal{F}(\mathbf{z}; \mathbf{W}, \mathbf{V}) = 1/N \sum_i^N \sum_{\ell=1}^L \frac{1}{2}|| \mathbf{z}_{i, \ell} - f_\ell(\mathbf{z}_{i, \ell-1}; \mathbf{W}_\ell) ||^2 + \sum_{\ell=0}^{L-1} \frac{1}{2} || \mathbf{z}_{i, \ell} - g_{\ell+1}(\mathbf{z}_{i, \ell+1}; \mathbf{V}_{\ell+1}) ||^2
     $$
 
-    where $f_\ell$ and $g_{\ell+1}$ are the forward/top-down and 
-    backward/bottom-up models, respectively. See the reference below for more 
-    details.
+    where $f_\ell$ and $g_{\ell+1}$ are the forward (top-down) and 
+    backward (bottom-up) layer-wise transformations, respectively. See the 
+    reference below for more details.
 
     ??? cite "Reference"
 
