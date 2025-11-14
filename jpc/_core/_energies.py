@@ -24,7 +24,7 @@ def pc_energy_fn(
     """Computes the PC energy for a neural network of the form
 
     $$
-    \mathcal{F}(\mathbf{z}; θ) = 1/2N \sum_i^N \sum_{\ell=1}^L || \mathbf{z}_{i, \ell} - f_\ell(\mathbf{z}_{i, \ell-1}; θ) ||^2
+    \mathcal{F}(\mathbf{z}; θ) = 1/2N \sum_i^N \sum_{\ell=1}^L || \mathbf{z}_{i, \ell} - f_\ell(\mathbf{z}_{i, \ell-1}; θ_\ell) ||^2
     $$
 
     given parameters $θ$, activities $\mathbf{z}$, output 
@@ -52,7 +52,7 @@ def pc_energy_fn(
     - `loss`: Loss function to use at the output layer. Options are mean squared 
         error `"mse"` (default) or cross-entropy `"ce"`.
     - `param_type`: Determines the parameterisation. Options are `"sp"` 
-        (standard parameterisation), `"mupc"` ([μPC](https://arxiv.org/abs/2505.13124)), 
+        (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
         or `"ntp"` (neural tangent parameterisation). 
         See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations. Defaults
@@ -155,7 +155,7 @@ def hpc_energy_fn(
     """Computes the energy of an amortised PC network ([Tscshantz et al., 2023](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1011280))
 
     $$
-    \mathcal{F}(\mathbf{z}^*, \hat{\mathbf{z}}; θ) = 1/N \sum_i^N \sum_{\ell=1}^L || \mathbf{z}^*_{i, \ell} - f_\ell(\hat{\mathbf{z}}_{i, \ell-1}; θ) ||^2
+    \mathcal{F}(\mathbf{z}^*, \hat{\mathbf{z}}; θ) = 1/N \sum_i^N \sum_{\ell=1}^L || \mathbf{z}^*_{i, \ell} - f_\ell(\hat{\mathbf{z}}_{i, \ell-1}; θ_\ell) ||^2
     $$
 
     given the equilibrated activities of the generator $\mathbf{z}^*$ (target
@@ -243,12 +243,13 @@ def bpc_energy_fn(
     """Computes the energy of a bidirectional PC network (BPC, [Oliviers et al., 2025](https://arxiv.org/abs/2505.23415)).
 
     $$
-    \mathcal{F}(\mathbf{z}; \mathbf{W}, \mathbf{V}) = 1/N \sum_i^N \sum_{\ell=1}^L || \mathbf{z}_{i, \ell} - f_\ell(\mathbf{z}_{i, \ell-1}; \mathbf{W}_\ell) ||^2/2 + \sum_{\ell=0}^{L-1} || \mathbf{z}_{i, \ell} - g_{\ell+1}(\mathbf{z}_{i, \ell+1}; \mathbf{V}_{\ell+1}) ||^2/2
+    \mathcal{F}(\mathbf{z}; θ) = 1/N \sum_i^N \sum_{\ell=1}^L || \mathbf{z}_{i, \ell} - f_\ell(\mathbf{z}_{i, \ell-1}; \mathbf{W}_\ell) ||^2/2 + \sum_{\ell=0}^{L-1} || \mathbf{z}_{i, \ell} - g_{\ell+1}(\mathbf{z}_{i, \ell+1}; \mathbf{V}_{\ell+1}) ||^2/2
     $$
 
-    where $f_\ell$ and $g_{\ell+1}$ are the forward (top-down) and 
-    backward (bottom-up) layer-wise transformations, respectively. See the 
-    reference below for more details.
+    where $f_\ell(\cdot)$ and $g_{\ell+1}(\cdot)$ are the forward (top-down) and 
+    backward (bottom-up) layer-wise transformations, and $\mathbf{W}_\ell$ and 
+    $\mathbf{V}_{\ell+1}$ are the forward and backward weights, respectively. 
+    See the reference below for more details.
 
     ??? cite "Reference"
 
@@ -275,7 +276,7 @@ def bpc_energy_fn(
 
     - `skip_model`: Optional skip connection model.
     - `param_type`: Determines the parameterisation. Options are `"sp"` 
-        (standard parameterisation), `"mupc"` ([μPC](https://arxiv.org/abs/2505.13124)), 
+        (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
         or `"ntp"` (neural tangent parameterisation). 
         See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations. Defaults
@@ -399,7 +400,7 @@ def _get_param_scalings(
 
     !!! warning
 
-        `param_type = "mupc"` ([μPC](https://arxiv.org/abs/2505.13124)) assumes 
+        `param_type = "mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))) assumes 
         that one is using [`jpc.make_mlp()`](https://thebuckleylab.github.io/jpc/api/Utils/#jpc.make_mlp) 
         to create the model.
 
@@ -412,7 +413,7 @@ def _get_param_scalings(
 
     - `skip_model`: Optional skip connection model.
     - `param_type`: Determines the parameterisation. Options are `"sp"` 
-        (standard parameterisation), `"mupc"` ([μPC](https://arxiv.org/abs/2505.13124)), 
+        (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
         or `"ntp"` (neural tangent parameterisation). Defaults to `"sp"`.
 
     **Returns:**
