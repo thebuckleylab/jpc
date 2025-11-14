@@ -21,8 +21,7 @@ def pc_energy_fn(
     activity_decay: Scalar = 0.,
     record_layers: bool = False
 ) -> Scalar | Array:
-    """Computes the free energy for a neural network with optional skip 
-    connections of the form
+    """Computes the PC energy for a neural network of the form
 
     $$
     \mathcal{F}(\mathbf{z}; θ) = 1/2N \sum_i^N \sum_{\ell=1}^L || \mathbf{z}_{i, \ell} - f_\ell(\mathbf{z}_{i, \ell-1}; θ) ||^2
@@ -153,7 +152,7 @@ def hpc_energy_fn(
     y: Optional[ArrayLike] = None,
     record_layers: bool = False
 ) -> Scalar | Array:
-    """Computes the free energy of an amortised PC network ([Tscshantz et al., 2023](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1011280))
+    """Computes the energy of an amortised PC network ([Tscshantz et al., 2023](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1011280))
 
     $$
     \mathcal{F}(\mathbf{z}^*, \hat{\mathbf{z}}; θ) = 1/N \sum_i^N \sum_{\ell=1}^L || \mathbf{z}^*_{i, \ell} - f_\ell(\hat{\mathbf{z}}_{i, \ell-1}; θ) ||^2
@@ -244,7 +243,7 @@ def bpc_energy_fn(
     """Computes the energy of a bidirectional PC network (BPC, [Oliviers et al., 2025](https://arxiv.org/abs/2505.23415)).
 
     $$
-    \mathcal{F}(\mathbf{z}; \mathbf{W}, \mathbf{V}) = 1/N \sum_i^N \sum_{\ell=1}^L \frac{1}{2}|| \mathbf{z}_{i, \ell} - f_\ell(\mathbf{z}_{i, \ell-1}; \mathbf{W}_\ell) ||^2 + \sum_{\ell=0}^{L-1} \frac{1}{2} || \mathbf{z}_{i, \ell} - g_{\ell+1}(\mathbf{z}_{i, \ell+1}; \mathbf{V}_{\ell+1}) ||^2
+    \mathcal{F}(\mathbf{z}; \mathbf{W}, \mathbf{V}) = 1/N \sum_i^N \sum_{\ell=1}^L || \mathbf{z}_{i, \ell} - f_\ell(\mathbf{z}_{i, \ell-1}; \mathbf{W}_\ell) ||^2/2 + \sum_{\ell=0}^{L-1} || \mathbf{z}_{i, \ell} - g_{\ell+1}(\mathbf{z}_{i, \ell+1}; \mathbf{V}_{\ell+1}) ||^2/2
     $$
 
     where $f_\ell$ and $g_{\ell+1}$ are the forward (top-down) and 
