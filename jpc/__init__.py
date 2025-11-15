@@ -7,7 +7,6 @@ from ._core import (
     pc_energy_fn as pc_energy_fn,
     hpc_energy_fn as hpc_energy_fn,
     bpc_energy_fn as bpc_energy_fn,
-    pdm_energy_fn as pdm_energy_fn,
     _get_param_scalings as _get_param_scalings,
     neg_pc_activity_grad as neg_pc_activity_grad,
     solve_inference as solve_inference,

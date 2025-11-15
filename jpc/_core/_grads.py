@@ -6,7 +6,7 @@ from equinox import filter_grad
 from jaxtyping import PyTree, ArrayLike, Array, Scalar
 from typing import Tuple, Callable, Optional
 from diffrax import AbstractStepSizeController
-from ._energies import pc_energy_fn, hpc_energy_fn, bpc_energy_fn, pdm_energy_fn
+from ._energies import pc_energy_fn, hpc_energy_fn, bpc_energy_fn
 
 
 ########################### ACTIVITY GRADIENTS #################################
@@ -121,7 +121,7 @@ def compute_pc_activity_grad(
 
     **Returns:**
 
-    List of negative gradients of the energy with respect to the activities.
+    The energy and its gradient with respect to the activities.
 
     """
     energy, dFdzs = value_and_grad(pc_energy_fn, argnums=1)(
@@ -171,31 +171,13 @@ def compute_bpc_activity_grad(
         See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations. Defaults
         to `"sp"`.
-    - `only_predicted_terms`: If `True`, computes truncated gradient of the PDM
-        model, including only terms where the activity is the predicted variable.
 
     **Returns:**
 
-    The energy and gradient of the energy with respect to the activities for the 
-    BPC or PDM model.
+    The energy and its gradient with respect to the activities.
 
     """
-    energy = bpc_energy_fn(
-        top_down_model,
-        bottom_up_model,
-        activities,
-        y,
-        x,
-        skip_model=skip_model,
-        param_type=param_type
-    )
-    
-    if only_predicted_terms:
-        energy_fn_for_grad = pdm_energy_fn
-    else:
-        energy_fn_for_grad = bpc_energy_fn
-    
-    dFdzs = grad(energy_fn_for_grad, argnums=2)(
+    energy, dFdzs = value_and_grad(bpc_energy_fn, argnums=2)(
         top_down_model,
         bottom_up_model,
         activities,

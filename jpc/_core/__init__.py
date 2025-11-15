@@ -7,7 +7,6 @@ from ._energies import (
     pc_energy_fn as pc_energy_fn,
     hpc_energy_fn as hpc_energy_fn,
     bpc_energy_fn as bpc_energy_fn,
-    pdm_energy_fn as pdm_energy_fn,
     _get_param_scalings as _get_param_scalings
 )
 from ._grads import (
