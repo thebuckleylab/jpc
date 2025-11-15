@@ -15,3 +15,7 @@ __pycache__/
 site/
 venv*/
 *.log
+.pytest_cache/
+.coverage
+coverage.json
+htmlcov/

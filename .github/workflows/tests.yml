@@ -1,0 +1,80 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11"]
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+    
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+
+      - name: Run tests with coverage
+        run: |
+          pytest tests/ --cov=jpc --cov-report=term --cov-report=json:coverage.json -v
+
+      - name: Extract coverage percentage
+        id: coverage
+        run: |
+          COVERAGE=$(python -c "import json; data = json.load(open('coverage.json')); print(int(data['totals']['percent_covered']))")
+          echo "percentage=$COVERAGE" >> $GITHUB_OUTPUT
+          echo "Coverage: $COVERAGE%"
+
+      - name: Generate badge URL
+        id: badge
+        run: |
+          COVERAGE=${{ steps.coverage.outputs.percentage }}
+          if [ $COVERAGE -ge 90 ]; then
+            COLOR="brightgreen"
+          elif [ $COVERAGE -ge 75 ]; then
+            COLOR="green"
+          elif [ $COVERAGE -ge 50 ]; then
+            COLOR="yellow"
+          else
+            COLOR="red"
+          fi
+          BADGE_URL="https://img.shields.io/badge/coverage-${COVERAGE}%25-${COLOR}"
+          echo "url=$BADGE_URL" >> $GITHUB_OUTPUT
+
+      - name: Update README badge
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          BADGE_URL="${{ steps.badge.outputs.url }}"
+          # Update the coverage badge in README.md
+          if grep -q "!\[coverage\]" README.md; then
+            sed -i "s|!\[coverage\](https://img.shields.io/badge/coverage-[0-9]*%25-[a-z]*)|![coverage]($BADGE_URL)|g" README.md
+          else
+            # If badge doesn't exist, add it after the status badge
+            sed -i "/!\[status\]/a ![coverage]($BADGE_URL)" README.md
+          fi
+
+      - name: Commit and push README update
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git diff --quiet README.md || (git add README.md && git commit -m "Update coverage badge [skip ci]" && git push)
+
