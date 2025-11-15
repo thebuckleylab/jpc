@@ -312,13 +312,25 @@ def compute_activity_norms(activities: PyTree[Array]) -> Array:
 def compute_param_norms(params):
     """Calculates $\ell^2$ norm of all model parameters."""
     def process_model_params(model_params):
-        return jnp.array([
-            jnp.linalg.norm(
-                jnp.ravel(p),
-                ord=2
-            ) if p is not None and not isinstance(p, PjitFunction) else 0.
-            for p in tree_leaves(model_params)
-        ])
+        norms = []
+        for p in tree_leaves(model_params):
+            if p is None or isinstance(p, PjitFunction):
+                norms.append(0.)
+            elif callable(p) and not hasattr(p, 'shape'):
+                # Skip callable functions (like Lambda-wrapped activations) that don't have shape
+                # But keep arrays which might be callable in some JAX contexts
+                norms.append(0.)
+            else:
+                try:
+                    # Check if p is a JAX array-like object
+                    if hasattr(p, 'shape') and hasattr(p, 'dtype'):
+                        norms.append(jnp.linalg.norm(jnp.ravel(p), ord=2))
+                    else:
+                        norms.append(0.)
+                except (TypeError, AttributeError):
+                    # If ravel fails, it's not an array
+                    norms.append(0.)
+        return jnp.array(norms)
 
     model_params, skip_model_params = params
     model_norms = process_model_params(model_params)
