@@ -44,6 +44,7 @@ and checking the [documentation](https://thebuckleylab.github.io/jpc/).
 * [Documentation](#-documentation)
 * [Quick example](#-quick-example)
 * [Advanced usage](#-advanced-usage)
+* [Contributing](#-contributing)
 * [Citation](#-citation)
 
 ## ️💻 Installation
@@ -144,6 +145,16 @@ result = jpc.update_params(
 which can be embedded in a jitted function with any other additional 
 computations. Again, see the [docs](https://thebuckleylab.github.io/jpc/) 
 for details.
+
+## 🤝 Contributing
+Contributions are welcome! Fork the repo, install in editable mode (`pip install -e .`), then:
+- Run `ruff check .` before committing (auto-fix with `ruff check --fix .`)
+- Ensure all tests pass: `pytest tests/`
+- Add tests for new functionality and maintain ~93% coverage
+- Add docstrings to public functions and update `docs/` for user-facing changes
+- Open a PR with a clear description - all CI checks must pass (tests run on Python 3.10 & 3.11)
+
+For major features, open an issue first to discuss.
 
 ## 📄 Citation
 If you found this library useful in your work, please cite ([paper link](https://arxiv.org/abs/2412.03676)):
