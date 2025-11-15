@@ -7,7 +7,7 @@
 <h2 align='center'>🧠 Flexible Inference for Predictive Coding Networks in JAX ⚡️</h2>
 
 ![status](https://img.shields.io/badge/status-active-green) [![Paper](https://img.shields.io/badge/Paper-arXiv:2508.01191-%23f2806bff.svg)](https://arxiv.org/abs/2412.03676)
-![coverage](https://img.shields.io/badge/coverage-97%25-brightgreen)
+![coverage](https://img.shields.io/badge/coverage-93%25-brightgreen)
 
 > [!IMPORTANT] 
 > If you're here for [μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1)), 
