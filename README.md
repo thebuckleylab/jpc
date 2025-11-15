@@ -150,9 +150,8 @@ for details.
 Contributions are welcome! Fork the repo, install in editable mode (`pip install -e .`), then:
 - Run `ruff check .` before committing (auto-fix with `ruff check --fix .`)
 - Ensure all tests pass: `pytest tests/`
-- Add tests for new functionality and maintain ~93% coverage
 - Add docstrings to public functions and update `docs/` for user-facing changes
-- Open a PR with a clear description - all CI checks must pass (tests run on Python 3.10 & 3.11)
+- Open a PR with a clear description
 
 For major features, open an issue first to discuss.
 
