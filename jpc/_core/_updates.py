@@ -8,7 +8,9 @@ from ._grads import (
     compute_pc_activity_grad, 
     compute_pc_param_grads, 
     compute_bpc_activity_grad, 
-    compute_bpc_param_grads
+    compute_bpc_param_grads,
+    compute_pdm_activity_grad,
+    compute_pdm_param_grads
 )
 
 
@@ -187,8 +189,7 @@ def update_bpc_activities(
     input: ArrayLike,
     *,
     skip_model: Optional[PyTree[Callable]] = None,
-    param_type: str = "sp",
-    only_predicted_terms: bool = False
+    param_type: str = "sp"
 ) -> Dict:
     """Updates activities of a bidirectional PC network.
 
@@ -213,8 +214,6 @@ def update_bpc_activities(
         See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations. Defaults
         to `"sp"`.
-    - `only_predicted_terms`: If `True`, computes truncated gradient of the PDM
-        model, including only terms where the activity is the predicted variable.
 
     **Returns:**
 
@@ -229,8 +228,7 @@ def update_bpc_activities(
         y=output,
         x=input,
         skip_model=skip_model,
-        param_type=param_type,
-        only_predicted_terms=only_predicted_terms
+        param_type=param_type
     )
     updates, opt_state = optim.update(
         updates=grads,
@@ -329,3 +327,108 @@ def update_bpc_params(
         "grads": (top_down_grads, bottom_up_grads),
         "opt_states": (top_down_opt_state, bottom_up_opt_state)
     }
+
+
+@eqx.filter_jit
+def update_pdm_activities(
+    top_down_model: PyTree[Callable], 
+    bottom_up_model: PyTree[Callable],
+    activities: PyTree[ArrayLike],
+    optim: GradientTransformation | GradientTransformationExtraArgs,
+    opt_state: OptState,
+    output: ArrayLike,
+    input: ArrayLike,
+    *,
+    skip_model: Optional[PyTree[Callable]] = None,
+    param_type: str = "sp"
+) -> Dict:
+    """Updates activities of a predictive dendrites model (PDM).
+
+    **Main arguments:**
+
+    - `top_down_model`: List of callable model (e.g. neural network) layers for 
+        the forward model.
+    - `bottom_up_model`: List of callable model (e.g. neural network) layers for 
+        the backward model.
+    - `activities`: List of activities for each layer free to vary.
+    - `optim`: optax optimiser, e.g. `optax.sgd()`.
+    - `opt_state`: State of optax optimiser.
+    - `output`: Target of the `top_down_model` and input to the `bottom_up_model`.
+    - `input`: Input to the `top_down_model` and target of the `bottom_up_model`.
+
+    **Other arguments:**
+
+    - `skip_model`: Optional skip connection model.
+    - `param_type`: Determines the parameterisation. Options are `"sp"` 
+        (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
+        or `"ntp"` (neural tangent parameterisation). 
+        See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
+        for the specific scalings of these different parameterisations. Defaults
+        to `"sp"`.
+
+    **Returns:**
+
+    Dictionary with energy, updated activities, activity gradients, and 
+    optimiser state.
+
+    """
+    energy, grads = compute_pdm_activity_grad(
+        top_down_model=top_down_model,
+        bottom_up_model=bottom_up_model,
+        activities=activities,
+        y=output,
+        x=input,
+        skip_model=skip_model,
+        param_type=param_type
+    )
+    updates, opt_state = optim.update(
+        updates=grads,
+        state=opt_state,
+        params=activities
+    )
+    activities = eqx.apply_updates(
+        model=activities,
+        updates=updates
+    )
+    return {
+        "energy": energy,
+        "activities": activities,
+        "grads": grads,
+        "opt_state": opt_state
+    }
+
+
+@eqx.filter_jit
+def update_pdm_params(
+    top_down_model: PyTree[Callable], 
+    bottom_up_model: PyTree[Callable],
+    activities: PyTree[ArrayLike],
+    top_down_optim: GradientTransformation | GradientTransformationExtraArgs,
+    bottom_up_optim: GradientTransformation | GradientTransformationExtraArgs,
+    top_down_opt_state: OptState,
+    bottom_up_opt_state: OptState,
+    output: ArrayLike,
+    input: ArrayLike,
+    *,
+    skip_model: Optional[PyTree[Callable]] = None,
+    param_type: str = "sp"
+) -> Dict:
+    """Updates parameters of a predictive dendrites model (PDM).
+    
+    This is same as [`update_bpc_params()`](https://thebuckleylab.github.io/jpc/api/Updates/#jpc.update_bpc_params)
+    since the parameter gradients are the equivalent to those of the BPC model.
+    
+    """
+    return update_bpc_params(
+        top_down_model=top_down_model,
+        bottom_up_model=bottom_up_model,
+        activities=activities,
+        top_down_optim=top_down_optim,
+        bottom_up_optim=bottom_up_optim,
+        top_down_opt_state=top_down_opt_state,
+        bottom_up_opt_state=bottom_up_opt_state,
+        output=output,
+        input=input,
+        skip_model=skip_model,
+        param_type=param_type
+    )
