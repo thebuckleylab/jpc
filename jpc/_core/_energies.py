@@ -243,7 +243,7 @@ def bpc_energy_fn(
     """Computes the energy of a bidirectional PC network (BPC, [Oliviers et al., 2025](https://arxiv.org/abs/2505.23415)).
 
     $$
-    \mathcal{F}(\mathbf{z}; θ) = 1/N \sum_i^N \sum_{\ell=1}^L || \mathbf{z}_{i, \ell} - f_\ell(\mathbf{z}_{i, \ell-1}; \mathbf{W}_\ell) ||^2/2 + \sum_{\ell=0}^{L-1} || \mathbf{z}_{i, \ell} - g_{\ell+1}(\mathbf{z}_{i, \ell+1}; \mathbf{V}_{\ell+1}) ||^2/2
+    \mathcal{F}(\mathbf{z}; θ) = 1/N \sum_i^N [\sum_{\ell=1}^L || \mathbf{z}_{i, \ell} - f_\ell(\mathbf{z}_{i, \ell-1}; \mathbf{W}_\ell) ||^2/2 + \sum_{\ell=0}^{L-1} || \mathbf{z}_{i, \ell} - g_{\ell+1}(\mathbf{z}_{i, \ell+1}; \mathbf{V}_{\ell+1}) ||^2/2]
     $$
 
     where $f_\ell(\cdot)$ and $g_{\ell+1}(\cdot)$ are the forward (top-down) and 
@@ -329,6 +329,147 @@ def bpc_energy_fn(
         return array([val for pair in energies for val in pair]) / batch_size
     else:
         return total_energy
+
+
+def _pdm_single_layer_energy(
+    top_down_model: PyTree[Callable],
+    bottom_up_model: PyTree[Callable],
+    activities: PyTree[ArrayLike],
+    y: ArrayLike,
+    x: ArrayLike,
+    layer_idx: int,
+    *,
+    skip_model: Optional[PyTree[Callable]] = None,
+    param_type: str = "sp"
+) -> Scalar:
+    """Computes the energy for a single layer of a predictive dendrites model (PDM)
+
+    $$
+    \mathcal{F}_\ell = 1/2N \sum_i^N [|| \mathbf{z}_{i, \ell} - f_\ell(\mathbf{z}_{i, \ell-1}; \mathbf{W}_\ell) ||^2/2 + || \mathbf{z}_{i, \ell} - g_{\ell+1}(\mathbf{z}_{i, \ell+1}; \mathbf{V}_{\ell+1}) ||^2/2]
+    $$
+    
+    where $f_\ell(\cdot)$ and $g_{\ell+1}(\cdot)$ are the forward (top-down) and 
+    backward (bottom-up) layer-wise transformations, and $\mathbf{W}_\ell$ and 
+    $\mathbf{V}_{\ell+1}$ are the forward and backward weights, respectively. 
+
+    **Main arguments:**
+
+    - `top_down_model`: List of callable model (e.g. neural network) layers for 
+        the forward model.
+    - `bottom_up_model`: List of callable model (e.g. neural network) layers for 
+        the backward model.
+    - `activities`: List of activities for each layer free to vary.
+    - `y`: Target of the `top_down_model` and input to the `bottom_up_model`.
+    - `x`: Input to the `top_down_model` and target of the `bottom_up_model`.
+    - `layer_idx`: Index of the layer to compute the energy for.
+
+    **Other arguments:**
+
+    - `skip_model`: Optional skip connection model.
+    - `param_type`: Determines the parameterisation. Options are `"sp"` 
+        (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
+        or `"ntp"` (neural tangent parameterisation). 
+        See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
+        for the specific scalings of these different parameterisations. Defaults
+        to `"sp"`.
+
+    **Returns:**
+
+    The energy for the single PDM layer normalised by batch size.
+    
+    """
+    _check_param_type(param_type)
+
+    H = len(top_down_model) - 1
+    batch_size = activities[0].shape[0]
+    
+    if skip_model is None:
+        skip_model = [None] * (H + 1)
+    
+    # Forward error: ε_ℓ = z_ℓ - W_ℓ z_{ℓ-1}
+    act_prev = x if layer_idx == 0 else activities[layer_idx - 1]
+    e_l = activities[layer_idx] - vmap(top_down_model[layer_idx])(act_prev)
+    if skip_model[layer_idx] is not None and layer_idx > 0:
+        e_l -= vmap(skip_model[layer_idx])(act_prev)
+    
+    forward_energy = 0.5 * sum(e_l ** 2)
+    
+    # Backward error: δ_{ℓ+1} = z_ℓ - V_{ℓ+1} z_{ℓ+1}
+    act_next = y if layer_idx == H - 1 else activities[layer_idx + 1]
+    delta_l = activities[layer_idx] - vmap(bottom_up_model[layer_idx + 1])(act_next)
+    if skip_model[layer_idx + 1] is not None and layer_idx < H - 1:
+        delta_l -= vmap(skip_model[layer_idx + 1])(act_next)
+    
+    backward_energy = 0.5 * sum(delta_l ** 2)
+    
+    return (forward_energy + backward_energy) / batch_size
+
+
+def pdm_energy_fn( 
+    top_down_model: PyTree[Callable], 
+    bottom_up_model: PyTree[Callable],
+    activities: PyTree[ArrayLike],
+    y: ArrayLike,
+    x: ArrayLike,
+    *,
+    skip_model: Optional[PyTree[Callable]] = None,
+    param_type: str = "sp"
+) -> Scalar | Array:
+    """Computes the energy for a predictive dendrites model (PDM) that sums 
+    single-layer energies of [`_pdm_single_layer_energy()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._pdm_single_layer_energy).
+    
+    $$
+    \mathcal{F}(\mathbf{z}; θ) = \sum_{\ell=1}^L \mathcal{F}_\ell
+    $$
+    
+    where the single-layer energies are defined as $\mathcal{F}_\ell = 1/2N \sum_i^N [|| \mathbf{z}_{i, \ell} - f_\ell(\mathbf{z}_{i, \ell-1}; \mathbf{W}_\ell) ||^2/2 + || \mathbf{z}_{i, \ell} - g_{\ell+1}(\mathbf{z}_{i, \ell+1}; \mathbf{V}_{\ell+1}) ||^2/2]$.
+    See [`_pdm_single_layer_energy()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._pdm_single_layer_energy) 
+    for more details.
+
+    **Main arguments:**
+
+    - `top_down_model`: List of callable model (e.g. neural network) layers for 
+        the forward model.
+    - `bottom_up_model`: List of callable model (e.g. neural network) layers for 
+        the backward model.
+    - `activities`: List of activities for each layer free to vary.
+    - `y`: Target of the `top_down_model` and input to the `bottom_up_model`.
+    - `x`: Input to the `top_down_model` and target of the `bottom_up_model`.
+
+    **Other arguments:**
+
+    - `skip_model`: Optional skip connection model.
+    - `param_type`: Determines the parameterisation. Options are `"sp"` 
+        (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
+        or `"ntp"` (neural tangent parameterisation). 
+        See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
+        for the specific scalings of these different parameterisations. Defaults
+        to `"sp"`.
+
+    **Returns:**
+
+    The total PDM energy normalised by batch size.
+
+    """
+    _check_param_type(param_type)
+    
+    H = len(top_down_model) - 1
+    total_energy = 0.
+    
+    for l in range(H):
+        layer_energy = _pdm_single_layer_energy(
+            top_down_model=top_down_model,
+            bottom_up_model=bottom_up_model,
+            activities=activities,
+            y=y,
+            x=x,
+            layer_idx=l,
+            skip_model=skip_model,
+            param_type=param_type
+        )
+        total_energy += layer_energy
+    
+    return total_energy
 
 
 def _get_param_scalings(
