@@ -117,6 +117,15 @@ result = jpc.update_params(
 which can be embedded in a jitted function with any other additional 
 computations.
 
+## 🤝 Contributing
+Contributions are welcome! Fork the repo, install in editable mode (`pip install -e .`), then:
+- Run `ruff check .` before committing (auto-fix with `ruff check --fix .`)
+- Ensure all tests pass: `pytest tests/`
+- Add docstrings to public functions and update `docs/` for user-facing changes
+- Open a PR with a clear description
+
+For major features, open an issue first to discuss.
+
 ## 📄 Citation
 If you found this library useful in your work, please cite ([paper link](https://arxiv.org/abs/2412.03676)):
 
