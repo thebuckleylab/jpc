@@ -245,8 +245,7 @@ def test_compute_bpc_activity_grad_pdm_mode(key, x, y, input_dim, hidden_dim, ou
         activities=activities,
         y=y,
         x=x,
-        param_type="sp",
-        only_predicted_terms=True
+        param_type="sp"
     )
     
     assert jnp.isfinite(energy)
