@@ -31,7 +31,6 @@ from ._core import (
 )
 from ._utils import (
     make_mlp as make_mlp,
-    make_basis_mlp as make_basis_mlp,
     make_skip_model as make_skip_model,
     get_act_fn as get_act_fn,
     mse_loss as mse_loss,
