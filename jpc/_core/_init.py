@@ -162,7 +162,7 @@ def init_epc_errors(
         batch_size: int,
         mode: str = "supervised"
 ) -> PyTree[Array]:
-    """Initialises zero errors for the ePC (error-reparameterised Predictive Coding) energy.
+    """Initialises zero errors for use with ePC $\{ \epsilon_\ell = 0 \}_{l=1}^L$.
 
     **Main arguments:**
 

@@ -242,15 +242,16 @@ def bpc_energy_fn(
     backward_energy_weight: Scalar = 1.0,
     forward_energy_weight: Scalar = 1.0
     ) -> Scalar | Array:
-    r"""Computes the energy of a bidirectional PC network (BPC, [Oliviers et al., 2025](https://arxiv.org/abs/2505.23415)).
+    r"""Computes the energy of a bidirectional PC network (BPC, [Oliviers et al., 2025](https://arxiv.org/abs/2505.23415)) of the form
 
     $$
-    \mathcal{F}(\mathbf{z}; θ) = 1/N \sum_i^N [\sum_{\ell=1}^L || \mathbf{z}_{i, \ell} - f_\ell(\mathbf{z}_{i, \ell-1}; \mathbf{W}_\ell) ||^2/2 + \sum_{\ell=0}^{L-1} || \mathbf{z}_{i, \ell} - g_{\ell+1}(\mathbf{z}_{i, \ell+1}; \mathbf{V}_{\ell+1}) ||^2/2]
+    \mathcal{F}(\mathbf{z}; θ) = 1/N \sum_i^N \left[ \alpha_f \sum_{\ell=1}^L || \mathbf{z}_{i, \ell} - f_\ell(\mathbf{z}_{i, \ell-1}; \mathbf{W}_\ell) ||^2/2 + \alpha_b \sum_{\ell=0}^{L-1} || \mathbf{z}_{i, \ell} - g_{\ell+1}(\mathbf{z}_{i, \ell+1}; \mathbf{V}_{\ell+1}) ||^2/2 \right]
     $$
 
     where $f_\ell(\cdot)$ and $g_{\ell+1}(\cdot)$ are the forward (top-down) and 
-    backward (bottom-up) layer-wise transformations, and $\mathbf{W}_\ell$ and 
-    $\mathbf{V}_{\ell+1}$ are the forward and backward weights, respectively. 
+    backward (bottom-up) layer-wise transformations, $\mathbf{W}_\ell$ and 
+    $\mathbf{V}_{\ell+1}$ as forward and backward weights, and $(\alpha_f, \alpha_b)$ 
+    as weightings of the forward and backward energies, respectively. 
     See the reference below for more details.
 
     ??? cite "Reference"
@@ -622,6 +623,7 @@ def epc_energy_fn(
     where $\epsilon_\ell = \mathbf{z}_\ell - \mathbf{W}_\ell \mathbf{z}_{\ell-1}$ 
     are the prediction errors at each layer, and activities are computed 
     recursively as $\mathbf{z}_\ell = f_\ell(\mathbf{W}_\ell \mathbf{z}_{\ell-1}) + \epsilon_\ell$.
+    See the reference below for more details.
 
     ??? cite "Reference"
 
