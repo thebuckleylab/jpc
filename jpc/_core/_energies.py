@@ -610,7 +610,7 @@ def epc_energy_fn(
     loss: str = "mse",
     param_type: str = "sp"
 ) -> Scalar | Array:
-    r"""Computes the ePC (error-reparameterised Predictive Coding) energy for a neural network.
+    r"""Computes the error-reparameterised PC (ePC) energy for a neural network ([Goemaere et al., 2025](https://arxiv.org/abs/2505.20137)).
 
     In ePC, errors are the variables updated during inference rather than 
     activities. The energy is defined as:
@@ -623,11 +623,22 @@ def epc_energy_fn(
     are the prediction errors at each layer, and activities are computed 
     recursively as $\mathbf{z}_\ell = f_\ell(\mathbf{W}_\ell \mathbf{z}_{\ell-1}) + \boldsymbol{\epsilon}_\ell$.
 
+    ??? cite "Reference"
+
+        ```bibtex
+        @article{goemaere2025error,
+            title={Error Optimization: Overcoming Exponential Signal Decay in Deep Predictive Coding Networks},
+            author={Goemaere, C{\'e}dric and Oliviers, Gaspard and Bogacz, Rafal and Demeester, Thomas},
+            journal={arXiv preprint arXiv:2505.20137},
+            year={2025}
+        }
+        ```
+
     **Main arguments:**
 
     - `params`: Tuple with callable model (e.g. neural network) layers and
         optional skip connections.
-    - `errors`: List of errors for each layer free to vary.
+    - `errors`: List of predictionerrors for each layer.
     - `y`: Observation or target of the generative model.
 
     **Other arguments:**
@@ -644,7 +655,7 @@ def epc_energy_fn(
 
     **Returns:**
 
-    The total energy normalised by the batch size.
+    The total ePC energy normalised by the batch size.
 
     """
     _check_param_type(param_type)
