@@ -644,7 +644,7 @@ def compute_epc_error_grad(
     param_type: str = "sp"
 ) -> Tuple[Scalar, PyTree[Array]]:
     """Computes the gradient of the [ePC energy](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.epc_energy_fn)
-    with respect to the errors $∇_{\boldsymbol{\epsilon}} \mathcal{F}$.
+    with respect to the errors $∇_{\epsilon} \mathcal{F}$.
 
     !!! note
 

@@ -338,6 +338,120 @@ def bpc_energy_fn(
         return total_energy
 
 
+def epc_energy_fn(
+    params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
+    errors: PyTree[ArrayLike],
+    y: ArrayLike,
+    *,
+    x: Optional[ArrayLike] = None,
+    loss: str = "mse",
+    param_type: str = "sp"
+) -> Scalar | Array:
+    r"""Computes the error-reparameterised PC (ePC) energy for a neural network ([Goemaere et al., 2025](https://arxiv.org/abs/2505.20137)) of the form
+
+    $$
+    \mathcal{F} = \sum_{\ell=1}^{L-1} \frac{1}{2} ||\epsilon_\ell||^2 + \frac{1}{2}||\mathbf{y} - \tilde{\mathbf{f}}(\mathbf{z}_0, \epsilon)||^2
+    $$
+
+    where $\epsilon_\ell = \mathbf{z}_\ell - \mathbf{f}_\ell(\mathbf{W}_\ell \mathbf{z}_{\ell-1})$ 
+    are the prediction errors at each layer, and 
+    $\tilde{\mathbf{f}}(\mathbf{z}_0, \epsilon)$ is an error-perturbed forward 
+    pass. In ePC, errors are the variables updated during inference rather than 
+    activities. See the reference below for more details.
+
+    ??? cite "Reference"
+
+        ```bibtex
+        @article{goemaere2025error,
+            title={Error Optimization: Overcoming Exponential Signal Decay in Deep Predictive Coding Networks},
+            author={Goemaere, C{\'e}dric and Oliviers, Gaspard and Bogacz, Rafal and Demeester, Thomas},
+            journal={arXiv preprint arXiv:2505.20137},
+            year={2025}
+        }
+        ```
+
+    **Main arguments:**
+
+    - `params`: Tuple with callable model (e.g. neural network) layers and
+        optional skip connections.
+    - `errors`: List of predictionerrors for each layer.
+    - `y`: Observation or target of the generative model.
+
+    **Other arguments:**
+
+    - `x`: Optional prior of the generative model (for supervised training).
+    - `loss`: Loss function to use at the output layer. Options are mean squared 
+        error `"mse"` (default) or cross-entropy `"ce"`.
+    - `param_type`: Determines the parameterisation. Options are `"sp"` 
+        (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco_Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
+        or `"ntp"` (neural tangent parameterisation). 
+        See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
+        for the specific scalings of these different parameterisations. Defaults
+        to `"sp"`.
+
+    **Returns:**
+
+    The total ePC energy normalised by the batch size.
+
+    """
+    _check_param_type(param_type)
+
+    model, skip_model = params
+    batch_size = y.shape[0]
+    n_hidden = len(model) - 1
+
+    if skip_model is None:
+        skip_model = [None] * len(model)
+
+    scalings = _get_param_scalings(
+        model=model, 
+        input=x if x is not None else errors[0], 
+        skip_model=skip_model, 
+        param_type=param_type
+    )
+
+    if x is not None:
+        current_activity = x
+        error_idx = 0
+    else:
+        current_activity = errors[0]
+        error_idx = 1
+
+    for net_l in range(n_hidden):
+        z_l = scalings[net_l] * vmap(model[net_l])(current_activity) + errors[error_idx]
+        if skip_model[net_l] is not None:
+            z_l += vmap(skip_model[net_l])(current_activity)
+        
+        current_activity = z_l
+        error_idx += 1
+
+    zL = scalings[-1] * vmap(model[-1])(current_activity)
+
+    total_energy = 0.0
+    if x is not None:
+        # Hidden layer errors
+        for err_idx in range(n_hidden):
+            total_energy += 0.5 * sum(errors[err_idx] ** 2)
+
+        if loss == "mse":
+            output_error = errors[n_hidden] if len(errors) > n_hidden else (y - zL)
+            total_energy += 0.5 * sum((output_error - (y - zL)) ** 2)
+        elif loss == "ce":
+            total_energy += - sum(y * log_softmax(zL))
+    else:
+        # Hidden layer errors (skip first error which is input)
+        for err_idx in range(1, n_hidden + 1):
+            total_energy += 0.5 * sum(errors[err_idx] ** 2)
+        
+        if loss == "mse":
+            output_error = errors[n_hidden + 1] if len(errors) > n_hidden + 1 else (y - zL)
+            total_energy += 0.5 * sum((output_error - (y - zL)) ** 2)
+        elif loss == "ce":
+            total_energy += - sum(y * log_softmax(zL))
+
+    return total_energy / batch_size
+
+
 def _pdm_single_layer_energy(
     top_down_model: PyTree[Callable],
     bottom_up_model: PyTree[Callable],
@@ -600,122 +714,6 @@ def pdm_energy_fn(
         total_energy += spectral_penalty * reg
     
     return total_energy
-
-
-def epc_energy_fn(
-    params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
-    errors: PyTree[ArrayLike],
-    y: ArrayLike,
-    *,
-    x: Optional[ArrayLike] = None,
-    loss: str = "mse",
-    param_type: str = "sp"
-) -> Scalar | Array:
-    r"""Computes the error-reparameterised PC (ePC) energy for a neural network ([Goemaere et al., 2025](https://arxiv.org/abs/2505.20137)).
-
-    In ePC, errors are the variables updated during inference rather than 
-    activities. The energy is defined as:
-
-    $$
-    \mathcal{F} = \sum_{\ell=1}^{L-1} \frac{1}{2} ||\epsilon_\ell||^2 + \frac{1}{2}||\mathbf{y} - \tilde{\mathbf{f}}(\mathbf{z}_0, \epsilon)||^2
-    $$
-
-    where $\epsilon_\ell = \mathbf{z}_\ell - \mathbf{W}_\ell \mathbf{z}_{\ell-1}$ 
-    are the prediction errors at each layer, and activities are computed 
-    recursively as $\mathbf{z}_\ell = f_\ell(\mathbf{W}_\ell \mathbf{z}_{\ell-1}) + \epsilon_\ell$.
-    See the reference below for more details.
-
-    ??? cite "Reference"
-
-        ```bibtex
-        @article{goemaere2025error,
-            title={Error Optimization: Overcoming Exponential Signal Decay in Deep Predictive Coding Networks},
-            author={Goemaere, C{\'e}dric and Oliviers, Gaspard and Bogacz, Rafal and Demeester, Thomas},
-            journal={arXiv preprint arXiv:2505.20137},
-            year={2025}
-        }
-        ```
-
-    **Main arguments:**
-
-    - `params`: Tuple with callable model (e.g. neural network) layers and
-        optional skip connections.
-    - `errors`: List of predictionerrors for each layer.
-    - `y`: Observation or target of the generative model.
-
-    **Other arguments:**
-
-    - `x`: Optional prior of the generative model (for supervised training).
-    - `loss`: Loss function to use at the output layer. Options are mean squared 
-        error `"mse"` (default) or cross-entropy `"ce"`.
-    - `param_type`: Determines the parameterisation. Options are `"sp"` 
-        (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco_Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
-        or `"ntp"` (neural tangent parameterisation). 
-        See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
-        for the specific scalings of these different parameterisations. Defaults
-        to `"sp"`.
-
-    **Returns:**
-
-    The total ePC energy normalised by the batch size.
-
-    """
-    _check_param_type(param_type)
-
-    model, skip_model = params
-    batch_size = y.shape[0]
-    n_hidden = len(model) - 1
-
-    if skip_model is None:
-        skip_model = [None] * len(model)
-
-    scalings = _get_param_scalings(
-        model=model, 
-        input=x if x is not None else errors[0], 
-        skip_model=skip_model, 
-        param_type=param_type
-    )
-
-    if x is not None:
-        current_activity = x
-        error_idx = 0
-    else:
-        current_activity = errors[0]
-        error_idx = 1
-
-    for net_l in range(n_hidden):
-        z_l = scalings[net_l] * vmap(model[net_l])(current_activity) + errors[error_idx]
-        if skip_model[net_l] is not None:
-            z_l += vmap(skip_model[net_l])(current_activity)
-        
-        current_activity = z_l
-        error_idx += 1
-
-    zL = scalings[-1] * vmap(model[-1])(current_activity)
-
-    total_energy = 0.0
-    if x is not None:
-        # Hidden layer errors
-        for err_idx in range(n_hidden):
-            total_energy += 0.5 * sum(errors[err_idx] ** 2)
-
-        if loss == "mse":
-            output_error = errors[n_hidden] if len(errors) > n_hidden else (y - zL)
-            total_energy += 0.5 * sum((output_error - (y - zL)) ** 2)
-        elif loss == "ce":
-            total_energy += - sum(y * log_softmax(zL))
-    else:
-        # Hidden layer errors (skip first error which is input)
-        for err_idx in range(1, n_hidden + 1):
-            total_energy += 0.5 * sum(errors[err_idx] ** 2)
-        
-        if loss == "mse":
-            output_error = errors[n_hidden + 1] if len(errors) > n_hidden + 1 else (y - zL)
-            total_energy += 0.5 * sum((output_error - (y - zL)) ** 2)
-        elif loss == "ce":
-            total_energy += - sum(y * log_softmax(zL))
-
-    return total_energy / batch_size
 
 
 def _get_param_scalings(
