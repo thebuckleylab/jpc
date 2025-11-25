@@ -6,7 +6,8 @@ import jax.numpy as jnp
 from jpc import (
     init_activities_with_ffwd,
     init_activities_from_normal,
-    init_activities_with_amort
+    init_activities_with_amort,
+    init_epc_errors
 )
 
 
@@ -117,4 +118,20 @@ def test_init_activities_with_amort(key, simple_model, y, input_dim, hidden_dim,
     
     # Should return reversed activities plus dummy target prediction
     assert len(activities) == len(amortiser) + 1
+
+
+def test_init_epc_errors_supervised(layer_sizes, batch_size):
+    """Test EPC error initialization in supervised mode."""
+    errors = init_epc_errors(
+        layer_sizes=layer_sizes,
+        batch_size=batch_size,
+        mode="supervised"
+    )
+    
+    # In supervised mode, errors are initialized for layers 1 to L-1 (hidden layers only)
+    assert len(errors) == len(layer_sizes) - 1
+    for i, (err, size) in enumerate(zip(errors, layer_sizes[1:]), 1):
+        assert err.shape == (batch_size, size)
+        assert jnp.allclose(err, 0.0)  # Should be zero-initialized
+
 

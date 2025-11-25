@@ -7,6 +7,7 @@ from jpc import (
     pc_energy_fn,
     hpc_energy_fn,
     bpc_energy_fn,
+    epc_energy_fn,
     _get_param_scalings
 )
 
@@ -118,7 +119,7 @@ def test_pc_energy_fn_different_param_types(key, x, y, input_dim, hidden_dim, ou
     """Test PC energy function with different parameter types."""
     from jpc import make_mlp, init_activities_with_ffwd
     
-    for param_type in ["sp", "mupc", "ntk"]:  # Note: library uses "ntk" not "ntp"
+    for param_type in ["sp", "mupc", "ntp"]:
         model = make_mlp(
             key=key,
             input_dim=input_dim,
@@ -272,3 +273,122 @@ def test_get_param_scalings_with_skip(key, x, input_dim, hidden_dim, output_dim,
     )
     
     assert len(scalings) == len(model)
+
+
+def test_epc_energy_fn_supervised(simple_model, x, y, layer_sizes):
+    """Test EPC energy function in supervised mode."""
+    from jpc import init_epc_errors
+    
+    errors = init_epc_errors(
+        layer_sizes=layer_sizes,
+        batch_size=x.shape[0],
+        mode="supervised"
+    )
+    
+    energy = epc_energy_fn(
+        params=(simple_model, None),
+        errors=errors,
+        y=y,
+        x=x,
+        loss="mse",
+        param_type="sp"
+    )
+    
+    assert jnp.isfinite(energy)
+    assert energy >= 0
+
+
+def test_epc_energy_fn_cross_entropy(simple_model, x, y_onehot, layer_sizes):
+    """Test EPC energy function with cross-entropy loss."""
+    from jpc import init_epc_errors
+    
+    errors = init_epc_errors(
+        layer_sizes=layer_sizes,
+        batch_size=x.shape[0],
+        mode="supervised"
+    )
+    
+    energy = epc_energy_fn(
+        params=(simple_model, None),
+        errors=errors,
+        y=y_onehot,
+        x=x,
+        loss="ce",
+        param_type="sp"
+    )
+    
+    assert jnp.isfinite(energy)
+
+
+def test_epc_energy_fn_different_param_types(key, x, y, input_dim, hidden_dim, output_dim, depth):
+    """Test EPC energy function with different parameter types."""
+    from jpc import make_mlp, init_epc_errors
+    
+    for param_type in ["sp", "mupc", "ntp"]:
+        model = make_mlp(
+            key=key,
+            input_dim=input_dim,
+            width=hidden_dim,
+            depth=depth,
+            output_dim=output_dim,
+            act_fn="relu",
+            use_bias=False,
+            param_type=param_type
+        )
+        
+        layer_sizes = [input_dim] + [hidden_dim] * (depth - 1) + [output_dim]
+        errors = init_epc_errors(
+            layer_sizes=layer_sizes,
+            batch_size=x.shape[0],
+            mode="supervised"
+        )
+        
+        energy = epc_energy_fn(
+            params=(model, None),
+            errors=errors,
+            y=y,
+            x=x,
+            loss="mse",
+            param_type=param_type
+        )
+        
+        assert jnp.isfinite(energy)
+        assert energy >= 0
+
+
+def test_epc_energy_fn_with_skip_connections(key, x, y, input_dim, hidden_dim, output_dim, depth):
+    """Test EPC energy function with skip connections."""
+    from jpc import make_mlp, make_skip_model, init_epc_errors
+    
+    model = make_mlp(
+        key=key,
+        input_dim=input_dim,
+        width=hidden_dim,
+        depth=depth,
+        output_dim=output_dim,
+        act_fn="relu",
+        use_bias=False,
+        param_type="sp"
+    )
+    
+    skip_model = make_skip_model(len(model))
+    
+    layer_sizes = [input_dim] + [hidden_dim] * (depth - 1) + [output_dim]
+    errors = init_epc_errors(
+        layer_sizes=layer_sizes,
+        batch_size=x.shape[0],
+        mode="supervised"
+    )
+    
+    energy = epc_energy_fn(
+        params=(model, skip_model),
+        errors=errors,
+        y=y,
+        x=x,
+        loss="mse",
+        param_type="sp"
+    )
+    
+    assert jnp.isfinite(energy)
+    assert energy >= 0
+

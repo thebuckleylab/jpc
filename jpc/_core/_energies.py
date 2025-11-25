@@ -616,12 +616,12 @@ def epc_energy_fn(
     activities. The energy is defined as:
 
     $$
-    \mathcal{F} = \sum_{\ell=1}^{L-1} \frac{1}{2} ||\boldsymbol{\epsilon}_\ell||^2 + \frac{1}{2}||\mathbf{y} - \tilde{\mathbf{f}}(\mathbf{z}_0, \boldsymbol{\epsilon})||^2
+    \mathcal{F} = \sum_{\ell=1}^{L-1} \frac{1}{2} ||\epsilon_\ell||^2 + \frac{1}{2}||\mathbf{y} - \tilde{\mathbf{f}}(\mathbf{z}_0, \epsilon)||^2
     $$
 
-    where $\boldsymbol{\epsilon}_\ell = \mathbf{z}_\ell - \mathbf{W}_\ell \mathbf{z}_{\ell-1}$ 
+    where $\epsilon_\ell = \mathbf{z}_\ell - \mathbf{W}_\ell \mathbf{z}_{\ell-1}$ 
     are the prediction errors at each layer, and activities are computed 
-    recursively as $\mathbf{z}_\ell = f_\ell(\mathbf{W}_\ell \mathbf{z}_{\ell-1}) + \boldsymbol{\epsilon}_\ell$.
+    recursively as $\mathbf{z}_\ell = f_\ell(\mathbf{W}_\ell \mathbf{z}_{\ell-1}) + \epsilon_\ell$.
 
     ??? cite "Reference"
 

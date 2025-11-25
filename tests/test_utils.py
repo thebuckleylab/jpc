@@ -5,7 +5,6 @@ import jax
 import jax.numpy as jnp
 from jpc import (
     make_mlp,
-    make_basis_mlp,
     make_skip_model,
     get_act_fn,
     mse_loss,
@@ -71,7 +70,7 @@ def test_make_mlp_with_bias(key, input_dim, hidden_dim, output_dim, depth):
 
 def test_make_mlp_different_param_types(key, input_dim, hidden_dim, output_dim, depth):
     """Test MLP creation with different parameter types."""
-    for param_type in ["sp", "mupc", "ntk"]:
+    for param_type in ["sp", "mupc", "ntp"]:
         model = make_mlp(
             key=key,
             input_dim=input_dim,
@@ -84,24 +83,6 @@ def test_make_mlp_different_param_types(key, input_dim, hidden_dim, output_dim, 
         )
         
         assert len(model) == depth
-
-
-def test_make_basis_mlp(key, input_dim, hidden_dim, output_dim, depth):
-    """Test basis MLP creation."""
-    def basis_fn(x):
-        return jnp.concatenate([x, x**2], axis=-1)
-    
-    model = make_basis_mlp(
-        key=key,
-        input_dim=input_dim,
-        width=hidden_dim,
-        depth=depth,
-        output_dim=output_dim,
-        basis_fn=basis_fn,
-        use_bias=False
-    )
-    
-    assert len(model) == depth
 
 
 def test_make_skip_model(depth):
@@ -244,4 +225,3 @@ def test_compute_infer_energies(simple_model, x, y):
     
     assert energies.shape[0] == len(simple_model)
     assert all(jnp.all(jnp.isfinite(e)) for e in energies)
-

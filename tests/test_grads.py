@@ -9,7 +9,9 @@ from jpc import (
     compute_pc_param_grads,
     compute_hpc_param_grads,
     compute_bpc_activity_grad,
-    compute_bpc_param_grads
+    compute_bpc_param_grads,
+    compute_epc_error_grad,
+    compute_epc_param_grads
 )
 
 
@@ -297,4 +299,113 @@ def test_compute_bpc_param_grads(key, x, y, input_dim, hidden_dim, output_dim, d
     
     assert len(top_down_grads) == len(top_down_model)
     assert len(bottom_up_grads) == len(bottom_up_model)
+
+
+def test_compute_epc_error_grad_supervised(simple_model, x, y, layer_sizes):
+    """Test EPC error gradient computation in supervised mode."""
+    from jpc import init_epc_errors
+    
+    errors = init_epc_errors(
+        layer_sizes=layer_sizes,
+        batch_size=x.shape[0],
+        mode="supervised"
+    )
+    
+    energy, grads = compute_epc_error_grad(
+        params=(simple_model, None),
+        errors=errors,
+        y=y,
+        x=x,
+        loss_id="mse",
+        param_type="sp"
+    )
+    
+    assert jnp.isfinite(energy)
+    assert len(grads) == len(errors)
+    for grad, err in zip(grads, errors):
+        assert grad.shape == err.shape
+        assert jnp.all(jnp.isfinite(grad))
+
+
+def test_compute_epc_error_grad_cross_entropy(simple_model, x, y_onehot, layer_sizes):
+    """Test EPC error gradient with cross-entropy loss."""
+    from jpc import init_epc_errors
+    
+    errors = init_epc_errors(
+        layer_sizes=layer_sizes,
+        batch_size=x.shape[0],
+        mode="supervised"
+    )
+    
+    energy, grads = compute_epc_error_grad(
+        params=(simple_model, None),
+        errors=errors,
+        y=y_onehot,
+        x=x,
+        loss_id="ce",
+        param_type="sp"
+    )
+    
+    assert jnp.isfinite(energy)
+    assert len(grads) == len(errors)
+
+
+def test_compute_epc_param_grads_supervised(simple_model, x, y, layer_sizes):
+    """Test EPC parameter gradient computation in supervised mode."""
+    from jpc import init_epc_errors
+    
+    errors = init_epc_errors(
+        layer_sizes=layer_sizes,
+        batch_size=x.shape[0],
+        mode="supervised"
+    )
+    
+    grads = compute_epc_param_grads(
+        params=(simple_model, None),
+        errors=errors,
+        y=y,
+        x=x,
+        loss_id="mse",
+        param_type="sp"
+    )
+    
+    model_grads, skip_grads = grads
+    assert len(model_grads) == len(simple_model)
+    assert skip_grads is None or len(skip_grads) == len(simple_model)
+
+
+def test_compute_epc_param_grads_different_param_types(key, x, y, input_dim, hidden_dim, output_dim, depth):
+    """Test EPC parameter gradients with different parameter types."""
+    from jpc import make_mlp, init_epc_errors
+    
+    for param_type in ["sp", "mupc", "ntp"]:
+        model = make_mlp(
+            key=key,
+            input_dim=input_dim,
+            width=hidden_dim,
+            depth=depth,
+            output_dim=output_dim,
+            act_fn="relu",
+            use_bias=False,
+            param_type=param_type
+        )
+        
+        layer_sizes = [input_dim] + [hidden_dim] * (depth - 1) + [output_dim]
+        errors = init_epc_errors(
+            layer_sizes=layer_sizes,
+            batch_size=x.shape[0],
+            mode="supervised"
+        )
+        
+        grads = compute_epc_param_grads(
+            params=(model, None),
+            errors=errors,
+            y=y,
+            x=x,
+            loss_id="mse",
+            param_type=param_type
+        )
+        
+        model_grads, skip_grads = grads
+        assert len(model_grads) == len(model)
 
