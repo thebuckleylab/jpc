@@ -8,6 +8,8 @@ for standard PC networks,
 for hybrid PC models ([Tscshantz et al., 2023](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1011280)), and
 * [jpc.bpc_energy_fn()](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.hpc_energy_fn) 
 for bidirectional PC models ([Oliviers et al., 2025](https://arxiv.org/abs/2505.23415)).
+* [jpc.epc_energy_fn()](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.epc_energy_fn) 
+for error-reparameterised PC networks ([Goemaere et al., 2025](https://arxiv.org/abs/2505.20137)),
 
 ::: jpc.pc_energy_fn
 
@@ -18,6 +20,10 @@ for bidirectional PC models ([Oliviers et al., 2025](https://arxiv.org/abs/2505.
 ---
 
 ::: jpc.bpc_energy_fn
+
+---
+
+::: jpc.epc_energy_fn
 
 ---
 

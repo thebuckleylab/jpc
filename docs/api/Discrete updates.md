@@ -19,3 +19,11 @@ to solve the PC inference or activity dynamics.
 ---
 
 ::: jpc.update_bpc_params
+
+---
+
+::: jpc.update_epc_errors
+
+---
+
+::: jpc.update_epc_params

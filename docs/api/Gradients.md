@@ -21,6 +21,10 @@
 
 ---
 
+::: jpc.compute_epc_error_grad
+
+---
+
 ::: jpc.compute_pc_param_grads
 
 ---
@@ -30,3 +34,7 @@
 ---
 
 ::: jpc.compute_bpc_param_grads
+
+---
+
+::: jpc.compute_epc_param_grads
