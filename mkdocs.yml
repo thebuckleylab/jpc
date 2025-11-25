@@ -98,6 +98,7 @@ nav:
             - Unsupervised generative PC: 'examples/unsupervised_generative_pc.ipynb'
         - Advanced:
             - μPC: 'examples/mupc.ipynb'
+            - ePC: 'examples/epc.ipynb'
             - Hybrid PC: 'examples/hybrid_pc.ipynb'
             - Bidirectional PC: 'examples/bidirectional_pc.ipynb'
             - Linear theoretical energy: 'examples/linear_net_theoretical_energy.ipynb'
