@@ -260,7 +260,7 @@ def compute_linear_activity_solution(
     !!! info
 
         This can be used to study how linear PC networks learn when they perform 
-        perfect inference. An example notebook demonstration is in the works!
+        perfect inference.
     
     ??? cite "Reference"
 
