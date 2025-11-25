@@ -9,10 +9,12 @@
 ![status](https://img.shields.io/badge/status-active-green) [![Paper](https://img.shields.io/badge/Paper-arXiv:2508.01191-%23f2806bff.svg)](https://arxiv.org/abs/2412.03676)
 ![coverage](https://img.shields.io/badge/coverage-93%25-brightgreen)
 
-> [!IMPORTANT] 
-> If you're here for [μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1)), 
-> see [this example notebook](https://thebuckleylab.github.io/jpc/examples/mupc/) 
-> and the paper's experiments in [`experiments/mupc_paper`](https://github.com/thebuckleylab/jpc/tree/main/experiments/mupc_paper).
+## 📢 Updates
+* [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/thebuckleylab/jpc/blob/main/examples/mupc.ipynb) May 2025: Added "μPC" ([Innocenti et al., 2025](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1)))
+* [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/thebuckleylab/jpc/blob/main/examples/bidirectional_pc.ipynb) Oct 2025: Added bidirectional PC (bPC, [Oliviers, et al., 2025](https://arxiv.org/abs/2505.23415))
+* [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/thebuckleylab/jpc/blob/main/examples/epc.ipynb)  Nov 2025: Added "ePC" ([Goemaere, et al., 2025](https://arxiv.org/abs/2505.20137))
+
+---
 
 JPC is a [**J**AX](https://github.com/google/jax) library for training neural 
 networks with **P**redictive **C**oding (PC). It is built on top of three main 
