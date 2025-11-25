@@ -1,4 +1,4 @@
-_PARAM_TYPES = ["sp", "mupc", "ntk"]
+_PARAM_TYPES = ["sp", "mupc", "ntp"]
 
 
 def _check_param_type(param_type):

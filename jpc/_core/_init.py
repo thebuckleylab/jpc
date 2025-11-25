@@ -1,6 +1,7 @@
 """Functions to initialise the layer activities of PC networks."""
 
 from jax import vmap, random
+import jax.numpy as jnp
 import equinox as eqx
 from ._energies import _get_param_scalings
 from jaxtyping import PyTree, ArrayLike, Array, PRNGKeyArray, Scalar
@@ -154,3 +155,32 @@ def init_activities_with_amort(
         vmap(generator[-1])(activities[-1])
     )
     return activities
+
+
+def init_epc_errors(
+        layer_sizes: PyTree[int],
+        batch_size: int,
+        mode: str = "supervised"
+) -> PyTree[Array]:
+    """Initialises zero errors for the ePC (error-reparameterised Predictive Coding) energy.
+
+    **Main arguments:**
+
+    - `layer_sizes`: List with dimension of all layers (input, hidden and
+        output).
+    - `batch_size`: Dimension of data batch.
+    - `mode`: If `"supervised"`, errors are initialised for layers 1 to L-1
+        (hidden layers only). If `"unsupervised"`, errors are initialised for
+        layer 0 (input) and layers 1 to L-1. Defaults to `"supervised"`.
+
+    **Returns:**
+
+    List of zero-initialised error arrays for each layer.
+
+    """
+    start_l = 0 if mode == "unsupervised" else 1
+    n_layers = len(layer_sizes) if mode == "unsupervised" else len(layer_sizes) - 1
+    errors = []
+    for l in range(start_l, n_layers + 1):
+        errors.append(jnp.zeros(shape=(batch_size, layer_sizes[l])))
+    return errors

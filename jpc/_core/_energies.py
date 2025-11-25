@@ -21,7 +21,7 @@ def pc_energy_fn(
     activity_decay: Scalar = 0.,
     record_layers: bool = False
 ) -> Scalar | Array:
-    """Computes the PC energy for a neural network of the form
+    r"""Computes the PC energy for a neural network of the form
 
     $$
     \mathcal{F}(\mathbf{z}; θ) = 1/2N \sum_i^N \sum_{\ell=1}^L || \mathbf{z}_{i, \ell} - f_\ell(\mathbf{z}_{i, \ell-1}; θ_\ell) ||^2
@@ -152,7 +152,7 @@ def hpc_energy_fn(
     y: Optional[ArrayLike] = None,
     record_layers: bool = False
 ) -> Scalar | Array:
-    """Computes the energy of an amortised PC network ([Tscshantz et al., 2023](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1011280))
+    r"""Computes the energy of an amortised PC network ([Tscshantz et al., 2023](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1011280))
 
     $$
     \mathcal{F}(\mathbf{z}^*, \hat{\mathbf{z}}; θ) = 1/N \sum_i^N \sum_{\ell=1}^L || \mathbf{z}^*_{i, \ell} - f_\ell(\hat{\mathbf{z}}_{i, \ell-1}; θ_\ell) ||^2
@@ -238,9 +238,11 @@ def bpc_energy_fn(
     *,
     skip_model: Optional[PyTree[Callable]] = None,
     param_type: str = "sp",
-    record_layers: bool = False
+    record_layers: bool = False,
+    backward_energy_weight: Scalar = 1.0,
+    forward_energy_weight: Scalar = 1.0
     ) -> Scalar | Array:
-    """Computes the energy of a bidirectional PC network (BPC, [Oliviers et al., 2025](https://arxiv.org/abs/2505.23415)).
+    r"""Computes the energy of a bidirectional PC network (BPC, [Oliviers et al., 2025](https://arxiv.org/abs/2505.23415)).
 
     $$
     \mathcal{F}(\mathbf{z}; θ) = 1/N \sum_i^N [\sum_{\ell=1}^L || \mathbf{z}_{i, \ell} - f_\ell(\mathbf{z}_{i, \ell-1}; \mathbf{W}_\ell) ||^2/2 + \sum_{\ell=0}^{L-1} || \mathbf{z}_{i, \ell} - g_{\ell+1}(\mathbf{z}_{i, \ell+1}; \mathbf{V}_{\ell+1}) ||^2/2]
@@ -282,6 +284,10 @@ def bpc_energy_fn(
         for the specific scalings of these different parameterisations. Defaults
         to `"sp"`.
     - `record_layers`: If `True`, returns the energy of each layer.
+    - `backward_energy_weight`: Scalar weighting for the backward energy terms. 
+        Defaults to `1.0`.
+    - `forward_energy_weight`: Scalar weighting for the forward energy terms. 
+        Defaults to `1.0`.
 
     **Returns:**
 
@@ -299,11 +305,11 @@ def bpc_energy_fn(
 
     # discriminative (bottom-up) loss
     delta_0 = x - vmap(bottom_up_model[0])(activities[0])
-    bottom_up_energy = 0.5 * sum(delta_0 ** 2)
+    bottom_up_energy = backward_energy_weight * 0.5 * sum(delta_0 ** 2)
 
     # generative (top-down) loss
     e_L = y - vmap(top_down_model[-1])(activities[-2])
-    top_down_energy = 0.5 * sum(e_L ** 2)
+    top_down_energy = forward_energy_weight * 0.5 * sum(e_L ** 2)
 
     energies.append((top_down_energy, bottom_up_energy))
 
@@ -318,8 +324,8 @@ def bpc_energy_fn(
         if skip_model[l + 1] is not None and l < H - 1:
             delta_l -= vmap(skip_model[l + 1])(act_next)
 
-        top_down_energy = 0.5 * sum(e_l ** 2)
-        bottom_up_energy = 0.5 * sum(delta_l ** 2)
+        top_down_energy = forward_energy_weight * 0.5 * sum(e_l ** 2)
+        bottom_up_energy = backward_energy_weight * 0.5 * sum(delta_l ** 2)
 
         energies.append((top_down_energy, bottom_up_energy))
 
@@ -340,17 +346,24 @@ def _pdm_single_layer_energy(
     layer_idx: int,
     *,
     skip_model: Optional[PyTree[Callable]] = None,
-    param_type: str = "sp"
+    param_type: str = "sp",
+    include_previous_backward_error: bool = False,
+    projection_weights_prev: Optional[PyTree[Callable]] = None,
+    fixed_delta_0: Optional[ArrayLike] = None,
+    backward_energy_weight: Scalar = 1.0,
+    forward_energy_weight: Scalar = 1.0
 ) -> Scalar:
-    """Computes the energy for a single layer of a predictive dendrites model (PDM)
+    r"""Computes the energy for a single layer of a predictive dendrites model (PDM)
 
     $$
-    \mathcal{F}_\ell = 1/2N \sum_i^N [|| \mathbf{z}_{i, \ell} - f_\ell(\mathbf{z}_{i, \ell-1}; \mathbf{W}_\ell) ||^2/2 + || \mathbf{z}_{i, \ell} - g_{\ell+1}(\mathbf{z}_{i, \ell+1}; \mathbf{V}_{\ell+1}) ||^2/2]
+    \mathcal{F}_\ell = 1/2N \sum_i^N [|| \mathbf{z}_{i, \ell} - f_\ell(\mathbf{z}_{i, \ell-1}; \mathbf{W}_\ell) ||^2/2 + || \mathbf{z}_{i, \ell} - g_{\ell+1}(\mathbf{z}_{i, \ell+1}; \mathbf{V}_{\ell+1}) ||^2/2 + || \mathbf{z}_{i, \ell} - \boldsymbol{\epsilon}_{i, \ell+1} ||^2/2]
     $$
     
     where $f_\ell(\cdot)$ and $g_{\ell+1}(\cdot)$ are the forward (top-down) and 
-    backward (bottom-up) layer-wise transformations, and $\mathbf{W}_\ell$ and 
-    $\mathbf{V}_{\ell+1}$ are the forward and backward weights, respectively. 
+    backward (bottom-up) layer-wise transformations, $\mathbf{W}_\ell$ and 
+    $\mathbf{V}_{\ell+1}$ are the forward and backward weights, respectively, and
+    $\boldsymbol{\epsilon}_{\ell+1} = \mathbf{z}_{\ell+1} - f_{\ell+1}(\mathbf{z}_\ell; \mathbf{W}_{\ell+1})$
+    is the forward error at the next layer. 
 
     **Main arguments:**
 
@@ -372,6 +385,18 @@ def _pdm_single_layer_energy(
         See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations. Defaults
         to `"sp"`.
+    - `include_previous_backward_error`: If `True`, includes an extra dendritic term 
+        $(z_\ell - \delta_{\ell})^2/2$ that couples the layer with the backward 
+        error at the previous layer, where $\delta_{\ell} = z_{\ell-1} - V_{\ell} z_{\ell}$. 
+        Defaults to `False`.
+    - `projection_weights_prev`: Optional list of projection weight matrices for projecting 
+        input errors to hidden dimensions. Only used for the first layer when 
+        `include_previous_backward_error=True`. If `None`, falls back to using the forward 
+        model weight. Defaults to `None`.
+    - `backward_energy_weight`: Scalar weighting for the backward energy term. 
+        Defaults to `1.0`.
+    - `forward_energy_weight`: Scalar weighting for the forward energy term. 
+        Defaults to `1.0`.
 
     **Returns:**
 
@@ -388,21 +413,77 @@ def _pdm_single_layer_energy(
     
     # Forward error: ε_ℓ = z_ℓ - W_ℓ z_{ℓ-1}
     act_prev = x if layer_idx == 0 else activities[layer_idx - 1]
-    e_l = activities[layer_idx] - vmap(top_down_model[layer_idx])(act_prev)
+    forward_pred = vmap(top_down_model[layer_idx])(act_prev)
     if skip_model[layer_idx] is not None and layer_idx > 0:
-        e_l -= vmap(skip_model[layer_idx])(act_prev)
+        forward_pred += vmap(skip_model[layer_idx])(act_prev)
+    e_l = activities[layer_idx] - forward_pred
     
-    forward_energy = 0.5 * sum(e_l ** 2)
+    # Error normalization (divisive normalization - biologically plausible)
+    # Normalize errors by prediction magnitude per sample to make learning scale-invariant
+    epsilon = 1e-6
+    # Compute per-sample L2 norm of predictions
+    forward_pred_mag = sqrt(sum(forward_pred ** 2, axis=1, keepdims=True) + epsilon)
+    normalized_e_l = e_l / (forward_pred_mag + epsilon)
+    forward_energy = forward_energy_weight * 0.5 * sum(normalized_e_l ** 2)
     
     # Backward error: δ_{ℓ+1} = z_ℓ - V_{ℓ+1} z_{ℓ+1}
     act_next = y if layer_idx == H - 1 else activities[layer_idx + 1]
-    delta_l = activities[layer_idx] - vmap(bottom_up_model[layer_idx + 1])(act_next)
+    backward_pred = vmap(bottom_up_model[layer_idx + 1])(act_next)
     if skip_model[layer_idx + 1] is not None and layer_idx < H - 1:
-        delta_l -= vmap(skip_model[layer_idx + 1])(act_next)
+        backward_pred += vmap(skip_model[layer_idx + 1])(act_next)
+    delta_l = activities[layer_idx] - backward_pred
     
-    backward_energy = 0.5 * sum(delta_l ** 2)
+    # Error normalization for backward errors too
+    backward_pred_mag = sqrt(sum(backward_pred ** 2, axis=1, keepdims=True) + epsilon)
+    normalized_delta_l = delta_l / (backward_pred_mag + epsilon)
+    backward_energy = backward_energy_weight * 0.5 * sum(normalized_delta_l ** 2)
     
-    return (forward_energy + backward_energy) / batch_size
+    # Extra dendritic term: (z_ℓ - δ_{ℓ-1})²/2
+    # where δ_{ℓ-1} is the backward error at layer ℓ-1 (independent of z_ℓ)
+    # This approximates the BPC term x - V_1 z_1 by using the backward error from the previous layer
+    previous_backward_energy = 0.0
+    if include_previous_backward_error:
+        if layer_idx > 0:
+            # For non-first layers, use the backward error at layer ℓ-1
+            if layer_idx == 1:
+                # For layer 1, use δ_0 = x - V_0 z_0 (backward error at layer 0)
+                # Use fixed_delta_0 if provided (computed from initial activities), otherwise compute fresh
+                if fixed_delta_0 is not None:
+                    delta_l_minus_1 = fixed_delta_0
+                else:
+                    delta_l_minus_1 = x - vmap(bottom_up_model[0])(activities[0])
+                    if skip_model[0] is not None:
+                        delta_l_minus_1 -= vmap(skip_model[0])(activities[0])
+            else:
+                # For layer ℓ > 1, use δ_{ℓ-1} = z_{ℓ-2} - V_{ℓ-1} z_{ℓ-1}
+                delta_l_minus_1 = activities[layer_idx - 2] - vmap(bottom_up_model[layer_idx - 1])(activities[layer_idx - 1])
+                if skip_model[layer_idx - 1] is not None:
+                    delta_l_minus_1 -= vmap(skip_model[layer_idx - 1])(activities[layer_idx - 1])
+            # Project error to hidden dimension if needed (for layer 1, dimensions might not match)
+            if layer_idx == 1 and projection_weights_prev is not None and projection_weights_prev[0] is not None:
+                delta_l_minus_1_proj = vmap(projection_weights_prev[0])(delta_l_minus_1)
+            else:
+                delta_l_minus_1_proj = delta_l_minus_1
+            # Extra dendritic term: (z_ℓ - δ_{ℓ-1})²/2
+            # Weight by backward_energy_weight since it's based on backward errors
+            previous_backward_energy = backward_energy_weight * 0.5 * sum((activities[layer_idx] - delta_l_minus_1_proj) ** 2)
+        elif layer_idx == 0:
+            # For the first layer, δ_{-1} doesn't exist, so we use δ_0 = x - V_0 z_0
+            # and project it (this is the backward error at layer 0 itself)
+            delta_0 = x - vmap(bottom_up_model[0])(activities[0])
+            if skip_model[0] is not None:
+                delta_0 -= vmap(skip_model[0])(activities[0])
+            # Project error to hidden dimension using projection weight matrix
+            if projection_weights_prev is not None and projection_weights_prev[0] is not None:
+                delta_0_proj = vmap(projection_weights_prev[0])(delta_0)
+            else:
+                # Fallback: use forward model weight if projection weight not provided
+                delta_0_proj = vmap(top_down_model[0])(delta_0)
+            # Extra dendritic term: (z_0 - P_0 * δ_0)²/2 where P_0 is the projection weight
+            # Weight by backward_energy_weight since it's based on backward errors
+            previous_backward_energy = backward_energy_weight * 0.5 * sum((activities[0] - delta_0_proj) ** 2)
+    
+    return (forward_energy + backward_energy + previous_backward_energy) / batch_size
 
 
 def pdm_energy_fn( 
@@ -413,9 +494,15 @@ def pdm_energy_fn(
     x: ArrayLike,
     *,
     skip_model: Optional[PyTree[Callable]] = None,
-    param_type: str = "sp"
+    param_type: str = "sp",
+    spectral_penalty: Scalar = 0.0,
+    include_previous_backward_error: bool = False,
+    projection_weights_prev: Optional[PyTree[Callable]] = None,
+    fixed_delta_0: Optional[ArrayLike] = None,
+    backward_energy_weight: Scalar = 1.0,
+    forward_energy_weight: Scalar = 1.0,
 ) -> Scalar | Array:
-    """Computes the energy for a predictive dendrites model (PDM) that sums 
+    r"""Computes the energy for a predictive dendrites model (PDM) that sums 
     single-layer energies of [`_pdm_single_layer_energy()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._pdm_single_layer_energy).
     
     $$
@@ -445,6 +532,19 @@ def pdm_energy_fn(
         See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations. Defaults
         to `"sp"`.
+    - `spectral_penalty`: Weight spectral penalty for forward weights (0 by default).
+    - `include_previous_backward_error`: If `True`, includes an extra dendritic term 
+        $(z_\ell - \delta_{\ell})^2/2$ that couples each layer with the backward 
+        error at the previous layer, where $\delta_{\ell} = z_{\ell-1} - V_{\ell} z_{\ell}$. 
+        Defaults to `False`.
+    - `projection_weights_prev`: Optional list of projection weight matrices for projecting 
+        input errors to hidden dimensions. Only used for the first layer when 
+        `include_previous_backward_error=True`. If `None`, falls back to using the forward 
+        model weight. Defaults to `None`.
+    - `backward_energy_weight`: Scalar weighting for the backward energy terms. 
+        Defaults to `1.0`.
+    - `forward_energy_weight`: Scalar weighting for the forward energy terms. 
+        Defaults to `1.0`.
 
     **Returns:**
 
@@ -465,11 +565,144 @@ def pdm_energy_fn(
             x=x,
             layer_idx=l,
             skip_model=skip_model,
-            param_type=param_type
+            param_type=param_type,
+            include_previous_backward_error=include_previous_backward_error,
+            projection_weights_prev=projection_weights_prev,
+            fixed_delta_0=fixed_delta_0,
+            backward_energy_weight=backward_energy_weight,
+            forward_energy_weight=forward_energy_weight
         )
         total_energy += layer_energy
     
+    # Add forward-only spectral penalty if specified
+    if spectral_penalty > 0.0:
+        reg = 0.0
+        for i in range(H):
+            # Extract forward weight W_{i+1}
+            W = top_down_model[i][1].weight  # Shape: (out_dim, in_dim)
+            out_dim, in_dim = W.shape
+            
+            # Determine which orthonormality to check (same logic as compute_fwd_orthogonality_diff)
+            check_columns = out_dim >= in_dim
+            
+            if check_columns:
+                # Compute ||W^T @ W - I||^2_F (column orthonormality)
+                WT_W = W.T @ W
+                I = eye(WT_W.shape[0])
+                reg += sum((WT_W - I) ** 2)
+            else:
+                # Compute ||W @ W^T - I||^2_F (row orthonormality)
+                W_WT = W @ W.T
+                I = eye(W_WT.shape[0])
+                reg += sum((W_WT - I) ** 2)
+        
+        total_energy += spectral_penalty * reg
+    
     return total_energy
+
+
+def epc_energy_fn(
+    params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
+    errors: PyTree[ArrayLike],
+    y: ArrayLike,
+    *,
+    x: Optional[ArrayLike] = None,
+    loss: str = "mse",
+    param_type: str = "sp"
+) -> Scalar | Array:
+    r"""Computes the ePC (error-reparameterised Predictive Coding) energy for a neural network.
+
+    In ePC, errors are the variables updated during inference rather than 
+    activities. The energy is defined as:
+
+    $$
+    \mathcal{F} = \sum_{\ell=1}^{L-1} \frac{1}{2} ||\boldsymbol{\epsilon}_\ell||^2 + \frac{1}{2}||\mathbf{y} - \tilde{\mathbf{f}}(\mathbf{z}_0, \boldsymbol{\epsilon})||^2
+    $$
+
+    where $\boldsymbol{\epsilon}_\ell = \mathbf{z}_\ell - \mathbf{W}_\ell \mathbf{z}_{\ell-1}$ 
+    are the prediction errors at each layer, and activities are computed 
+    recursively as $\mathbf{z}_\ell = f_\ell(\mathbf{W}_\ell \mathbf{z}_{\ell-1}) + \boldsymbol{\epsilon}_\ell$.
+
+    **Main arguments:**
+
+    - `params`: Tuple with callable model (e.g. neural network) layers and
+        optional skip connections.
+    - `errors`: List of errors for each layer free to vary.
+    - `y`: Observation or target of the generative model.
+
+    **Other arguments:**
+
+    - `x`: Optional prior of the generative model (for supervised training).
+    - `loss`: Loss function to use at the output layer. Options are mean squared 
+        error `"mse"` (default) or cross-entropy `"ce"`.
+    - `param_type`: Determines the parameterisation. Options are `"sp"` 
+        (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco_Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
+        or `"ntp"` (neural tangent parameterisation). 
+        See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
+        for the specific scalings of these different parameterisations. Defaults
+        to `"sp"`.
+
+    **Returns:**
+
+    The total energy normalised by the batch size.
+
+    """
+    _check_param_type(param_type)
+
+    model, skip_model = params
+    batch_size = y.shape[0]
+    n_hidden = len(model) - 1
+
+    if skip_model is None:
+        skip_model = [None] * len(model)
+
+    scalings = _get_param_scalings(
+        model=model, 
+        input=x if x is not None else errors[0], 
+        skip_model=skip_model, 
+        param_type=param_type
+    )
+
+    if x is not None:
+        current_activity = x
+        error_idx = 0
+    else:
+        current_activity = errors[0]
+        error_idx = 1
+
+    for net_l in range(n_hidden):
+        z_l = scalings[net_l] * vmap(model[net_l])(current_activity) + errors[error_idx]
+        if skip_model[net_l] is not None:
+            z_l += vmap(skip_model[net_l])(current_activity)
+        
+        current_activity = z_l
+        error_idx += 1
+
+    zL = scalings[-1] * vmap(model[-1])(current_activity)
+
+    total_energy = 0.0
+    if x is not None:
+        # Hidden layer errors
+        for err_idx in range(n_hidden):
+            total_energy += 0.5 * sum(errors[err_idx] ** 2)
+
+        if loss == "mse":
+            output_error = errors[n_hidden] if len(errors) > n_hidden else (y - zL)
+            total_energy += 0.5 * sum((output_error - (y - zL)) ** 2)
+        elif loss == "ce":
+            total_energy += - sum(y * log_softmax(zL))
+    else:
+        # Hidden layer errors (skip first error which is input)
+        for err_idx in range(1, n_hidden + 1):
+            total_energy += 0.5 * sum(errors[err_idx] ** 2)
+        
+        if loss == "mse":
+            output_error = errors[n_hidden + 1] if len(errors) > n_hidden + 1 else (y - zL)
+            total_energy += 0.5 * sum((output_error - (y - zL)) ** 2)
+        elif loss == "ce":
+            total_energy += - sum(y * log_softmax(zL))
+
+    return total_energy / batch_size
 
 
 def _get_param_scalings(

@@ -11,6 +11,7 @@ from ._energies import (
     pc_energy_fn, 
     hpc_energy_fn, 
     bpc_energy_fn, 
+    epc_energy_fn,
     pdm_energy_fn, 
     _pdm_single_layer_energy
 )
@@ -153,7 +154,9 @@ def compute_bpc_activity_grad(
     x: ArrayLike,
     *,
     skip_model: Optional[PyTree[Callable]] = None,
-    param_type: str = "sp"
+    param_type: str = "sp",
+    backward_energy_weight: Scalar = 1.0,
+    forward_energy_weight: Scalar = 1.0
 ) -> PyTree[Array]:
     """Computes the gradient of the [BPC energy](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.bpc_energy_fn)
     with respect to the activities $∇_{\mathbf{z}} \mathcal{F}$.
@@ -177,6 +180,10 @@ def compute_bpc_activity_grad(
         See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations. Defaults
         to `"sp"`.
+    - `backward_energy_weight`: Scalar weighting for the backward energy terms. 
+        Defaults to `1.0`.
+    - `forward_energy_weight`: Scalar weighting for the forward energy terms. 
+        Defaults to `1.0`.
 
     **Returns:**
 
@@ -190,7 +197,9 @@ def compute_bpc_activity_grad(
         y,
         x,
         skip_model=skip_model,
-        param_type=param_type
+        param_type=param_type,
+        backward_energy_weight=backward_energy_weight,
+        forward_energy_weight=forward_energy_weight
     )
     return energy, dFdzs
 
@@ -203,7 +212,12 @@ def compute_pdm_activity_grad(
     x: ArrayLike,
     *,
     skip_model: Optional[PyTree[Callable]] = None,
-    param_type: str = "sp"
+    param_type: str = "sp",
+    include_previous_backward_error: bool = False,
+    projection_weights_prev: Optional[PyTree[Callable]] = None,
+    fixed_delta_0: Optional[ArrayLike] = None,
+    backward_energy_weight: Scalar = 1.0,
+    forward_energy_weight: Scalar = 1.0
 ) -> Tuple[Scalar, PyTree[Array]]:
     """Computes the gradient of each layer PDM energy[`_pdm_single_layer_energy()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._pdm_single_layer_energy)
     with respect to the activities $∇_{\mathbf{z}_\ell} \mathcal{F}_\ell$ of 
@@ -228,6 +242,14 @@ def compute_pdm_activity_grad(
         See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations. Defaults
         to `"sp"`.
+    - `include_previous_backward_error`: If `True`, includes an extra dendritic term 
+        $(z_\ell - \delta_{\ell})^2/2$ that couples each layer with the backward 
+        error at the previous layer, where $\delta_{\ell} = z_{\ell-1} - V_{\ell} z_{\ell}$. 
+        Defaults to `False`.
+    - `backward_energy_weight`: Scalar weighting for the backward energy terms. 
+        Defaults to `1.0`.
+    - `forward_energy_weight`: Scalar weighting for the forward energy terms. 
+        Defaults to `1.0`.
 
     **Returns:**
 
@@ -241,7 +263,12 @@ def compute_pdm_activity_grad(
         y=y,
         x=x,
         skip_model=skip_model,
-        param_type=param_type
+        param_type=param_type,
+        include_previous_backward_error=include_previous_backward_error,
+        projection_weights_prev=projection_weights_prev,
+        fixed_delta_0=fixed_delta_0,
+        backward_energy_weight=backward_energy_weight,
+        forward_energy_weight=forward_energy_weight
     )
 
     H = len(top_down_model) - 1
@@ -264,7 +291,12 @@ def compute_pdm_activity_grad(
                 x=x,
                 layer_idx=l,
                 skip_model=skip_model,
-                param_type=param_type
+                param_type=param_type,
+                include_previous_backward_error=include_previous_backward_error,
+                projection_weights_prev=projection_weights_prev,
+                fixed_delta_0=fixed_delta_0,
+                backward_energy_weight=backward_energy_weight,
+                forward_energy_weight=forward_energy_weight
             )
         
         grad_l = grad(energy_l)(activities[l])
@@ -386,7 +418,9 @@ def compute_bpc_param_grads(
     x: ArrayLike,
     *,
     skip_model: Optional[PyTree[Callable]] = None,
-    param_type: str = "sp"
+    param_type: str = "sp",
+    backward_energy_weight: Scalar = 1.0,
+    forward_energy_weight: Scalar = 1.0
 ) -> Tuple[PyTree[Array], PyTree[Array]]:
     """Computes the gradient of the [BPC energy](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.bpc_energy_fn)
     with respect to all the model parameters $∇_θ \mathcal{F}$.
@@ -410,13 +444,17 @@ def compute_bpc_param_grads(
         See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations. Defaults
         to `"sp"`.
+    - `backward_energy_weight`: Scalar weighting for the backward energy terms. 
+        Defaults to `1.0`.
+    - `forward_energy_weight`: Scalar weighting for the forward energy terms. 
+        Defaults to `1.0`.
 
     **Returns:**
 
     Tuple of parameter gradients for the top-down and bottom-up models.
 
     """
-    def wrapped_energy_fn(models, activities, y, x, skip_model, param_type):
+    def wrapped_energy_fn(models, activities, y, x, skip_model, param_type, backward_energy_weight, forward_energy_weight):
         top_down_model, bottom_up_model = models
         return bpc_energy_fn(
             top_down_model, 
@@ -425,7 +463,9 @@ def compute_bpc_param_grads(
             y, 
             x, 
             skip_model=skip_model,
-            param_type=param_type
+            param_type=param_type,
+            backward_energy_weight=backward_energy_weight,
+            forward_energy_weight=forward_energy_weight
         )
     
     return filter_grad(wrapped_energy_fn)(
@@ -434,7 +474,9 @@ def compute_bpc_param_grads(
         y, 
         x, 
         skip_model=skip_model,
-        param_type=param_type
+        param_type=param_type,
+        backward_energy_weight=backward_energy_weight,
+        forward_energy_weight=forward_energy_weight
     )
 
 
@@ -446,19 +488,242 @@ def compute_pdm_param_grads(
     x: ArrayLike,
     *,
     skip_model: Optional[PyTree[Callable]] = None,
-    param_type: str = "sp"
+    param_type: str = "sp",
+    spectral_penalty: Scalar = 0.0,
+    include_previous_backward_error: bool = False,
+    projection_weights_prev: Optional[PyTree[Callable]] = None,
+    fixed_delta_0: Optional[ArrayLike] = None,
+    backward_energy_weight: Scalar = 1.0,
+    forward_energy_weight: Scalar = 1.0,
 ) -> Tuple[PyTree[Array], PyTree[Array]]:
     """Computes the gradient of the [PDM energy](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.pdm_energy_fn)
     with respect to all the model parameters $∇_θ \mathcal{F}$, which is the 
-    same as that of the [BPC energy](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.bpc_energy_fn).
+    same as that of the [BPC energy](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.bpc_energy_fn)
+    plus the spectral penalties.
+    
+    **Main arguments:**
+
+    - `top_down_model`: List of callable model (e.g. neural network) layers for 
+        the forward model.
+    - `bottom_up_model`: List of callable model (e.g. neural network) layers for 
+        the backward model.
+    - `activities`: List of activities for each layer free to vary.
+    - `y`: Target of the `top_down_model` and input to the `bottom_up_model`.
+    - `x`: Input to the `top_down_model` and target of the `bottom_up_model`.
+
+    **Other arguments:**
+
+    - `skip_model`: Optional skip connection model.
+    - `param_type`: Determines the parameterisation. Options are `"sp"` 
+        (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
+        or `"ntp"` (neural tangent parameterisation). 
+        See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
+        for the specific scalings of these different parameterisations. Defaults
+        to `"sp"`.
+    - `spectral_penalty`: Regularization strength for the penalty that 
+        penalizes non-orthogonal forward weights. Defaults to 0.0.
+    - `include_previous_backward_error`: If `True`, includes an extra dendritic term 
+        $(z_\ell - \delta_{\ell})^2/2$ that couples each layer with the backward 
+        error at the previous layer, where $\delta_{\ell} = z_{\ell-1} - V_{\ell} z_{\ell}$. 
+        Defaults to `False`.
+    - `backward_energy_weight`: Scalar weighting for the backward energy terms. 
+        Defaults to `1.0`.
+    - `forward_energy_weight`: Scalar weighting for the forward energy terms. 
+        Defaults to `1.0`.
+
+    **Returns:**
+
+    Tuple of parameter gradients for the top-down and bottom-up models.
     
     """
-    return compute_bpc_param_grads(
-        top_down_model, 
-        bottom_up_model, 
-        activities, 
-        y, 
-        x, 
-        skip_model=skip_model, 
+    if include_previous_backward_error or backward_energy_weight != 1.0 or forward_energy_weight != 1.0:
+        # When including previous backward error or energy weightings, compute gradients directly from pdm_energy_fn
+        def wrapped_energy_fn(models, activities, y, x, skip_model, param_type, spectral_penalty, include_previous_backward_error, projection_weights_prev, fixed_delta_0, backward_energy_weight, forward_energy_weight):
+            top_down_model, bottom_up_model = models
+            return pdm_energy_fn(
+                top_down_model=top_down_model,
+                bottom_up_model=bottom_up_model,
+                activities=activities,
+                y=y,
+                x=x,
+                skip_model=skip_model,
+                param_type=param_type,
+                spectral_penalty=spectral_penalty,
+                include_previous_backward_error=include_previous_backward_error,
+                projection_weights_prev=projection_weights_prev,
+                fixed_delta_0=fixed_delta_0,
+                backward_energy_weight=backward_energy_weight,
+                forward_energy_weight=forward_energy_weight
+            )
+        
+        top_down_grads, bottom_up_grads = filter_grad(wrapped_energy_fn)(
+            (top_down_model, bottom_up_model),
+            activities,
+            y,
+            x,
+            skip_model=skip_model,
+            param_type=param_type,
+            spectral_penalty=spectral_penalty,
+            include_previous_backward_error=include_previous_backward_error,
+            projection_weights_prev=projection_weights_prev,
+            fixed_delta_0=fixed_delta_0,
+            backward_energy_weight=backward_energy_weight,
+            forward_energy_weight=forward_energy_weight
+        )
+    else:
+        # Get BPC parameter gradients (same as PDM for the base energy)
+        bpc_top_down_grads, bpc_bottom_up_grads = compute_bpc_param_grads(
+            top_down_model,
+            bottom_up_model,
+            activities,
+            y,
+            x,
+            skip_model=skip_model,
+            param_type=param_type
+        )
+        
+        # Initialize gradients from BPC gradients
+        top_down_grads = bpc_top_down_grads
+        bottom_up_grads = bpc_bottom_up_grads
+        
+        # Add forward weights spectral penalty gradients if specified
+        if spectral_penalty > 0.0:
+            def fwd_regularizer_fn(top_down_model):
+                H = len(top_down_model) - 1
+                reg = 0.0
+                for i in range(H):
+                    W = top_down_model[i][1].weight  # Shape: (out_dim, in_dim)
+                    out_dim, in_dim = W.shape
+                    
+                    # Determine which orthonormality to check (same logic as compute_fwd_orthogonality_diff)
+                    check_columns = out_dim >= in_dim
+                    
+                    if check_columns:
+                        # Compute ||W^T @ W - I||^2_F (column orthonormality)
+                        WT_W = W.T @ W
+                        I = jnp.eye(WT_W.shape[0])
+                        reg += jnp.sum((WT_W - I) ** 2)
+                    else:
+                        # Compute ||W @ W^T - I||^2_F (row orthonormality)
+                        W_WT = W @ W.T
+                        I = jnp.eye(W_WT.shape[0])
+                        reg += jnp.sum((W_WT - I) ** 2)
+                return spectral_penalty * reg
+            
+            # Compute regularizer value for debugging
+            fwd_reg_value = fwd_regularizer_fn(top_down_model)
+            #jax.debug.print("[DEBUG] fwd_spectral_penalty={x}, fwd_reg_value={y}", x=fwd_spectral_penalty, y=fwd_reg_value)
+            
+            # Compute gradients with respect to top_down_model only
+            fwd_reg_top_down_grads = filter_grad(fwd_regularizer_fn)(top_down_model)
+            
+            # Combine with existing gradients
+            def add_grads(g1, g2):
+                """Add two gradient trees, handling None values."""
+                if g1 is None:
+                    return g2
+                if g2 is None:
+                    return g1
+                # Both are not None - recursively add using tree_map
+                return tree_map(lambda x, y: x + y, g1, g2)
+            
+            top_down_grads = add_grads(top_down_grads, fwd_reg_top_down_grads)
+    
+    # Note: projection_weights_prev gradients are not returned here as they are handled separately
+    # if projection_weights_prev is provided, it should be updated separately in the training loop
+    return top_down_grads, bottom_up_grads
+
+
+def compute_epc_error_grad(
+    params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
+    errors: PyTree[ArrayLike],
+    y: ArrayLike,
+    *,
+    x: Optional[ArrayLike] = None,
+    loss_id: str = "mse",
+    param_type: str = "sp"
+) -> Tuple[Scalar, PyTree[Array]]:
+    """Computes the gradient of the [ePC energy](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.epc_energy_fn)
+    with respect to the errors $∇_{\boldsymbol{\epsilon}} \mathcal{F}$.
+
+    !!! note
+
+        In ePC, errors are updated during inference rather than activities.
+
+    **Main arguments:**
+
+    - `params`: Tuple with callable model layers and optional skip connections.
+    - `errors`: List of errors for each layer free to vary.
+    - `y`: Observation or target of the generative model.
+
+    **Other arguments:**
+
+    - `x`: Optional prior of the generative model.
+    - `loss_id`: Loss function to use at the output layer. Options are mean squared 
+        error `"mse"` (default) or cross-entropy `"ce"`.
+    - `param_type`: Determines the parameterisation. Options are `"sp"` 
+        (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco_Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
+        or `"ntp"` (neural tangent parameterisation). 
+        See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
+        for the specific scalings of these different parameterisations. Defaults
+        to `"sp"`.
+
+    **Returns:**
+
+    The energy and its gradient with respect to the errors.
+
+    """
+    energy, dFdes = value_and_grad(epc_energy_fn, argnums=1)(
+        params,
+        errors,
+        y,
+        x=x,
+        loss=loss_id,
+        param_type=param_type
+    )
+    return energy, dFdes
+
+
+def compute_epc_param_grads(
+    params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
+    errors: PyTree[ArrayLike],
+    y: ArrayLike,
+    *,
+    x: Optional[ArrayLike] = None,
+    loss_id: str = "mse",
+    param_type: str = "sp"
+) -> Tuple[PyTree[Array], PyTree[Array]]:
+    """Computes the gradient of the [ePC energy](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.epc_energy_fn)
+    with respect to model parameters $∇_θ \mathcal{F}$.
+
+    **Main arguments:**
+
+    - `params`: Tuple with callable model layers and optional skip connections.
+    - `errors`: List of errors for each layer free to vary.
+    - `y`: Observation or target of the generative model.
+
+    **Other arguments:**
+
+    - `x`: Optional prior of the generative model.
+    - `loss_id`: Loss function to use at the output layer. Options are mean squared 
+        error `"mse"` (default) or cross-entropy `"ce"`.
+    - `param_type`: Determines the parameterisation. Options are `"sp"` 
+        (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco_Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
+        or `"ntp"` (neural tangent parameterisation). 
+        See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
+        for the specific scalings of these different parameterisations. Defaults
+        to `"sp"`.
+
+    **Returns:**
+
+    List of parameter gradients for each model layer.
+
+    """
+    return filter_grad(epc_energy_fn)(
+        params,
+        errors,
+        y,
+        x=x,
+        loss=loss_id,
         param_type=param_type
     )
