@@ -150,10 +150,10 @@ for details.
 
 ## 🤝 Contributing
 Contributions are welcome! Fork the repo, install in editable mode (`pip install -e .`), then:
-- Run `ruff check .` before committing (auto-fix with `ruff check --fix .`)
-- Ensure all tests pass: `pytest tests/`
-- Add docstrings to public functions and update `docs/` for user-facing changes
-- Open a PR with a clear description
+* Run `ruff check .` before committing (auto-fix with `ruff check --fix .`)
+* Ensure all tests pass: `pytest tests/`
+* Add docstrings to public functions and update `docs/` for user-facing changes
+* Open a PR with a clear description
 
 For major features, open an issue first to discuss.
 
