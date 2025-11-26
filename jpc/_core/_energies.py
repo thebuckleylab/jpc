@@ -350,10 +350,10 @@ def epc_energy_fn(
     r"""Computes the error-reparameterised PC (ePC) energy for a neural network ([Goemaere et al., 2025](https://arxiv.org/abs/2505.20137)) of the form
 
     $$
-    \mathcal{F} = \sum_{\ell=1}^{L-1} \frac{1}{2} ||\epsilon_\ell||^2 + \frac{1}{2}||\mathbf{y} - \tilde{\mathbf{f}}(\mathbf{z}_0, \epsilon)||^2
+    \mathcal{F} = \sum_{\ell=1}^{L-1} \frac{1}{2} ||\epsilon_\ell||^2 + \frac{1}{2}||\mathbf{y} - \tilde{\mathbf{f}}(\mathbf{z}_0, \epsilon_1, \dots, \epsilon_{L-1})||^2
     $$
 
-    where $\epsilon_\ell = \mathbf{z}_\ell - \mathbf{f}_\ell(\mathbf{W}_\ell \mathbf{z}_{\ell-1})$ 
+    where $\epsilon_\ell = \mathbf{z}_\ell - f_\ell(\mathbf{W}_\ell \mathbf{z}_{\ell-1})$ 
     are the prediction errors at each layer, and 
     $\tilde{\mathbf{f}}(\mathbf{z}_0, \epsilon)$ is an error-perturbed forward 
     pass. In ePC, errors are the variables updated during inference rather than 
