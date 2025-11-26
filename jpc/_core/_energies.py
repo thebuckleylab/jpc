@@ -425,29 +425,16 @@ def epc_energy_fn(
         current_activity = z_l
         error_idx += 1
 
-    zL = scalings[-1] * vmap(model[-1])(current_activity)
+    zL = scalings[-1] * vmap(model[-1])(current_activity) - errors[error_idx]
 
     total_energy = 0.0
-    if x is not None:
-        # Hidden layer errors
-        for err_idx in range(n_hidden):
-            total_energy += 0.5 * sum(errors[err_idx] ** 2)
+    for err_idx in range(n_hidden):
+        total_energy += 0.5 * sum(errors[err_idx] ** 2)
 
-        if loss == "mse":
-            output_error = errors[n_hidden] if len(errors) > n_hidden else (y - zL)
-            total_energy += 0.5 * sum((output_error - (y - zL)) ** 2)
-        elif loss == "ce":
-            total_energy += - sum(y * log_softmax(zL))
-    else:
-        # Hidden layer errors (skip first error which is input)
-        for err_idx in range(1, n_hidden + 1):
-            total_energy += 0.5 * sum(errors[err_idx] ** 2)
-        
-        if loss == "mse":
-            output_error = errors[n_hidden + 1] if len(errors) > n_hidden + 1 else (y - zL)
-            total_energy += 0.5 * sum((output_error - (y - zL)) ** 2)
-        elif loss == "ce":
-            total_energy += - sum(y * log_softmax(zL))
+    if loss == "mse":
+        total_energy += 0.5 * sum((y - zL) ** 2)
+    elif loss == "ce":
+        total_energy += - sum(y * log_softmax(zL))
 
     return total_energy / batch_size
 
