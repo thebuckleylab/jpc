@@ -361,9 +361,9 @@ def update_pdm_activities(
     param_type: str = "sp",
     include_previous_backward_error: bool = False,
     projection_weights_prev: Optional[PyTree[Callable]] = None,
-    fixed_delta_0: Optional[ArrayLike] = None,
     backward_energy_weight: Scalar = 1.0,
-    forward_energy_weight: Scalar = 1.0
+    forward_energy_weight: Scalar = 1.0,
+    bpc_terms_factor: Scalar = 0.0
 ) -> Dict:
     """Updates activities of a predictive dendrites model (PDM).
 
@@ -396,6 +396,10 @@ def update_pdm_activities(
         Defaults to `1.0`.
     - `forward_energy_weight`: Scalar weighting for the forward energy terms. 
         Defaults to `1.0`.
+    - `bpc_terms_factor`: Scaling factor for bPC terms (prediction errors 
+        weighted by their derivatives). When `bpc_terms_factor=0.0`, uses only direct 
+        terms (standard PDM). When `bpc_terms_factor=1.0`, uses full bPC gradient. 
+        Defaults to `0.0`.
 
     **Returns:**
 
@@ -413,9 +417,9 @@ def update_pdm_activities(
         param_type=param_type,
         include_previous_backward_error=include_previous_backward_error,
         projection_weights_prev=projection_weights_prev,
-        fixed_delta_0=fixed_delta_0,
         backward_energy_weight=backward_energy_weight,
-        forward_energy_weight=forward_energy_weight
+        forward_energy_weight=forward_energy_weight,
+        bpc_terms_factor=bpc_terms_factor
     )
     updates, opt_state = optim.update(
         updates=grads,
@@ -451,7 +455,6 @@ def update_pdm_params(
     spectral_penalty: Scalar = 0.0,
     include_previous_backward_error: bool = False,
     projection_weights_prev: Optional[PyTree[Callable]] = None,
-    fixed_delta_0: Optional[ArrayLike] = None,
     backward_energy_weight: Scalar = 1.0,
     forward_energy_weight: Scalar = 1.0
 ) -> Dict:
@@ -511,7 +514,6 @@ def update_pdm_params(
         spectral_penalty=spectral_penalty,
         include_previous_backward_error=include_previous_backward_error,
         projection_weights_prev=projection_weights_prev,
-        fixed_delta_0=fixed_delta_0,
         backward_energy_weight=backward_energy_weight,
         forward_energy_weight=forward_energy_weight
     )

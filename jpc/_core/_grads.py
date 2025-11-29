@@ -215,9 +215,9 @@ def compute_pdm_activity_grad(
     param_type: str = "sp",
     include_previous_backward_error: bool = False,
     projection_weights_prev: Optional[PyTree[Callable]] = None,
-    fixed_delta_0: Optional[ArrayLike] = None,
     backward_energy_weight: Scalar = 1.0,
-    forward_energy_weight: Scalar = 1.0
+    forward_energy_weight: Scalar = 1.0,
+    bpc_terms_factor: Scalar = 0.0
 ) -> Tuple[Scalar, PyTree[Array]]:
     """Computes the gradient of each layer PDM energy[`_pdm_single_layer_energy()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._pdm_single_layer_energy)
     with respect to the activities $∇_{\mathbf{z}_\ell} \mathcal{F}_\ell$ of 
@@ -250,12 +250,17 @@ def compute_pdm_activity_grad(
         Defaults to `1.0`.
     - `forward_energy_weight`: Scalar weighting for the forward energy terms. 
         Defaults to `1.0`.
+    - `bpc_terms_factor`: Scaling factor for bPC terms (prediction errors 
+        weighted by their derivatives). When `bpc_terms_factor=0.0`, uses only direct 
+        terms (standard PDM). When `bpc_terms_factor=1.0`, uses full bPC gradient. 
+        Defaults to `0.0`.
 
     **Returns:**
 
     The PDMenergy and list of gradients with respect to the activities of each layer.
 
     """
+    # Compute PDM gradient (direct terms only)
     energy = pdm_energy_fn(
         top_down_model=top_down_model,
         bottom_up_model=bottom_up_model,
@@ -266,19 +271,18 @@ def compute_pdm_activity_grad(
         param_type=param_type,
         include_previous_backward_error=include_previous_backward_error,
         projection_weights_prev=projection_weights_prev,
-        fixed_delta_0=fixed_delta_0,
         backward_energy_weight=backward_energy_weight,
         forward_energy_weight=forward_energy_weight
     )
 
     H = len(top_down_model) - 1
-    grads = []
+    direct_grads = []
     
     if skip_model is None:
         skip_model = [None] * (H + 1)
     
     for l in range(H):
-        # Contribution from layer l's own energy only
+        # Contribution from layer l's own energy only (direct terms)
         def energy_l(acts_l):
             # Create a modified activities list with acts_l at position l
             modified_activities = list(activities)
@@ -294,21 +298,46 @@ def compute_pdm_activity_grad(
                 param_type=param_type,
                 include_previous_backward_error=include_previous_backward_error,
                 projection_weights_prev=projection_weights_prev,
-                fixed_delta_0=fixed_delta_0,
                 backward_energy_weight=backward_energy_weight,
                 forward_energy_weight=forward_energy_weight
             )
         
         grad_l = grad(energy_l)(activities[l])
-    
-        grads.append(grad_l)
+        direct_grads.append(grad_l)
     
     # Add zero gradient for output layer (layer H) if activities includes it
     # The output layer is not included in the PDM energy, so its gradient is zero
     if len(activities) > H:
-        grads.append(jnp.zeros_like(activities[H]))
+        direct_grads.append(jnp.zeros_like(activities[H]))
     
-    return energy, grads
+    # If bpc_terms_factor is 0.0, return direct gradient (standard PDM)
+    if bpc_terms_factor == 0.0:
+        return energy, direct_grads
+    
+    # Compute full bPC gradient (includes bPC terms) using compute_bpc_activity_grad
+    _, full_bpc_grads = compute_bpc_activity_grad(
+        top_down_model=top_down_model,
+        bottom_up_model=bottom_up_model,
+        activities=activities,
+        y=y,
+        x=x,
+        skip_model=skip_model,
+        param_type=param_type,
+        backward_energy_weight=backward_energy_weight,
+        forward_energy_weight=forward_energy_weight
+    )
+    
+    # Extract bPC terms (chain rule terms): bpc_terms = full_bpc - direct
+    bpc_terms = tree_map(lambda full, direct: full - direct, full_bpc_grads, direct_grads)
+    
+    # Combine: modified_grad = direct + bpc_terms_factor * bpc_terms
+    modified_grads = tree_map(
+        lambda direct, bpc: direct + bpc_terms_factor * bpc,
+        direct_grads,
+        bpc_terms
+    )
+    
+    return energy, modified_grads
 
 
 ########################### PARAMETER GRADIENTS ################################
@@ -492,7 +521,6 @@ def compute_pdm_param_grads(
     spectral_penalty: Scalar = 0.0,
     include_previous_backward_error: bool = False,
     projection_weights_prev: Optional[PyTree[Callable]] = None,
-    fixed_delta_0: Optional[ArrayLike] = None,
     backward_energy_weight: Scalar = 1.0,
     forward_energy_weight: Scalar = 1.0,
 ) -> Tuple[PyTree[Array], PyTree[Array]]:
@@ -538,7 +566,7 @@ def compute_pdm_param_grads(
     """
     if include_previous_backward_error or backward_energy_weight != 1.0 or forward_energy_weight != 1.0:
         # When including previous backward error or energy weightings, compute gradients directly from pdm_energy_fn
-        def wrapped_energy_fn(models, activities, y, x, skip_model, param_type, spectral_penalty, include_previous_backward_error, projection_weights_prev, fixed_delta_0, backward_energy_weight, forward_energy_weight):
+        def wrapped_energy_fn(models, activities, y, x, skip_model, param_type, spectral_penalty, include_previous_backward_error, projection_weights_prev, backward_energy_weight, forward_energy_weight):
             top_down_model, bottom_up_model = models
             return pdm_energy_fn(
                 top_down_model=top_down_model,
@@ -551,7 +579,6 @@ def compute_pdm_param_grads(
                 spectral_penalty=spectral_penalty,
                 include_previous_backward_error=include_previous_backward_error,
                 projection_weights_prev=projection_weights_prev,
-                fixed_delta_0=fixed_delta_0,
                 backward_energy_weight=backward_energy_weight,
                 forward_energy_weight=forward_energy_weight
             )
@@ -566,7 +593,6 @@ def compute_pdm_param_grads(
             spectral_penalty=spectral_penalty,
             include_previous_backward_error=include_previous_backward_error,
             projection_weights_prev=projection_weights_prev,
-            fixed_delta_0=fixed_delta_0,
             backward_energy_weight=backward_energy_weight,
             forward_energy_weight=forward_energy_weight
         )

@@ -519,14 +519,7 @@ def _pdm_single_layer_energy(
     if skip_model[layer_idx] is not None and layer_idx > 0:
         forward_pred += vmap(skip_model[layer_idx])(act_prev)
     e_l = activities[layer_idx] - forward_pred
-    
-    # Error normalization (divisive normalization - biologically plausible)
-    # Normalize errors by prediction magnitude per sample to make learning scale-invariant
-    epsilon = 1e-6
-    # Compute per-sample L2 norm of predictions
-    forward_pred_mag = sqrt(sum(forward_pred ** 2, axis=1, keepdims=True) + epsilon)
-    normalized_e_l = e_l / (forward_pred_mag + epsilon)
-    forward_energy = forward_energy_weight * 0.5 * sum(normalized_e_l ** 2)
+    forward_energy = forward_energy_weight * 0.5 * sum(e_l ** 2)
     
     # Backward error: δ_{ℓ+1} = z_ℓ - V_{ℓ+1} z_{ℓ+1}
     act_next = y if layer_idx == H - 1 else activities[layer_idx + 1]
@@ -534,11 +527,7 @@ def _pdm_single_layer_energy(
     if skip_model[layer_idx + 1] is not None and layer_idx < H - 1:
         backward_pred += vmap(skip_model[layer_idx + 1])(act_next)
     delta_l = activities[layer_idx] - backward_pred
-    
-    # Error normalization for backward errors too
-    backward_pred_mag = sqrt(sum(backward_pred ** 2, axis=1, keepdims=True) + epsilon)
-    normalized_delta_l = delta_l / (backward_pred_mag + epsilon)
-    backward_energy = backward_energy_weight * 0.5 * sum(normalized_delta_l ** 2)
+    backward_energy = backward_energy_weight * 0.5 * sum(delta_l ** 2)
     
     # Extra dendritic term: (z_ℓ - δ_{ℓ-1})²/2
     # where δ_{ℓ-1} is the backward error at layer ℓ-1 (independent of z_ℓ)
