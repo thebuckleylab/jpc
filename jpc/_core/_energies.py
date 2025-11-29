@@ -451,7 +451,6 @@ def _pdm_single_layer_energy(
     param_type: str = "sp",
     include_previous_backward_error: bool = False,
     projection_weights_prev: Optional[PyTree[Callable]] = None,
-    fixed_delta_0: Optional[ArrayLike] = None,
     backward_energy_weight: Scalar = 1.0,
     forward_energy_weight: Scalar = 1.0
 ) -> Scalar:
@@ -534,17 +533,14 @@ def _pdm_single_layer_energy(
     # This approximates the BPC term x - V_1 z_1 by using the backward error from the previous layer
     previous_backward_energy = 0.0
     if include_previous_backward_error:
+        
         if layer_idx > 0:
             # For non-first layers, use the backward error at layer ℓ-1
             if layer_idx == 1:
                 # For layer 1, use δ_0 = x - V_0 z_0 (backward error at layer 0)
-                # Use fixed_delta_0 if provided (computed from initial activities), otherwise compute fresh
-                if fixed_delta_0 is not None:
-                    delta_l_minus_1 = fixed_delta_0
-                else:
-                    delta_l_minus_1 = x - vmap(bottom_up_model[0])(activities[0])
-                    if skip_model[0] is not None:
-                        delta_l_minus_1 -= vmap(skip_model[0])(activities[0])
+                delta_l_minus_1 = x - vmap(bottom_up_model[0])(activities[0])
+                if skip_model[0] is not None:
+                    delta_l_minus_1 -= vmap(skip_model[0])(activities[0])
             else:
                 # For layer ℓ > 1, use δ_{ℓ-1} = z_{ℓ-2} - V_{ℓ-1} z_{ℓ-1}
                 delta_l_minus_1 = activities[layer_idx - 2] - vmap(bottom_up_model[layer_idx - 1])(activities[layer_idx - 1])
@@ -558,6 +554,7 @@ def _pdm_single_layer_energy(
             # Extra dendritic term: (z_ℓ - δ_{ℓ-1})²/2
             # Weight by backward_energy_weight since it's based on backward errors
             previous_backward_energy = backward_energy_weight * 0.5 * sum((activities[layer_idx] - delta_l_minus_1_proj) ** 2)
+        
         elif layer_idx == 0:
             # For the first layer, δ_{-1} doesn't exist, so we use δ_0 = x - V_0 z_0
             # and project it (this is the backward error at layer 0 itself)
@@ -589,7 +586,6 @@ def pdm_energy_fn(
     spectral_penalty: Scalar = 0.0,
     include_previous_backward_error: bool = False,
     projection_weights_prev: Optional[PyTree[Callable]] = None,
-    fixed_delta_0: Optional[ArrayLike] = None,
     backward_energy_weight: Scalar = 1.0,
     forward_energy_weight: Scalar = 1.0,
 ) -> Scalar | Array:
@@ -659,21 +655,18 @@ def pdm_energy_fn(
             param_type=param_type,
             include_previous_backward_error=include_previous_backward_error,
             projection_weights_prev=projection_weights_prev,
-            fixed_delta_0=fixed_delta_0,
             backward_energy_weight=backward_energy_weight,
             forward_energy_weight=forward_energy_weight
         )
         total_energy += layer_energy
     
-    # Add forward-only spectral penalty if specified
     if spectral_penalty > 0.0:
         reg = 0.0
         for i in range(H):
-            # Extract forward weight W_{i+1}
-            W = top_down_model[i][1].weight  # Shape: (out_dim, in_dim)
+            W = top_down_model[i][1].weight
             out_dim, in_dim = W.shape
             
-            # Determine which orthonormality to check (same logic as compute_fwd_orthogonality_diff)
+            # Determine which orthonormality to check
             check_columns = out_dim >= in_dim
             
             if check_columns:
