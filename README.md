@@ -52,7 +52,7 @@ and checking the [documentation](https://thebuckleylab.github.io/jpc/).
 ## ️💻 Installation
 Clone the repo and in the project's directory run
 ```
-pip install jpc
+pip install .
 ```
 
 Requires Python 3.10+ and JAX 0.4.38–0.5.2 (inclusive). For GPU usage, upgrade 
