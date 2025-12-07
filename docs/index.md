@@ -96,13 +96,19 @@ import jpc
 # 1. initialise activities with a feedforward pass
 activities = jpc.init_activities_with_ffwd(model=model, input=x)
 
-# 2. run inference to equilibrium
-equilibrated_activities = jpc.solve_inference(
-    params=(model, None), 
-    activities=activities, 
-    output=y, 
-    input=x
-)
+# 2. perform inference (state optimisation)
+activity_opt_state = activity_optim.init(activities)
+for _ in range(len(model)):
+    activity_update_result = jpc.update_pc_activities(
+        params=(model, None),
+        activities=activities,
+        optim=activity_optim,
+        opt_state=activity_opt_state,
+        output=y,
+        input=x
+    )
+    activities = activity_update_result["activities"]
+    activity_opt_state = activity_update_result["opt_state"]
 
 # 3. update parameters at the activities' solution with PC
 result = jpc.update_params(
