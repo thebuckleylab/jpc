@@ -17,23 +17,16 @@
 ---
 
 JPC is a [**J**AX](https://github.com/google/jax) library for training neural 
-networks with **P**redictive **C**oding (PC). It is built on top of three main 
-libraries:
-
-* [Equinox](https://github.com/patrick-kidger/equinox), to define neural 
-networks with PyTorch-like syntax,
-* [Diffrax](https://github.com/patrick-kidger/diffrax), to solve the gradient 
-flow PC inference dynamics, and
-* [Optax](https://github.com/google-deepmind/optax), for parameter optimisation.
+networks with **P**redictive **C**oding (PC). 
 
 JPC provides a **simple**, **fast** and **flexible** API for 
 training of a variety of PCNs including discriminative, generative and hybrid 
 models. 
-* Like JAX, JPC is completely functional in design, and the core library is 
+* Like JAX, JPC is completely functional in design, and the core library code is 
 <1000 lines of code. 
-* Unlike existing implementations, JPC leverages ordinary differential 
-equation (ODE) solvers to integrate the gradient flow inference dynamics of PC 
-networks (PCNs). 
+* Unlike existing implementations, JPC provides a wide range of optimisers, both 
+discrete and continuous, to solve the inference dynamics of PC, including 
+ordinary differential equation (ODE) solvers.
 * JPC also provides some analytical tools that can be used to study and
 potentially diagnose issues with PCNs.
 
