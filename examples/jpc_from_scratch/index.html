@@ -1,0 +1,1609 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="The documentation for the jpc software library.">
+      
+      
+        <meta name="author" content="Francesco Innocenti">
+      
+      
+        <link rel="canonical" href="https://thebuckleylab.github.io/jpc/examples/jpc_from_scratch/">
+      
+      
+        <link rel="prev" href="../linear_net_theoretical_energy/">
+      
+      
+        <link rel="next" href="../../api/Training/">
+      
+      
+      <link rel="icon" href="../../_static/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.7">
+    
+    
+      
+        <title>JPC from scratch - jpc</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.8608ea7d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../../_static/custom_css.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#jpc-from-scratch" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="jpc" class="md-header__button md-logo" aria-label="jpc" data-md-component="logo">
+      <img id="logo_light_mode" src="../../_static/logo-light.svg" alt="logo">
+<img id="logo_dark_mode" src="../../_static/logo-dark.svg" alt="logo">
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            jpc
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              JPC from scratch
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="amber"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="amber"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        
+<a href="https://github.com/thebuckleylab/jpc" title="source.link.title" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8M97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    thebuckleylab/jpc
+  </div>
+</a>
+
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="jpc" class="md-nav__button md-logo" aria-label="jpc" data-md-component="logo">
+      <img id="logo_light_mode" src="../../_static/logo-light.svg" alt="logo">
+<img id="logo_dark_mode" src="../../_static/logo-dark.svg" alt="logo">
+    </a>
+    jpc
+  </label>
+  
+    <div class="md-nav__source">
+      
+<a href="https://github.com/thebuckleylab/jpc" title="source.link.title" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8M97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    thebuckleylab/jpc
+  </div>
+</a>
+
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Getting started
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    ⚙️ How it works
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            ⚙️ How it works
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../basic_usage/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Basic usage
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../advanced_usage/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Advanced usage
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    📚 Examples
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            📚 Examples
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_1" id="__nav_3_1_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Introductory
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_1">
+            <span class="md-nav__icon md-icon"></span>
+            Introductory
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../discriminative_pc/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Discriminative PC
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../supervised_generative_pc/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Supervised generative PC
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../unsupervised_generative_pc/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Unsupervised generative PC
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Advanced
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            Advanced
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mupc/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    μPC
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../epc/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ePC
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hybrid_pc/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Hybrid PC
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../bidirectional_pc/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Bidirectional PC
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../linear_net_theoretical_energy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Linear theoretical energy
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    JPC from scratch
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    JPC from scratch
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#installations-imports" class="md-nav__link">
+    <span class="md-ellipsis">
+      Installations &amp; imports
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hyperparameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      Hyperparameters
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dataset" class="md-nav__link">
+    <span class="md-ellipsis">
+      Dataset
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pc-energy" class="md-nav__link">
+    <span class="md-ellipsis">
+      PC energy
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#energy-gradients" class="md-nav__link">
+    <span class="md-ellipsis">
+      Energy gradients
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#updates" class="md-nav__link">
+    <span class="md-ellipsis">
+      Updates
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#putting-everything-together-training-and-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Putting everything together: Training and testing
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#run" class="md-nav__link">
+    <span class="md-ellipsis">
+      Run
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    🌱 Basic API
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            🌱 Basic API
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/Training/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Training
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/Testing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Testing
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/Utils/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Utils
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    🚀 Advanced API
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            🚀 Advanced API
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/Initialisation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Initialisation
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/Energy%20functions/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Energy functions
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/Gradients/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Gradients
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/Continuous-time%20Inference/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Continuous-time inference
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/Discrete%20updates/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Discrete updates
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/Theoretical%20tools/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Theoretical tools
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="jpc-from-scratch">⚙️ JPC from Scratch<a class="headerlink" href="#jpc-from-scratch" title="Permanent link">¤</a></h1>
+<p>This notebook is a walk-through of how Predictive Coding (PC) is implemented in JPC. It was developed as a lab session of an MSc course at the University of Sussex. We are going to implement all the core functionalities of JPC from scratch, building towards the training of a simple feedforward network to classify MNIST.</p>
+<p>If you're not familiar with JAX, have a look at their <a href="https://jax.readthedocs.io/en/latest/quickstart.html">docs</a>, but we will explain all the necessary concepts below. JAX is basically numpy for GPUs and other hardware accelerators. We will also use: (i) <a href="https://docs.kidger.site/equinox/">Equinox</a>, which allows you to define neural nets with PyTorch-like syntax; and (ii) <a href="https://optax.readthedocs.io/en/latest/index.html">Optax</a>, which provides a range of common machine learning optimisers such as gradient descent and Adam.</p>
+<h2 id="installations-imports">Installations &amp; imports<a class="headerlink" href="#installations-imports" title="Permanent link">¤</a></h2>
+<div class="highlight"><pre><span></span><code><span class="o">%%</span><span class="n">capture</span>
+<span class="err">!</span><span class="n">pip</span> <span class="n">install</span> <span class="n">torch</span><span class="o">==</span><span class="mf">2.3.1</span>
+<span class="err">!</span><span class="n">pip</span> <span class="n">install</span> <span class="n">torchvision</span><span class="o">==</span><span class="mf">0.18.1</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">jax.random</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jr</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">jax</span><span class="w"> </span><span class="kn">import</span> <span class="n">vmap</span><span class="p">,</span> <span class="n">grad</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">jax.tree_util</span><span class="w"> </span><span class="kn">import</span> <span class="n">tree_map</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">equinox</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">eqx</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">equinox.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nn</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">equinox</span><span class="w"> </span><span class="kn">import</span> <span class="n">filter_grad</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">optax</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.utils.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataLoader</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torchvision</span><span class="w"> </span><span class="kn">import</span> <span class="n">datasets</span><span class="p">,</span> <span class="n">transforms</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="n">warnings</span><span class="o">.</span><span class="n">simplefilter</span><span class="p">(</span><span class="s2">&quot;ignore&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="hyperparameters">Hyperparameters<a class="headerlink" href="#hyperparameters" title="Permanent link">¤</a></h2>
+<p>We define some global parameters related to the data, network, optimisers, etc.</p>
+<div class="highlight"><pre><span></span><code><span class="n">SEED</span> <span class="o">=</span> <span class="mi">827</span>
+
+<span class="n">INPUT_DIM</span><span class="p">,</span> <span class="n">OUTPUT_DIM</span> <span class="o">=</span> <span class="mi">28</span><span class="o">*</span><span class="mi">28</span><span class="p">,</span> <span class="mi">10</span>
+<span class="n">NETWORK_WIDTH</span> <span class="o">=</span> <span class="mi">300</span>
+
+<span class="n">ACTIVITY_LR</span> <span class="o">=</span> <span class="mf">1e-1</span>
+<span class="n">INFERENCE_STEPS</span> <span class="o">=</span> <span class="mi">20</span>
+
+<span class="n">PARAM_LR</span> <span class="o">=</span> <span class="mf">1e-3</span>
+<span class="n">BATCH_SIZE</span> <span class="o">=</span> <span class="mi">64</span>
+
+<span class="n">TEST_EVERY</span> <span class="o">=</span> <span class="mi">50</span>
+<span class="n">N_TRAIN_ITERS</span> <span class="o">=</span> <span class="mi">500</span>
+</code></pre></div>
+<h2 id="dataset">Dataset<a class="headerlink" href="#dataset" title="Permanent link">¤</a></h2>
+<p>Some utils to fetch MNIST.</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_mnist_loaders</span><span class="p">(</span><span class="n">batch_size</span><span class="p">):</span>
+    <span class="n">train_data</span> <span class="o">=</span> <span class="n">MNIST</span><span class="p">(</span><span class="n">train</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">normalise</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">test_data</span> <span class="o">=</span> <span class="n">MNIST</span><span class="p">(</span><span class="n">train</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">normalise</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">train_loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span>
+        <span class="n">dataset</span><span class="o">=</span><span class="n">train_data</span><span class="p">,</span>
+        <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">,</span>
+        <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">drop_last</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">)</span>
+    <span class="n">test_loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span>
+        <span class="n">dataset</span><span class="o">=</span><span class="n">test_data</span><span class="p">,</span>
+        <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">,</span>
+        <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">drop_last</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">train_loader</span><span class="p">,</span> <span class="n">test_loader</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">MNIST</span><span class="p">(</span><span class="n">datasets</span><span class="o">.</span><span class="n">MNIST</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">train</span><span class="p">,</span> <span class="n">normalise</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">save_dir</span><span class="o">=</span><span class="s2">&quot;data&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">normalise</span><span class="p">:</span>
+            <span class="n">transform</span> <span class="o">=</span> <span class="n">transforms</span><span class="o">.</span><span class="n">Compose</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="n">transforms</span><span class="o">.</span><span class="n">ToTensor</span><span class="p">(),</span>
+                    <span class="n">transforms</span><span class="o">.</span><span class="n">Normalize</span><span class="p">(</span>
+                        <span class="n">mean</span><span class="o">=</span><span class="p">(</span><span class="mf">0.1307</span><span class="p">),</span> <span class="n">std</span><span class="o">=</span><span class="p">(</span><span class="mf">0.3081</span><span class="p">)</span>
+                    <span class="p">)</span>
+                <span class="p">]</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">transform</span> <span class="o">=</span> <span class="n">transforms</span><span class="o">.</span><span class="n">Compose</span><span class="p">([</span><span class="n">transforms</span><span class="o">.</span><span class="n">ToTensor</span><span class="p">()])</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">save_dir</span><span class="p">,</span> <span class="n">download</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">train</span><span class="o">=</span><span class="n">train</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="n">transform</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="p">):</span>
+        <span class="n">img</span><span class="p">,</span> <span class="n">label</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__getitem__</span><span class="p">(</span><span class="n">index</span><span class="p">)</span>
+        <span class="n">img</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="n">img</span><span class="p">)</span>
+        <span class="n">label</span> <span class="o">=</span> <span class="n">one_hot</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">img</span><span class="p">,</span> <span class="n">label</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">one_hot</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">n_classes</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+    <span class="n">arr</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">n_classes</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">arr</span><span class="p">[</span><span class="n">labels</span><span class="p">]</span>
+</code></pre></div>
+<h2 id="pc-energy">PC energy<a class="headerlink" href="#pc-energy" title="Permanent link">¤</a></h2>
+<p>First, recall that PC can be derived as a variational inference algorithm under certain assumptions. In particular, if we assume 
+* a dirac delta (point mass) posterior and
+* a hierarchical Gaussian generative model,</p>
+<p>we get the standard PC energy</p>
+<p>\begin{equation}
+    \mathcal{F} = \frac{1}{2N}\sum_{i=1}^{N} \sum_{\ell=1}^L ||\mathbf{z}<em>{\ell, i} - f</em>\ell(W_\ell \mathbf{z}<em>{\ell-1, i} + \mathbf{b}</em>\ell)||^2_2
+\end{equation}
+which is just a sum of squared prediction errors at each network layer. Here we are being a little bit more precise than in the lecture, including multiple (<span class="arithmatex">\(N\)</span>) data points and biases <span class="arithmatex">\(\mathbf{b}_\ell\)</span>.</p>
+<p>🤔 <strong>Food for thought</strong>: Think about how the form of this energy could change depending on other assumptions we make about the generative model. See, for example, <a href="https://proceedings.neurips.cc/paper_files/paper/2022/hash/f9f54762cbb4fe4dbffdd4f792c31221-Abstract-Conference.html">Learning on Arbitrary Graph Topologies via Predictive Coding
+</a> by Salvatori et al. (2022).</p>
+<p>Let's start by implementing this energy below. The function simply takes the model (with all the parameters), some initialised activities, and some input and output. Given these, it simply sums the prediction error at each layer.</p>
+<p><strong>NOTE</strong>: below we use <code>vmap</code>, one of the core JAX transforms that allows you to vectorise operations, in this case for multiple data points or over a batch. See their <a href="https://jax.readthedocs.io/en/latest/automatic-vectorization.html">docs</a> for more details.</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">pc_energy_fn</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">activities</span><span class="p">,</span> <span class="nb">input</span><span class="p">,</span> <span class="n">output</span><span class="p">):</span>
+    <span class="n">batch_size</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">n_activity_layers</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">activities</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+    <span class="n">n_layers</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">model</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+
+    <span class="n">eL</span> <span class="o">=</span> <span class="n">output</span> <span class="o">-</span> <span class="n">vmap</span><span class="p">(</span><span class="n">model</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])(</span><span class="n">activities</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">])</span>
+    <span class="n">energies</span> <span class="o">=</span> <span class="p">[</span><span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">eL</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)]</span>
+    <span class="k">for</span> <span class="n">act_l</span><span class="p">,</span> <span class="n">net_l</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+            <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_activity_layers</span><span class="p">),</span>
+            <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_layers</span><span class="p">)</span>
+    <span class="p">):</span>
+        <span class="n">err</span> <span class="o">=</span> <span class="n">activities</span><span class="p">[</span><span class="n">act_l</span><span class="p">]</span> <span class="o">-</span> <span class="n">vmap</span><span class="p">(</span><span class="n">model</span><span class="p">[</span><span class="n">net_l</span><span class="p">])(</span><span class="n">activities</span><span class="p">[</span><span class="n">act_l</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="n">energies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">err</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span>
+
+    <span class="n">e1</span> <span class="o">=</span> <span class="n">activities</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">vmap</span><span class="p">(</span><span class="n">model</span><span class="p">[</span><span class="mi">0</span><span class="p">])(</span><span class="nb">input</span><span class="p">)</span>
+    <span class="n">energies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">e1</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">energies</span><span class="p">))</span> <span class="o">/</span> <span class="n">batch_size</span>
+</code></pre></div>
+<p>Now let's test it. To do so, we first need a model. Below we use Equinox to create a simple feedforward network with 2 hidden layers and Tanh activations. Note that we split the model into different parts with <code>nn.Sequential</code> to define the activities which PC will optimise over (during inference, more on this below).</p>
+<p>❓ <strong>Question</strong>: Think about other ways in which we could split the layers, for example by separating the non-linearities. Can you think of potential issues with this?</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># jax uses explicit random number generators (see https://jax.readthedocs.io/en/latest/random-numbers.html)</span>
+<span class="n">key</span> <span class="o">=</span> <span class="n">jr</span><span class="o">.</span><span class="n">PRNGKey</span><span class="p">(</span><span class="n">SEED</span><span class="p">)</span>
+<span class="n">subkeys</span> <span class="o">=</span> <span class="n">jr</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">INPUT_DIM</span><span class="p">,</span> <span class="n">NETWORK_WIDTH</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">subkeys</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Lambda</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">tanh</span><span class="p">)</span>
+        <span class="p">],</span>
+    <span class="p">),</span>
+    <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">NETWORK_WIDTH</span><span class="p">,</span> <span class="n">NETWORK_WIDTH</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">subkeys</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Lambda</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">tanh</span><span class="p">)</span>
+        <span class="p">],</span>
+    <span class="p">),</span>
+    <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">NETWORK_WIDTH</span><span class="p">,</span> <span class="n">OUTPUT_DIM</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">subkeys</span><span class="p">[</span><span class="mi">2</span><span class="p">]),</span>
+<span class="p">]</span>
+<span class="n">model</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>[Sequential(
+   layers=(
+     Linear(
+       weight=f32[300,784],
+       bias=f32[300],
+       in_features=784,
+       out_features=300,
+       use_bias=True
+     ),
+     Lambda(fn=&lt;wrapped function tanh&gt;)
+   )
+ ),
+ Sequential(
+   layers=(
+     Linear(
+       weight=f32[300,300],
+       bias=f32[300],
+       in_features=300,
+       out_features=300,
+       use_bias=True
+     ),
+     Lambda(fn=&lt;wrapped function tanh&gt;)
+   )
+ ),
+ Linear(
+   weight=f32[10,300],
+   bias=f32[10],
+   in_features=300,
+   out_features=10,
+   use_bias=True
+ )]
+</code></pre></div>
+<p>The last thing we need is to initialise the activities. For this, we will use a feedforward pass as often done in practice.</p>
+<p>❓ <strong>Question</strong>: Can you think of other ways of initialising the activities?</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">init_activities_with_ffwd</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="nb">input</span><span class="p">):</span>
+    <span class="n">activities</span> <span class="o">=</span> <span class="p">[</span><span class="n">vmap</span><span class="p">(</span><span class="n">model</span><span class="p">[</span><span class="mi">0</span><span class="p">])(</span><span class="nb">input</span><span class="p">)]</span>
+    <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">model</span><span class="p">)):</span>
+        <span class="n">layer_output</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">model</span><span class="p">[</span><span class="n">l</span><span class="p">])(</span><span class="n">activities</span><span class="p">[</span><span class="n">l</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="n">activities</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">layer_output</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">activities</span>
+</code></pre></div>
+<p>Let's test it on an MNIST sample.</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># get a data sample</span>
+<span class="n">train_loader</span><span class="p">,</span> <span class="n">test_loader</span> <span class="o">=</span> <span class="n">get_mnist_loaders</span><span class="p">(</span><span class="n">BATCH_SIZE</span><span class="p">)</span>
+<span class="n">img_batch</span><span class="p">,</span> <span class="n">label_batch</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">train_loader</span><span class="p">))</span>
+
+<span class="c1"># we need to turn the torch.Tensor data into numpy arrays for jax</span>
+<span class="n">img_batch</span><span class="p">,</span> <span class="n">label_batch</span> <span class="o">=</span> <span class="n">img_batch</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span> <span class="n">label_batch</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+
+<span class="c1"># let&#39;s check our initialised activities</span>
+<span class="n">activities</span> <span class="o">=</span> <span class="n">init_activities_with_ffwd</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">img_batch</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">activities</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;activity z at layer </span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">a</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>activity z at layer 1: (64, 300)
+activity z at layer 2: (64, 300)
+activity z at layer 3: (64, 10)
+</code></pre></div>
+<p>Ok so now we have everything to test our PC energy function: model, activities, and some data.</p>
+<div class="highlight"><pre><span></span><code><span class="n">pc_energy_fn</span><span class="p">(</span>
+    <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+    <span class="n">activities</span><span class="o">=</span><span class="n">activities</span><span class="p">,</span>
+    <span class="nb">input</span><span class="o">=</span><span class="n">img_batch</span><span class="p">,</span>
+    <span class="n">output</span><span class="o">=</span><span class="n">label_batch</span>
+<span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>Array(1.2335204, dtype=float32)
+</code></pre></div>
+<p>And it works!</p>
+<h2 id="energy-gradients">Energy gradients<a class="headerlink" href="#energy-gradients" title="Permanent link">¤</a></h2>
+<p>How do we minimise the PC energy we defined above (Eq. 1)? Recall from the lecture that we do this in two phases: first with respect to the activities (inference) and then with respect to the weights (learning).</p>
+<div class="arithmatex">\[\begin{equation}
+    \textit{Inference:} - \frac{\partial \mathcal{F}}{\partial \mathbf{z}_\ell}
+\end{equation}\]</div>
+<div class="arithmatex">\[\begin{equation}
+    \textit{Learning:} - \frac{\partial \mathcal{F}}{\partial W_\ell}
+\end{equation}\]</div>
+<p>So we just need to take these gradients of the energy. We are going to use autodiff, which JAX embeds by design (see the <a href="https://jax.readthedocs.io/en/latest/notebooks/autodiff_cookbook.html">docs</a>). If you're familiar with PyTorch, you are probably used to <code>loss.backward()</code> for this, which might feel obstruse at times. JAX, on the other hand, is a fully functional (as opposed to object-oriented) language whose syntax is very close to the maths as you can see below.</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># note how close this code is to the maths</span>
+<span class="c1"># this can be read as &quot;take the gradient of the energy...</span>
+<span class="c1"># ...with the respect to the 2nd argument (the activities)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_activity_grad</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">activities</span><span class="p">,</span> <span class="nb">input</span><span class="p">,</span> <span class="n">output</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">grad</span><span class="p">(</span><span class="n">pc_energy_fn</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="mi">1</span><span class="p">)(</span>
+        <span class="n">model</span><span class="p">,</span>
+        <span class="n">activities</span><span class="p">,</span>
+        <span class="nb">input</span><span class="p">,</span>
+        <span class="n">output</span>
+    <span class="p">)</span>
+</code></pre></div>
+<p>Let's test this out.</p>
+<div class="highlight"><pre><span></span><code><span class="n">dFdzs</span> <span class="o">=</span> <span class="n">compute_activity_grad</span><span class="p">(</span>
+    <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span> 
+    <span class="n">activities</span><span class="o">=</span><span class="n">activities</span><span class="p">,</span> 
+    <span class="nb">input</span><span class="o">=</span><span class="n">img_batch</span><span class="p">,</span> 
+    <span class="n">output</span><span class="o">=</span><span class="n">label_batch</span>
+<span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">dFdz</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dFdzs</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;activity gradient dFdz shape at layer </span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">dFdz</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>activity gradient dFdz shape at layer 1: (64, 300)
+activity gradient dFdz shape at layer 2: (64, 300)
+activity gradient dFdz shape at layer 3: (64, 10)
+</code></pre></div>
+<p>Now we do the same and take the gradient of the energy with respect to the parameters.</p>
+<p><strong>Technical note</strong>: below we use Equinox's convenience function <code>filter_grad</code> rather than JAX's native <code>grad</code>. This is because things like activation functions do not have parameters and so we do not want to differentiate them. <code>filter_grad</code> automatically filters these non-differentiable objects for us, while <code>grad</code> alone would throw an error.</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># note that, compared to the previous function,...</span>
+<span class="c1"># ...we just change the argument with respect to which...</span>
+<span class="c1"># ...we are differentiating (the first, or in this case the model)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_param_grad</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">activities</span><span class="p">,</span> <span class="nb">input</span><span class="p">,</span> <span class="n">output</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">filter_grad</span><span class="p">(</span><span class="n">pc_energy_fn</span><span class="p">)(</span>
+        <span class="n">model</span><span class="p">,</span>
+        <span class="n">activities</span><span class="p">,</span>
+        <span class="nb">input</span><span class="p">,</span>
+        <span class="n">output</span>
+    <span class="p">)</span>
+</code></pre></div>
+<p>And let's test it.</p>
+<div class="highlight"><pre><span></span><code><span class="n">param_grads</span> <span class="o">=</span> <span class="n">compute_param_grad</span><span class="p">(</span>
+    <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span> 
+    <span class="n">activities</span><span class="o">=</span><span class="n">activities</span><span class="p">,</span> 
+    <span class="nb">input</span><span class="o">=</span><span class="n">img_batch</span><span class="p">,</span> 
+    <span class="n">output</span><span class="o">=</span><span class="n">label_batch</span>
+<span class="p">)</span>
+</code></pre></div>
+<h2 id="updates">Updates<a class="headerlink" href="#updates" title="Permanent link">¤</a></h2>
+<p>Before putting everything together, let's wrap our gradients into update functions. This will also allow us to use JAX's <code>jit</code> primitive, which essentially compiles your code the first time it's executed so that it can be run more efficiently the next time (see the <a href="https://jax.readthedocs.io/en/latest/jit-compilation.html">docs</a> for more details).</p>
+<p>These functions take an (Optax) optimiser such as gradient descent in addition to the previous arguments (model, activities and data).</p>
+<div class="highlight"><pre><span></span><code><span class="nd">@eqx</span><span class="o">.</span><span class="n">filter_jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">update_activities</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">activities</span><span class="p">,</span> <span class="n">optim</span><span class="p">,</span> <span class="n">opt_state</span><span class="p">,</span> <span class="nb">input</span><span class="p">,</span> <span class="n">output</span><span class="p">):</span>
+    <span class="n">activity_grads</span> <span class="o">=</span> <span class="n">compute_activity_grad</span><span class="p">(</span>
+        <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+        <span class="n">activities</span><span class="o">=</span><span class="n">activities</span><span class="p">,</span>
+        <span class="nb">input</span><span class="o">=</span><span class="nb">input</span><span class="p">,</span>
+        <span class="n">output</span><span class="o">=</span><span class="n">output</span>
+    <span class="p">)</span>
+    <span class="n">activity_updates</span><span class="p">,</span> <span class="n">activity_opt_state</span> <span class="o">=</span> <span class="n">optim</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+        <span class="n">updates</span><span class="o">=</span><span class="n">activity_grads</span><span class="p">,</span>
+        <span class="n">state</span><span class="o">=</span><span class="n">opt_state</span><span class="p">,</span>
+        <span class="n">params</span><span class="o">=</span><span class="n">activities</span>
+    <span class="p">)</span>
+    <span class="n">activities</span> <span class="o">=</span> <span class="n">eqx</span><span class="o">.</span><span class="n">apply_updates</span><span class="p">(</span>
+        <span class="n">model</span><span class="o">=</span><span class="n">activities</span><span class="p">,</span>
+        <span class="n">updates</span><span class="o">=</span><span class="n">activity_updates</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">activities</span><span class="p">,</span> <span class="n">optim</span><span class="p">,</span> <span class="n">opt_state</span>
+
+
+<span class="c1"># note that the only difference with the above function is...</span>
+<span class="c1"># ...the variable we are updating (parameters vs activities)</span>
+<span class="nd">@eqx</span><span class="o">.</span><span class="n">filter_jit</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">update_params</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">activities</span><span class="p">,</span> <span class="n">optim</span><span class="p">,</span> <span class="n">opt_state</span><span class="p">,</span> <span class="nb">input</span><span class="p">,</span> <span class="n">output</span><span class="p">):</span>
+    <span class="n">param_grads</span> <span class="o">=</span> <span class="n">compute_param_grad</span><span class="p">(</span>
+        <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+        <span class="n">activities</span><span class="o">=</span><span class="n">activities</span><span class="p">,</span>
+        <span class="nb">input</span><span class="o">=</span><span class="nb">input</span><span class="p">,</span>
+        <span class="n">output</span><span class="o">=</span><span class="n">output</span>
+    <span class="p">)</span>
+    <span class="n">param_updates</span><span class="p">,</span> <span class="n">param_opt_state</span> <span class="o">=</span> <span class="n">optim</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+        <span class="n">updates</span><span class="o">=</span><span class="n">param_grads</span><span class="p">,</span>
+        <span class="n">state</span><span class="o">=</span><span class="n">opt_state</span><span class="p">,</span>
+        <span class="n">params</span><span class="o">=</span><span class="n">model</span>
+    <span class="p">)</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">eqx</span><span class="o">.</span><span class="n">apply_updates</span><span class="p">(</span>
+        <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+        <span class="n">updates</span><span class="o">=</span><span class="n">param_updates</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">model</span><span class="p">,</span> <span class="n">optim</span><span class="p">,</span> <span class="n">opt_state</span>
+</code></pre></div>
+<h2 id="putting-everything-together-training-and-testing">Putting everything together: Training and testing<a class="headerlink" href="#putting-everything-together-training-and-testing" title="Permanent link">¤</a></h2>
+<p>Now that we have our activity and parameter updates, we just need to wrap them in a training and test loop.</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># note: the test accuracy computation below could be sped up...</span>
+<span class="c1"># ...with jit in a separate function</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">test_loader</span><span class="p">):</span>
+    <span class="n">avg_test_acc</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">test_iter</span><span class="p">,</span> <span class="p">(</span><span class="n">img_batch</span><span class="p">,</span> <span class="n">label_batch</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">test_loader</span><span class="p">):</span>
+        <span class="n">img_batch</span><span class="p">,</span> <span class="n">label_batch</span> <span class="o">=</span> <span class="n">img_batch</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span> <span class="n">label_batch</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+
+        <span class="n">preds</span> <span class="o">=</span> <span class="n">init_activities_with_ffwd</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">img_batch</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">test_acc</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span>
+            <span class="n">jnp</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">label_batch</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="n">jnp</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">preds</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="p">)</span> <span class="o">*</span> <span class="mi">100</span>
+        <span class="n">avg_test_acc</span> <span class="o">+=</span> <span class="n">test_acc</span>
+
+    <span class="k">return</span> <span class="n">avg_test_acc</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">test_loader</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">train</span><span class="p">(</span>
+      <span class="n">model</span><span class="p">,</span>
+      <span class="n">activity_lr</span><span class="p">,</span>
+      <span class="n">inference_steps</span><span class="p">,</span>
+      <span class="n">param_lr</span><span class="p">,</span>
+      <span class="n">batch_size</span><span class="p">,</span>
+      <span class="n">test_every</span><span class="p">,</span>
+      <span class="n">n_train_iters</span>
+<span class="p">):</span>
+    <span class="c1"># define optimisers for activities and parameters</span>
+    <span class="n">activity_optim</span> <span class="o">=</span> <span class="n">optax</span><span class="o">.</span><span class="n">sgd</span><span class="p">(</span><span class="n">activity_lr</span><span class="p">)</span>
+    <span class="n">param_optim</span> <span class="o">=</span> <span class="n">optax</span><span class="o">.</span><span class="n">adam</span><span class="p">(</span><span class="n">param_lr</span><span class="p">)</span>
+    <span class="n">param_opt_state</span> <span class="o">=</span> <span class="n">param_optim</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="n">eqx</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">eqx</span><span class="o">.</span><span class="n">is_array</span><span class="p">))</span>
+
+    <span class="n">train_loader</span><span class="p">,</span> <span class="n">test_loader</span> <span class="o">=</span> <span class="n">get_mnist_loaders</span><span class="p">(</span><span class="n">batch_size</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">train_iter</span><span class="p">,</span> <span class="p">(</span><span class="n">img_batch</span><span class="p">,</span> <span class="n">label_batch</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">train_loader</span><span class="p">):</span>
+        <span class="n">img_batch</span><span class="p">,</span> <span class="n">label_batch</span> <span class="o">=</span> <span class="n">img_batch</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span> <span class="n">label_batch</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+
+        <span class="c1"># initialise activities</span>
+        <span class="n">activities</span> <span class="o">=</span> <span class="n">init_activities_with_ffwd</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">img_batch</span><span class="p">)</span>
+        <span class="n">activity_opt_state</span> <span class="o">=</span> <span class="n">activity_optim</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="n">activities</span><span class="p">)</span>
+
+        <span class="c1"># calculate loss</span>
+        <span class="n">train_loss</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">label_batch</span> <span class="o">-</span> <span class="n">activities</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+
+        <span class="c1"># inference</span>
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">inference_steps</span><span class="p">):</span>
+            <span class="n">activities</span><span class="p">,</span> <span class="n">activity_optim</span><span class="p">,</span> <span class="n">activity_opt_state</span> <span class="o">=</span> <span class="n">update_activities</span><span class="p">(</span>
+                <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span> 
+                <span class="n">activities</span><span class="o">=</span><span class="n">activities</span><span class="p">,</span> 
+                <span class="n">optim</span><span class="o">=</span><span class="n">activity_optim</span><span class="p">,</span> 
+                <span class="n">opt_state</span><span class="o">=</span><span class="n">activity_opt_state</span><span class="p">,</span> 
+                <span class="nb">input</span><span class="o">=</span><span class="n">img_batch</span><span class="p">,</span> 
+                <span class="n">output</span><span class="o">=</span><span class="n">label_batch</span>
+            <span class="p">)</span>
+
+        <span class="c1"># learning</span>
+        <span class="n">model</span><span class="p">,</span> <span class="n">param_optim</span><span class="p">,</span> <span class="n">param_opt_state</span> <span class="o">=</span> <span class="n">update_params</span><span class="p">(</span>
+            <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+            <span class="n">activities</span><span class="o">=</span><span class="n">activities</span><span class="p">,</span>  <span class="c1"># note how we use the optimised activities</span>
+            <span class="n">optim</span><span class="o">=</span><span class="n">param_optim</span><span class="p">,</span>
+            <span class="n">opt_state</span><span class="o">=</span><span class="n">param_opt_state</span><span class="p">,</span>
+            <span class="nb">input</span><span class="o">=</span><span class="n">img_batch</span><span class="p">,</span>
+            <span class="n">output</span><span class="o">=</span><span class="n">label_batch</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="p">((</span><span class="n">train_iter</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="n">test_every</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">avg_test_acc</span> <span class="o">=</span> <span class="n">evaluate</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">test_loader</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Train iter </span><span class="si">{</span><span class="n">train_iter</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">, train loss=</span><span class="si">{</span><span class="n">train_loss</span><span class="si">:</span><span class="s2">4f</span><span class="si">}</span><span class="s2">, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;avg test accuracy=</span><span class="si">{</span><span class="n">avg_test_acc</span><span class="si">:</span><span class="s2">4f</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">train_iter</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">n_train_iters</span><span class="p">:</span>
+                <span class="k">break</span>
+</code></pre></div>
+<h2 id="run">Run<a class="headerlink" href="#run" title="Permanent link">¤</a></h2>
+<p>Let's test our implementation.</p>
+<div class="highlight"><pre><span></span><code><span class="n">train</span><span class="p">(</span>
+    <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+    <span class="n">activity_lr</span><span class="o">=</span><span class="n">ACTIVITY_LR</span><span class="p">,</span>
+    <span class="n">inference_steps</span><span class="o">=</span><span class="n">INFERENCE_STEPS</span><span class="p">,</span>
+    <span class="n">param_lr</span><span class="o">=</span><span class="n">PARAM_LR</span><span class="p">,</span>
+    <span class="n">batch_size</span><span class="o">=</span><span class="n">BATCH_SIZE</span><span class="p">,</span>
+    <span class="n">test_every</span><span class="o">=</span><span class="n">TEST_EVERY</span><span class="p">,</span>
+    <span class="n">n_train_iters</span><span class="o">=</span><span class="n">N_TRAIN_ITERS</span>
+<span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>Train iter 50, train loss=0.065566, avg test accuracy=72.726364
+Train iter 100, train loss=0.046521, avg test accuracy=76.292068
+Train iter 150, train loss=0.042710, avg test accuracy=86.568512
+Train iter 200, train loss=0.029598, avg test accuracy=89.082535
+Train iter 250, train loss=0.031486, avg test accuracy=89.222755
+Train iter 300, train loss=0.016624, avg test accuracy=91.296074
+Train iter 350, train loss=0.025201, avg test accuracy=92.648239
+Train iter 400, train loss=0.018597, avg test accuracy=92.968750
+Train iter 450, train loss=0.019027, avg test accuracy=94.130608
+Train iter 500, train loss=0.014850, avg test accuracy=93.760017
+</code></pre></div>
+<p>🥳 Great, we see that our model is learning! This model was not tuned, and you can probably improve the performance by tweaking some of the hyperparameters (e.g. try a higher number of inference steps).</p>
+<p>Even if you didn't follow all the implementation details, you should now have at least an idea of how PC works in practice. Indeed, this is basically the core code behind a new PC library our lab will soon release: <a href="https://github.com/thebuckleylab/jpc">JPC</a>. Play around with the notebook examples there where you can learn how to train a variety of PC networks.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      &copy; 2024 <a href="https://github.com/thebuckleylab"  target="_blank" rel="noopener">thebuckleylab</a>
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.sections", "toc.integrate", "header.autohide"], "search": "../../assets/javascripts/workers/search.f8cc74c7.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.c8b220af.min.js"></script>
+      
+        <script src="../../_static/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>
