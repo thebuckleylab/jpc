@@ -12,7 +12,7 @@ from ._energies import _get_param_scalings
 
 
 def linear_equilib_energy(
-        network: PyTree[nn.Linear],
+        model: PyTree[nn.Linear],
         x: ArrayLike,
         y: ArrayLike,
         param_type: str = "sp",
@@ -64,7 +64,7 @@ def linear_equilib_energy(
 
     **Main arguments:**
 
-    - `network`: Linear network defined as a list of Equinox Linear layers.
+    - `model`: Linear network defined as a list of Equinox Linear layers.
     - `x`: Network input.
     - `y`: Network output.
 
@@ -88,14 +88,14 @@ def linear_equilib_energy(
     _check_param_type(param_type)
 
     scalings = _get_param_scalings(
-        model=network,
+        model=model,
         input=x,
         param_type=param_type,
         gamma=gamma
     )
 
     Ws = [
-        layer.weight for seq in network for layer in seq if hasattr(layer, "weight")
+        layer.weight for seq in model for layer in seq if hasattr(layer, "weight")
     ]
     L = len(Ws)
 
@@ -272,7 +272,7 @@ def compute_linear_activity_hessian(
 
 
 def compute_linear_activity_solution(
-        network: PyTree[nn.Linear],
+        model: PyTree[nn.Linear],
         x: ArrayLike,
         y: ArrayLike,
         *,
@@ -313,7 +313,7 @@ def compute_linear_activity_solution(
 
     **Main arguments:**
 
-    - `network`: Linear network defined as a list of Equinox Linear layers.
+    - `model`: Linear network defined as a list of Equinox Linear layers.
     - `x`: Network input.
     - `y`: Network output.
 
@@ -345,7 +345,7 @@ def compute_linear_activity_solution(
 
     # extract all weight matrices from the network
     Ws = [
-        layer.weight for seq in network for layer in seq if hasattr(layer, "weight")
+        layer.weight for seq in model for layer in seq if hasattr(layer, "weight")
     ]
     D = Ws[0].shape[1]
     N = Ws[0].shape[0]
