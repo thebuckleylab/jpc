@@ -6,7 +6,8 @@ import numpy as np
 import equinox as eqx
 import equinox.nn as nn
 from jaxtyping import PyTree, ArrayLike, Array, Scalar
-from typing import Optional
+from typing import Optional, Dict
+from optax import GradientTransformation, GradientTransformationExtraArgs, OptState
 from ._errors import _check_param_type
 from ._energies import _get_param_scalings
 
@@ -120,6 +121,112 @@ def linear_equilib_energy(
     return vmap(
         lambda x, y: 0.5 * (y - WLto1 @ x).T @ jnp.linalg.solve(S, y - WLto1 @ x)
     )(x, y).mean()
+
+
+def compute_linear_equilib_energy_grads(
+    model: PyTree[nn.Linear],
+    x: ArrayLike,
+    y: ArrayLike,
+    *,
+    param_type: str = "sp",
+    gamma: Optional[Scalar] = None
+) -> PyTree[Array]:
+    """Computes the gradient of the [linear equilibrium energy](https://thebuckleylab.github.io/jpc/api/Theoretical%20tools/#jpc.linear_equilib_energy)
+    with respect to model parameters $∇_θ \mathcal{F}^*$.
+
+    **Main arguments:**
+
+    - `model`: Linear network defined as a list of Equinox Linear layers.
+    - `x`: Network input.
+    - `y`: Network output.
+
+    **Other arguments:**
+
+    - `param_type`: Determines the parameterisation. Options are `"sp"` 
+        (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
+        or `"ntp"` (neural tangent parameterisation). 
+        See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
+        for the specific scalings of these different parameterisations. Defaults
+        to `"sp"`.
+    - `gamma`: Optional scaling factor for the output layer. If provided, the 
+        output layer scaling is multiplied by `1/gamma`. Defaults to `None` (no 
+        additional scaling).
+
+    **Returns:**
+
+    Parameter gradients for the network.
+
+    """
+    return eqx.filter_grad(linear_equilib_energy)(
+        model,
+        x,
+        y,
+        param_type=param_type,
+        gamma=gamma
+    )
+
+
+@eqx.filter_jit
+def update_linear_equilib_energy_params(
+    model: PyTree[nn.Linear],
+    optim: GradientTransformation | GradientTransformationExtraArgs,
+    opt_state: OptState,
+    x: ArrayLike,
+    y: ArrayLike,
+    *,
+    param_type: str = "sp",
+    gamma: Optional[Scalar] = None
+) -> Dict:
+    """Updates parameters of a linear network by taking gradients of the 
+    [linear equilibrium energy](https://thebuckleylab.github.io/jpc/api/Theoretical%20tools/#jpc.linear_equilib_energy)
+    with a given [optax](https://github.com/google-deepmind/optax) optimiser.
+
+    **Main arguments:**
+
+    - `model`: Linear network defined as a list of Equinox Linear layers.
+    - `optim`: optax optimiser, e.g. `optax.sgd()`.
+    - `opt_state`: State of optax optimiser.
+    - `x`: Network input.
+    - `y`: Network output.
+
+    **Other arguments:**
+
+    - `param_type`: Determines the parameterisation. Options are `"sp"` 
+        (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
+        or `"ntp"` (neural tangent parameterisation). 
+        See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
+        for the specific scalings of these different parameterisations. Defaults
+        to `"sp"`.
+    - `gamma`: Optional scaling factor for the output layer. If provided, the 
+        output layer scaling is multiplied by `1/gamma`. Defaults to `None` (no 
+        additional scaling).
+
+    **Returns:**
+
+    Dictionary with updated model, parameter gradients, and optimiser state.
+
+    """
+    grads = compute_linear_equilib_energy_grads(
+        model=model,
+        x=x,
+        y=y,
+        param_type=param_type,
+        gamma=gamma
+    )
+    updates, opt_state = optim.update(
+        updates=grads,
+        state=opt_state,
+        params=model
+    )
+    model = eqx.apply_updates(
+        model=model,
+        updates=updates
+    )
+    return {
+        "model": model,
+        "grads": grads,
+        "opt_state": opt_state
+    }
 
 
 @eqx.filter_jit
