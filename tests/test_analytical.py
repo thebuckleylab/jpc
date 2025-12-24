@@ -5,7 +5,7 @@ import jax
 import jax.numpy as jnp
 import equinox.nn as nn
 from jpc import (
-    compute_linear_equilib_energy,
+    linear_equilib_energy,
     compute_linear_activity_hessian,
     compute_linear_activity_solution
 )
@@ -15,15 +15,15 @@ def test_compute_linear_equilib_energy(key, x, y, input_dim, hidden_dim, output_
     """Test computation of linear equilibrium energy."""
     # Create a linear network (no activation functions)
     subkeys = jax.random.split(key, depth)
-    network = []
+    model = []
     for i in range(depth):
         _in = input_dim if i == 0 else hidden_dim
         _out = output_dim if (i + 1) == depth else hidden_dim
         linear = nn.Linear(_in, _out, use_bias=False, key=subkeys[i])
-        network.append(nn.Sequential([nn.Lambda(lambda x: x), linear]))
+        model.append(nn.Sequential([nn.Lambda(lambda x: x), linear]))
     
-    energy = compute_linear_equilib_energy(
-        network=network,
+    energy = linear_equilib_energy(
+        model=model,
         x=x,
         y=y
     )
@@ -114,15 +114,15 @@ def test_compute_linear_activity_solution(key, x, y, input_dim, hidden_dim, outp
     """Test computation of linear activity solution."""
     # Create a linear network
     subkeys = jax.random.split(key, depth)
-    network = []
+    model = []
     for i in range(depth):
         _in = input_dim if i == 0 else hidden_dim
         _out = output_dim if (i + 1) == depth else hidden_dim
         linear = nn.Linear(_in, _out, use_bias=False, key=subkeys[i])
-        network.append(nn.Sequential([nn.Lambda(lambda x: x), linear]))
+        model.append(nn.Sequential([nn.Lambda(lambda x: x), linear]))
     
     activities = compute_linear_activity_solution(
-        network=network,
+        model=model,
         x=x,
         y=y,
         use_skips=False,
@@ -139,15 +139,15 @@ def test_compute_linear_activity_solution(key, x, y, input_dim, hidden_dim, outp
 def test_compute_linear_activity_solution_with_skips(key, x, y, input_dim, hidden_dim, output_dim, depth):
     """Test computation of linear activity solution with skip connections."""
     subkeys = jax.random.split(key, depth)
-    network = []
+    model = []
     for i in range(depth):
         _in = input_dim if i == 0 else hidden_dim
         _out = output_dim if (i + 1) == depth else hidden_dim
         linear = nn.Linear(_in, _out, use_bias=False, key=subkeys[i])
-        network.append(nn.Sequential([nn.Lambda(lambda x: x), linear]))
+        model.append(nn.Sequential([nn.Lambda(lambda x: x), linear]))
     
     activities = compute_linear_activity_solution(
-        network=network,
+        model=model,
         x=x,
         y=y,
         use_skips=True,

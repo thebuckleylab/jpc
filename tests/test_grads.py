@@ -31,6 +31,7 @@ def test_neg_pc_activity_grad(simple_model, x, y):
         0.0,
         0.0,
         0.0,
+        None,
         PIDController(rtol=1e-3, atol=1e-3)
     )
     
