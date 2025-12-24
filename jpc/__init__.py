@@ -30,7 +30,7 @@ from ._core import (
     update_epc_params as update_epc_params,
     update_pdm_activities as update_pdm_activities,
     update_pdm_params as update_pdm_params,
-    compute_linear_equilib_energy as compute_linear_equilib_energy,
+    linear_equilib_energy as linear_equilib_energy,
     compute_linear_activity_hessian as compute_linear_activity_hessian,
     compute_linear_activity_solution as compute_linear_activity_solution,
     _check_param_type as _check_param_type

@@ -36,7 +36,7 @@ from ._updates import (
     update_pdm_params as update_pdm_params
 )
 from ._analytical import (
-    compute_linear_equilib_energy as compute_linear_equilib_energy,
+    linear_equilib_energy as linear_equilib_energy,
     compute_linear_activity_hessian as compute_linear_activity_hessian,
     compute_linear_activity_solution as compute_linear_activity_solution
 )

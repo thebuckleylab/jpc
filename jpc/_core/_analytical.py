@@ -5,14 +5,18 @@ import jax.numpy as jnp
 import numpy as np
 import equinox as eqx
 import equinox.nn as nn
-from jaxtyping import PyTree, ArrayLike, Array
+from jaxtyping import PyTree, ArrayLike, Array, Scalar
+from typing import Optional
 from ._errors import _check_param_type
+from ._energies import _get_param_scalings
 
 
-def compute_linear_equilib_energy(
+def linear_equilib_energy(
         network: PyTree[nn.Linear],
         x: ArrayLike,
-        y: ArrayLike
+        y: ArrayLike,
+        param_type: str = "sp",
+        gamma: Optional[Scalar] = None
 ) -> Array:
     """Computes the theoretical [PC energy](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.pc_energy_fn) 
     at the solution of the activities for a deep linear network ([Innocenti et al. 2024](https://proceedings.neurips.cc/paper_files/paper/2024/hash/6075fc6540b9a3cb951752099efd86ef-Abstract-Conference.html)):
@@ -64,32 +68,57 @@ def compute_linear_equilib_energy(
     - `x`: Network input.
     - `y`: Network output.
 
+    **Other arguments:**
+
+    - `param_type`: Determines the parameterisation. Options are `"sp"` 
+        (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
+        or `"ntp"` (neural tangent parameterisation). 
+        See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
+        for the specific scalings of these different parameterisations. Defaults
+        to `"sp"`.
+    - `gamma`: Optional scaling factor for the output layer. If provided, the 
+        output layer scaling is multiplied by `1/gamma`. Defaults to `None` (no 
+        additional scaling).
+    
     **Returns:**
 
     Mean total theoretical energy over a data batch.
-
+    
     """
+    _check_param_type(param_type)
+
+    scalings = _get_param_scalings(
+        model=network,
+        input=x,
+        param_type=param_type,
+        gamma=gamma
+    )
+
     Ws = [
         layer.weight for seq in network for layer in seq if hasattr(layer, "weight")
     ]
     L = len(Ws)
 
-    # compute product of weight matrices
+    scaling_product = 1.0
+    for scaling in scalings:
+        scaling_product *= scaling
+    
     WLto1 = jnp.eye(Ws[-1].shape[0])
     for i in range(L - 1, -1, -1):
         WLto1 = WLto1 @ Ws[i]
+    WLto1 = scaling_product * WLto1
 
-    # compute rescaling
     S = jnp.eye(Ws[-1].shape[0])
     cumulative_prod = jnp.eye(Ws[-1].shape[0])
     for i in range(L - 1, 0, -1):
         cumulative_prod = cumulative_prod @ Ws[i]
-        S += cumulative_prod @ cumulative_prod.T
+        cumulative_scaling = 1.0
+        for j in range(i, L):
+            cumulative_scaling *= scalings[j]
+        S += (cumulative_scaling ** 2) * (cumulative_prod @ cumulative_prod.T)
 
-    # compute final expression
-    S_inv = jnp.linalg.inv(S)
     return vmap(
-        lambda x, y: 0.5 * (y - WLto1 @ x).T @ S_inv @ (y - WLto1 @ x)
+        lambda x, y: 0.5 * (y - WLto1 @ x).T @ jnp.linalg.solve(S, y - WLto1 @ x)
     )(x, y).mean()
 
 
@@ -101,7 +130,8 @@ def compute_linear_activity_hessian(
         param_type: str = "sp",
         activity_decay: bool = False,
         diag: bool = True,
-        off_diag: bool = True
+        off_diag: bool = True,
+        gamma: Optional[Scalar] = None
 ) -> Array:
     """Computes the theoretical Hessian matrix of the [PC energy](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.pc_energy_fn) 
     with respect to the activities for a linear network, 
@@ -149,6 +179,8 @@ def compute_linear_activity_hessian(
     - `activity_decay`: $\ell^2$ regulariser for the activities.
     - `diag`: Whether to compute the diagonal blocks of the Hessian.
     - `off-diag`: Whether to compute the off-diagonal blocks of the Hessian.
+    - `gamma`: Optional scaling factor for the output layer. If provided, the output 
+        layer scaling is multiplied by `1/gamma`. Defaults to `None` (no additional scaling).
 
     **Returns:**
 
@@ -188,6 +220,9 @@ def compute_linear_activity_hessian(
             elif param_type == "mupc":
                 if i+1 == L:
                     a_l = 1 / N
+                    # Apply gamma scaling to output layer if provided
+                    if gamma is not None:
+                        a_l = a_l / gamma
                 else:
                     a_l = 1 / np.sqrt(N) if not use_skips else 1 / np.sqrt(N*L)
 
@@ -243,7 +278,10 @@ def compute_linear_activity_solution(
         *,
         use_skips: bool = False,
         param_type: str = "sp",
-        activity_decay: bool = False
+        activity_decay: bool = False,
+        gamma: Optional[Scalar] = None,
+        epsilon: Scalar = 0.,
+        hessian: Optional[Array] = None,
 ) -> PyTree[Array]:
     """Computes the theoretical solution for the PC activities of a linear network ([Innocenti et al., 2025](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))).
 
@@ -290,6 +328,13 @@ def compute_linear_activity_solution(
         for the specific scalings of these different parameterisations. Defaults
         to `"sp"`.
     - `activity_decay`: $\ell^2$ regulariser for the activities.
+    - `gamma`: Optional scaling factor for the output layer. If provided, the output 
+        layer scaling is multiplied by `1/gamma`. Defaults to `None` (no additional scaling).
+    - `epsilon`: Small regularization value added to the diagonal of the Hessian matrix 
+        before inversion to improve numerical stability. Defaults to `0.`.
+    - `hessian`: Optional Hessian matrix to use instead of computing it 
+        analytically using [`jpc.compute_linear_activity_hessian()`](https://thebuckleylab.github.io/jpc/api/Theoretical%20tools/#jpc.compute_linear_activity_hessian). 
+        Defaults to `None`.
 
     **Returns:**
 
@@ -311,8 +356,9 @@ def compute_linear_activity_solution(
         Ws=Ws,
         param_type=param_type,
         use_skips=use_skips,
-        activity_decay=activity_decay
-    )
+        activity_decay=activity_decay,
+        gamma=gamma
+    ) if hessian is None else hessian
 
     if param_type == "sp":
         a_1, a_L = 1, 1
@@ -320,14 +366,21 @@ def compute_linear_activity_solution(
         a_1, a_L = 1/np.sqrt(D), 1/np.sqrt(N)
     elif param_type == "mupc":
         a_1, a_L = 1/np.sqrt(D), 1/N
+    
+    # Apply gamma scaling to output layer if provided
+    if gamma is not None:
+        a_L = a_L / gamma
 
     # get layer dimensions
     is_scalar = N == 1
     nonunit_width = 0 if is_scalar else 1
     dims = [Ws[0].shape[nonunit_width]] + [W.shape[0] for W in Ws]
 
+    # Add epsilon regularization to improve numerical stability
+    A_reg = A + epsilon * jnp.eye(A.shape[0])
+    
     # compute activities solution
-    A_inv = jnp.linalg.inv(A)
+    A_inv = jnp.linalg.inv(A_reg)
     def compute_linear_activity_solution_single(x, y, A_inv, Ws, dims, H, a_1, a_L):
         b = jnp.zeros(len(A))
         if H == 1:
