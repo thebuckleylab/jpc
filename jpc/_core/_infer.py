@@ -34,6 +34,7 @@ def solve_inference(
         weight_decay: Scalar = 0.,
         spectral_penalty: Scalar = 0.,
         activity_decay: Scalar = 0.,
+        gamma: Optional[Scalar] = None,
         record_iters: bool = False,
         record_every: int = None
 ) -> PyTree[Array]:
@@ -82,6 +83,8 @@ def solve_inference(
     - `spectral_penalty`: Weight spectral penalty of the form 
         $||\mathbf{I} - \mathbf{W}_\ell^T \mathbf{W}_\ell||^2$ (0 by default).
     - `activity_decay`: $\ell^2$ regulariser for the activities (0 by default).
+    - `gamma`: Optional scaling factor for the output layer. If provided, the output 
+        layer scaling is multiplied by `1/gamma`. Defaults to `None` (no additional scaling).
     - `record_iters`: If `True`, returns all integration steps.
     - `record_every`: int determining the sampling frequency of the integration
         steps.
@@ -113,6 +116,7 @@ def solve_inference(
             weight_decay, 
             spectral_penalty, 
             activity_decay,
+            gamma,
             stepsize_controller
         ),
         stepsize_controller=stepsize_controller,

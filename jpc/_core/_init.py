@@ -15,7 +15,8 @@ def init_activities_with_ffwd(
         input: ArrayLike,
         *,
         skip_model: Optional[PyTree[Callable]] = None,
-        param_type: str = "sp"
+        param_type: str = "sp",
+        gamma: Optional[Scalar] = None
 ) -> PyTree[Array]:
     """Initialises the layers' activity with a feedforward pass
     $\{ f_\ell(\mathbf{z}_{\ell-1}) \}_{\ell=1}^L$ where $f_\ell(\cdot)$ is some
@@ -41,6 +42,8 @@ def init_activities_with_ffwd(
         See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations. Defaults
         to `"sp"`.
+    - `gamma`: Optional scaling factor for the output layer. If provided, the output 
+        layer scaling is multiplied by `1/gamma`. Defaults to `None` (no additional scaling).
 
     **Returns:**
 
@@ -57,7 +60,8 @@ def init_activities_with_ffwd(
         model=model, 
         input=input, 
         skip_model=skip_model, 
-        param_type=param_type
+        param_type=param_type,
+        gamma=gamma
     )
 
     z1 = scalings[0] * vmap(model[0])(input)

@@ -26,9 +26,12 @@ def neg_pc_activity_grad(
         Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
         ArrayLike,
         Optional[ArrayLike],
-        int,
         str,
         str,
+        Scalar,
+        Scalar,
+        Scalar,
+        Optional[Scalar],
         AbstractStepSizeController
     ]
 ) -> PyTree[Array]:
@@ -42,7 +45,7 @@ def neg_pc_activity_grad(
     - `t`: Time step of the ODE system, used for downstream integration by
         [`diffrax.diffeqsolve()`](https://docs.kidger.site/diffrax/api/diffeqsolve/#diffrax.diffeqsolve).
     - `activities`: List of activities for each layer free to vary.
-    - `args`: 5-Tuple with:
+    - `args`: 10-Tuple with:
 
         (i) Tuple with callable model layers and optional skip connections,
 
@@ -58,16 +61,18 @@ def neg_pc_activity_grad(
 
         (vii) spectral penalty for the weights (0 by default),
 
-        (viii) $\ell^2$ regulariser for the activities (0 by default), and
+        (viii) $\ell^2$ regulariser for the activities (0 by default),
 
-        (ix) diffrax controller for step size integration.
+        (ix) optional scaling factor for the output layer (`None` by default), and
+
+        (x) diffrax controller for step size integration.
 
     **Returns:**
 
     List of negative gradients of the energy with respect to the activities.
 
     """
-    params, y, x, loss_id, param_type, weight_decay, spectral_penalty, activity_decay, _ = args
+    params, y, x, loss_id, param_type, weight_decay, spectral_penalty, activity_decay, gamma, _ = args
     dFdzs = grad(pc_energy_fn, argnums=1)(
         params,
         activities,
@@ -77,7 +82,8 @@ def neg_pc_activity_grad(
         param_type=param_type,
         weight_decay=weight_decay,
         spectral_penalty=spectral_penalty,
-        activity_decay=activity_decay
+        activity_decay=activity_decay,
+        gamma=gamma
     )
     return tree_map(lambda dFdz: -dFdz, dFdzs)
 
@@ -92,7 +98,8 @@ def compute_pc_activity_grad(
     param_type: str = "sp",
     weight_decay: Scalar = 0.,
     spectral_penalty: Scalar = 0.,
-    activity_decay: Scalar = 0.
+    activity_decay: Scalar = 0.,
+    gamma: Optional[Scalar] = None
 ) -> PyTree[Array]:
     """Computes the gradient of the [PC energy](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.pc_energy_fn)
     with respect to the activities $∇_{\mathbf{z}} \mathcal{F}$.
@@ -126,6 +133,8 @@ def compute_pc_activity_grad(
     - `spectral_penalty`: Weight spectral penalty of the form 
         $||\mathbf{I} - \mathbf{W}_\ell^T \mathbf{W}_\ell||^2$ (0 by default).
     - `activity_decay`: $\ell^2$ regulariser for the activities (0 by default).
+    - `gamma`: Optional scaling factor for the output layer. If provided, the output 
+        layer scaling is multiplied by `1/gamma`. Defaults to `None` (no additional scaling).
 
     **Returns:**
 
@@ -141,7 +150,8 @@ def compute_pc_activity_grad(
         param_type=param_type,
         weight_decay=weight_decay,
         spectral_penalty=spectral_penalty,
-        activity_decay=activity_decay
+        activity_decay=activity_decay,
+        gamma=gamma
     )
     return energy, dFdzs
 
@@ -212,12 +222,16 @@ def compute_pdm_activity_grad(
     x: ArrayLike,
     *,
     skip_model: Optional[PyTree[Callable]] = None,
+    lateral_model: Optional[PyTree[Callable]] = None,
     param_type: str = "sp",
     include_previous_backward_error: bool = False,
-    projection_weights_prev: Optional[PyTree[Callable]] = None,
+    include_next_forward_error: bool = False,
+    projection_matrix_prev: Optional[PyTree[Callable]] = None,
+    projection_matrix_next: Optional[PyTree[Callable]] = None,
     backward_energy_weight: Scalar = 1.0,
     forward_energy_weight: Scalar = 1.0,
-    bpc_terms_factor: Scalar = 0.0
+    bpc_terms_factor: Scalar = 0.0,
+    stop_gradient_on_extra_errors: bool = True
 ) -> Tuple[Scalar, PyTree[Array]]:
     """Computes the gradient of each layer PDM energy[`_pdm_single_layer_energy()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._pdm_single_layer_energy)
     with respect to the activities $∇_{\mathbf{z}_\ell} \mathcal{F}_\ell$ of 
@@ -236,24 +250,44 @@ def compute_pdm_activity_grad(
     **Other arguments:**
 
     - `skip_model`: Optional skip connection model.
+    - `lateral_model`: Optional list of lateral connection models, one per hidden layer.
+        Each lateral model maps layer activities to themselves, adding within-layer
+        predictions to the backward error. Defaults to `None`.
     - `param_type`: Determines the parameterisation. Options are `"sp"` 
         (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
         or `"ntp"` (neural tangent parameterisation). 
         See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations. Defaults
         to `"sp"`.
-    - `include_previous_backward_error`: If `True`, includes an extra dendritic term 
-        $(z_\ell - \delta_{\ell})^2/2$ that couples each layer with the backward 
-        error at the previous layer, where $\delta_{\ell} = z_{\ell-1} - V_{\ell} z_{\ell}$. 
+    - `include_previous_backward_error`: If `True`, modifies the forward energy term to 
+        $||\mathbf{e}_\ell + \mathbf{A}_\ell \boldsymbol{\delta}_{\ell-1}||^2/2$ where 
+        $\boldsymbol{\delta}_{\ell-1}$ is the backward error at the previous layer.
         Defaults to `False`.
-    - `backward_energy_weight`: Scalar weighting for the backward energy terms. 
+    - `include_next_forward_error`: If `True`, modifies the backward energy term to 
+        $||\boldsymbol{\delta}_{\ell+1} + \mathbf{B}_\ell \mathbf{e}_{\ell+1}||^2/2$ where 
+        $\mathbf{e}_{\ell+1}$ is the forward error at the next layer.
+        Defaults to `False`.
+    - `projection_matrix_prev`: Optional projection matrix $\mathbf{A}_\ell$ for projecting 
+        the previous backward error. Only used when `include_previous_backward_error=True`.
+        Defaults to `None`.
+    - `projection_matrix_next`: Optional projection matrix $\mathbf{B}_\ell$ for projecting 
+        the next forward error. Only used when `include_next_forward_error=True`.
+        Defaults to `None`.
+    - `backward_energy_weight`: Scalar weighting for the backward prediction error 
+        (delta) only. Scales $\boldsymbol{\delta}_{\ell+1}$ before computing the energy. 
         Defaults to `1.0`.
-    - `forward_energy_weight`: Scalar weighting for the forward energy terms. 
+    - `forward_energy_weight`: Scalar weighting for the forward prediction error 
+        (epsilon) only. Scales $\mathbf{e}_\ell$ before computing the energy. 
         Defaults to `1.0`.
     - `bpc_terms_factor`: Scaling factor for bPC terms (prediction errors 
         weighted by their derivatives). When `bpc_terms_factor=0.0`, uses only direct 
         terms (standard PDM). When `bpc_terms_factor=1.0`, uses full bPC gradient. 
         Defaults to `0.0`.
+    - `stop_gradient_on_extra_errors`: If `True`, applies `stop_gradient` to the 
+        extra error terms ($\boldsymbol{\delta}_{\ell-1}$ and $\mathbf{e}_{\ell+1}$) 
+        so that gradients do not flow through them during backpropagation. This means
+        gradients only flow through the primary errors ($\mathbf{e}_\ell$ and 
+        $\boldsymbol{\delta}_{\ell+1}$). Defaults to `True`.
 
     **Returns:**
 
@@ -268,11 +302,15 @@ def compute_pdm_activity_grad(
         y=y,
         x=x,
         skip_model=skip_model,
+        lateral_model=lateral_model,
         param_type=param_type,
         include_previous_backward_error=include_previous_backward_error,
-        projection_weights_prev=projection_weights_prev,
+        include_next_forward_error=include_next_forward_error,
+        projection_matrix_prev=projection_matrix_prev,
+        projection_matrix_next=projection_matrix_next,
         backward_energy_weight=backward_energy_weight,
-        forward_energy_weight=forward_energy_weight
+        forward_energy_weight=forward_energy_weight,
+        stop_gradient_on_extra_errors=stop_gradient_on_extra_errors
     )
 
     H = len(top_down_model) - 1
@@ -295,11 +333,15 @@ def compute_pdm_activity_grad(
                 x=x,
                 layer_idx=l,
                 skip_model=skip_model,
+                lateral_model=lateral_model,
                 param_type=param_type,
                 include_previous_backward_error=include_previous_backward_error,
-                projection_weights_prev=projection_weights_prev,
+                include_next_forward_error=include_next_forward_error,
+                projection_matrix_prev=projection_matrix_prev,
+                projection_matrix_next=projection_matrix_next,
                 backward_energy_weight=backward_energy_weight,
-                forward_energy_weight=forward_energy_weight
+                forward_energy_weight=forward_energy_weight,
+                stop_gradient_on_extra_errors=stop_gradient_on_extra_errors
             )
         
         grad_l = grad(energy_l)(activities[l])
@@ -352,7 +394,8 @@ def compute_pc_param_grads(
     param_type: str = "sp",
     weight_decay: Scalar = 0.,
     spectral_penalty: Scalar = 0.,
-    activity_decay: Scalar = 0.
+    activity_decay: Scalar = 0.,
+    gamma: Optional[Scalar] = None
 ) -> Tuple[PyTree[Array], PyTree[Array]]:
     """Computes the gradient of the [PC energy](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.pc_energy_fn)
     with respect to model parameters $∇_θ \mathcal{F}$.
@@ -378,6 +421,8 @@ def compute_pc_param_grads(
     - `spectral_penalty`: Weight spectral penalty of the form 
         $||\mathbf{I} - \mathbf{W}_\ell^T \mathbf{W}_\ell||^2$ (0 by default).
     - `activity_decay`: $\ell^2$ regulariser for the activities (0 by default).
+    - `gamma`: Optional scaling factor for the output layer. If provided, the output 
+        layer scaling is multiplied by `1/gamma`. Defaults to `None` (no additional scaling).
 
     **Returns:**
 
@@ -393,7 +438,8 @@ def compute_pc_param_grads(
         param_type=param_type,
         weight_decay=weight_decay,
         spectral_penalty=spectral_penalty,
-        activity_decay=activity_decay
+        activity_decay=activity_decay,
+        gamma=gamma
     )
 
 
@@ -517,12 +563,16 @@ def compute_pdm_param_grads(
     x: ArrayLike,
     *,
     skip_model: Optional[PyTree[Callable]] = None,
+    lateral_model: Optional[PyTree[Callable]] = None,
     param_type: str = "sp",
     spectral_penalty: Scalar = 0.0,
     include_previous_backward_error: bool = False,
-    projection_weights_prev: Optional[PyTree[Callable]] = None,
+    include_next_forward_error: bool = False,
+    projection_matrix_prev: Optional[PyTree[Callable]] = None,
+    projection_matrix_next: Optional[PyTree[Callable]] = None,
     backward_energy_weight: Scalar = 1.0,
     forward_energy_weight: Scalar = 1.0,
+    stop_gradient_on_extra_errors: bool = True,
 ) -> Tuple[PyTree[Array], PyTree[Array]]:
     """Computes the gradient of the [PDM energy](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.pdm_energy_fn)
     with respect to all the model parameters $∇_θ \mathcal{F}$, which is the 
@@ -542,6 +592,9 @@ def compute_pdm_param_grads(
     **Other arguments:**
 
     - `skip_model`: Optional skip connection model.
+    - `lateral_model`: Optional list of lateral connection models, one per hidden layer.
+        Each lateral model maps layer activities to themselves, adding within-layer
+        predictions to the backward error. Defaults to `None`.
     - `param_type`: Determines the parameterisation. Options are `"sp"` 
         (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
         or `"ntp"` (neural tangent parameterisation). 
@@ -550,23 +603,41 @@ def compute_pdm_param_grads(
         to `"sp"`.
     - `spectral_penalty`: Regularization strength for the penalty that 
         penalizes non-orthogonal forward weights. Defaults to 0.0.
-    - `include_previous_backward_error`: If `True`, includes an extra dendritic term 
-        $(z_\ell - \delta_{\ell})^2/2$ that couples each layer with the backward 
-        error at the previous layer, where $\delta_{\ell} = z_{\ell-1} - V_{\ell} z_{\ell}$. 
+    - `include_previous_backward_error`: If `True`, modifies the forward energy term to 
+        $||\mathbf{e}_\ell + \mathbf{A}_\ell \boldsymbol{\delta}_{\ell-1}||^2/2$ where 
+        $\boldsymbol{\delta}_{\ell-1}$ is the backward error at the previous layer.
         Defaults to `False`.
-    - `backward_energy_weight`: Scalar weighting for the backward energy terms. 
+    - `include_next_forward_error`: If `True`, modifies the backward energy term to 
+        $||\boldsymbol{\delta}_{\ell+1} + \mathbf{B}_\ell \mathbf{e}_{\ell+1}||^2/2$ where 
+        $\mathbf{e}_{\ell+1}$ is the forward error at the next layer.
+        Defaults to `False`.
+    - `projection_matrix_prev`: Optional projection matrix $\mathbf{A}_\ell$ for projecting 
+        the previous backward error. Only used when `include_previous_backward_error=True`.
+        Defaults to `None`.
+    - `projection_matrix_next`: Optional projection matrix $\mathbf{B}_\ell$ for projecting 
+        the next forward error. Only used when `include_next_forward_error=True`.
+        Defaults to `None`.
+    - `backward_energy_weight`: Scalar weighting for the backward prediction error 
+        (delta) only. Scales $\boldsymbol{\delta}_{\ell+1}$ before computing the energy. 
         Defaults to `1.0`.
-    - `forward_energy_weight`: Scalar weighting for the forward energy terms. 
+    - `forward_energy_weight`: Scalar weighting for the forward prediction error 
+        (epsilon) only. Scales $\mathbf{e}_\ell$ before computing the energy. 
         Defaults to `1.0`.
+    - `stop_gradient_on_extra_errors`: If `True`, applies `stop_gradient` to the 
+        extra error terms ($\boldsymbol{\delta}_{\ell-1}$ and $\mathbf{e}_{\ell+1}$) 
+        so that gradients do not flow through them during backpropagation. This means
+        gradients only flow through the primary errors ($\mathbf{e}_\ell$ and 
+        $\boldsymbol{\delta}_{\ell+1}$). Defaults to `True`.
 
     **Returns:**
 
     Tuple of parameter gradients for the top-down and bottom-up models.
+    If lateral_model is provided, also returns lateral gradients as a third element.
     
     """
-    if include_previous_backward_error or backward_energy_weight != 1.0 or forward_energy_weight != 1.0:
-        # When including previous backward error or energy weightings, compute gradients directly from pdm_energy_fn
-        def wrapped_energy_fn(models, activities, y, x, skip_model, param_type, spectral_penalty, include_previous_backward_error, projection_weights_prev, backward_energy_weight, forward_energy_weight):
+    if include_previous_backward_error or include_next_forward_error or backward_energy_weight != 1.0 or forward_energy_weight != 1.0 or lateral_model is not None:
+        # When including previous backward error, next forward error, energy weightings, or lateral connections, compute gradients directly from pdm_energy_fn
+        def wrapped_energy_fn(models, activities, y, x, skip_model, lateral_model, param_type, spectral_penalty, include_previous_backward_error, include_next_forward_error, projection_matrix_prev, projection_matrix_next, backward_energy_weight, forward_energy_weight, stop_gradient_on_extra_errors):
             top_down_model, bottom_up_model = models
             return pdm_energy_fn(
                 top_down_model=top_down_model,
@@ -575,12 +646,16 @@ def compute_pdm_param_grads(
                 y=y,
                 x=x,
                 skip_model=skip_model,
+                lateral_model=lateral_model,
                 param_type=param_type,
                 spectral_penalty=spectral_penalty,
                 include_previous_backward_error=include_previous_backward_error,
-                projection_weights_prev=projection_weights_prev,
+                include_next_forward_error=include_next_forward_error,
+                projection_matrix_prev=projection_matrix_prev,
+                projection_matrix_next=projection_matrix_next,
                 backward_energy_weight=backward_energy_weight,
-                forward_energy_weight=forward_energy_weight
+                forward_energy_weight=forward_energy_weight,
+                stop_gradient_on_extra_errors=stop_gradient_on_extra_errors
             )
         
         top_down_grads, bottom_up_grads = filter_grad(wrapped_energy_fn)(
@@ -589,13 +664,41 @@ def compute_pdm_param_grads(
             y,
             x,
             skip_model=skip_model,
+            lateral_model=lateral_model,
             param_type=param_type,
             spectral_penalty=spectral_penalty,
             include_previous_backward_error=include_previous_backward_error,
-            projection_weights_prev=projection_weights_prev,
+            include_next_forward_error=include_next_forward_error,
+            projection_matrix_prev=projection_matrix_prev,
+            projection_matrix_next=projection_matrix_next,
             backward_energy_weight=backward_energy_weight,
-            forward_energy_weight=forward_energy_weight
+            forward_energy_weight=forward_energy_weight,
+            stop_gradient_on_extra_errors=stop_gradient_on_extra_errors
         )
+        
+        # Compute lateral gradients if lateral_model is provided
+        lateral_grads = None
+        if lateral_model is not None:
+            def lateral_energy_fn(lat_model):
+                return pdm_energy_fn(
+                    top_down_model=top_down_model,
+                    bottom_up_model=bottom_up_model,
+                    activities=activities,
+                    y=y,
+                    x=x,
+                    skip_model=skip_model,
+                    lateral_model=lat_model,
+                    param_type=param_type,
+                    spectral_penalty=spectral_penalty,
+                    include_previous_backward_error=include_previous_backward_error,
+                    include_next_forward_error=include_next_forward_error,
+                    projection_matrix_prev=projection_matrix_prev,
+                    projection_matrix_next=projection_matrix_next,
+                    backward_energy_weight=backward_energy_weight,
+                    forward_energy_weight=forward_energy_weight,
+                    stop_gradient_on_extra_errors=stop_gradient_on_extra_errors
+                )
+            lateral_grads = filter_grad(lateral_energy_fn)(lateral_model)
     else:
         # Get BPC parameter gradients (same as PDM for the base energy)
         bpc_top_down_grads, bpc_bottom_up_grads = compute_bpc_param_grads(
@@ -654,10 +757,39 @@ def compute_pdm_param_grads(
                 return tree_map(lambda x, y: x + y, g1, g2)
             
             top_down_grads = add_grads(top_down_grads, fwd_reg_top_down_grads)
+        
+        # Compute lateral gradients if lateral_model is provided (even in the else branch)
+        lateral_grads = None
+        if lateral_model is not None:
+            def lateral_energy_fn(lat_model):
+                return pdm_energy_fn(
+                    top_down_model=top_down_model,
+                    bottom_up_model=bottom_up_model,
+                    activities=activities,
+                    y=y,
+                    x=x,
+                    skip_model=skip_model,
+                    lateral_model=lat_model,
+                    param_type=param_type,
+                    spectral_penalty=spectral_penalty,
+                    include_previous_backward_error=include_previous_backward_error,
+                    include_next_forward_error=include_next_forward_error,
+                    projection_matrix_prev=projection_matrix_prev,
+                    projection_matrix_next=projection_matrix_next,
+                    backward_energy_weight=backward_energy_weight,
+                    forward_energy_weight=forward_energy_weight,
+                    stop_gradient_on_extra_errors=stop_gradient_on_extra_errors
+                )
+            lateral_grads = filter_grad(lateral_energy_fn)(lateral_model)
     
     # Note: projection_weights_prev gradients are not returned here as they are handled separately
     # if projection_weights_prev is provided, it should be updated separately in the training loop
-    return top_down_grads, bottom_up_grads
+    
+    # Return lateral_grads if computed, otherwise return just top_down and bottom_up grads
+    if lateral_grads is not None:
+        return (top_down_grads, bottom_up_grads, lateral_grads)
+    else:
+        return (top_down_grads, bottom_up_grads)
 
 
 def compute_epc_error_grad(
