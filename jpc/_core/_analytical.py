@@ -6,7 +6,7 @@ import numpy as np
 import equinox as eqx
 import equinox.nn as nn
 from jaxtyping import PyTree, ArrayLike, Array, Scalar
-from typing import Optional, Dict
+from typing import Optional, Dict, Tuple
 from optax import GradientTransformation, GradientTransformationExtraArgs, OptState
 from ._errors import _check_param_type
 from ._energies import _get_param_scalings
@@ -17,8 +17,9 @@ def linear_equilib_energy(
         x: ArrayLike,
         y: ArrayLike,
         param_type: str = "sp",
-        gamma: Optional[Scalar] = None
-) -> Array:
+        gamma: Optional[Scalar] = None,
+        return_rescaling: bool = False
+) -> Array | Tuple[Array, Array]:
     """Computes the theoretical [PC energy](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.pc_energy_fn) 
     at the solution of the activities for a deep linear network ([Innocenti et al. 2024](https://proceedings.neurips.cc/paper_files/paper/2024/hash/6075fc6540b9a3cb951752099efd86ef-Abstract-Conference.html)):
 
@@ -80,10 +81,13 @@ def linear_equilib_energy(
     - `gamma`: Optional scaling factor for the output layer. If provided, the 
         output layer scaling is multiplied by `1/gamma`. Defaults to `None` (no 
         additional scaling).
+    - `return_rescaling`: If `True`, also returns the rescaling matrix `S`. 
+        Defaults to `False`.
     
     **Returns:**
 
-    Mean total theoretical energy over a data batch.
+    Mean total theoretical energy over a data batch and optionally the rescaling 
+    matrix `S`.
     
     """
     _check_param_type(param_type)
@@ -118,9 +122,14 @@ def linear_equilib_energy(
             cumulative_scaling *= scalings[j]
         S += (cumulative_scaling ** 2) * (cumulative_prod @ cumulative_prod.T)
 
-    return vmap(
+    equilib_energy = vmap(
         lambda x, y: 0.5 * (y - WLto1 @ x).T @ jnp.linalg.solve(S, y - WLto1 @ x)
     )(x, y).mean()
+    
+    if return_rescaling:
+        return equilib_energy, S
+    else:
+        return equilib_energy
 
 
 def compute_linear_equilib_energy_grads(
