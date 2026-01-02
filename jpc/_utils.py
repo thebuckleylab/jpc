@@ -127,7 +127,7 @@ def make_skip_model(depth: int) -> PyTree[Callable]:
 
 
 def mse_loss(preds: ArrayLike, labels: ArrayLike) -> Scalar:
-    return 0.5 * jnp.mean((labels - preds)**2)
+    return 0.5 * jnp.mean(jnp.sum((labels - preds) ** 2, axis=1))
 
 
 def cross_entropy_loss(logits: ArrayLike, labels: ArrayLike) -> Scalar:
