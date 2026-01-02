@@ -825,6 +825,7 @@ def _get_param_scalings(
 
     """
     L = len(model)
+    no_skips = skip_model is None or all(s is None for s in skip_model)
 
     if param_type == "sp":
         scalings = [1.] + [1] * (L-2) + [1]
@@ -834,7 +835,7 @@ def _get_param_scalings(
         N = model[0][1].weight.shape[0]
         
         a1 = 1 / sqrt(D)
-        al = 1 / sqrt(N) if skip_model is None else 1 / sqrt(N * L)
+        al = 1 / sqrt(N) if no_skips else 1 / sqrt(N * L)
         aL = 1 / N if param_type == "mupc" else 1 / sqrt(N)
         scalings = [a1] + [al] * (L-2) + [aL]
 
