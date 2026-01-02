@@ -16,6 +16,8 @@ def linear_equilib_energy(
         model: PyTree[nn.Linear],
         x: ArrayLike,
         y: ArrayLike,
+        *,
+        skip_model: Optional[PyTree[nn.Linear]] = None,
         param_type: str = "sp",
         gamma: Optional[Scalar] = None,
         return_rescaling: bool = False
@@ -72,6 +74,7 @@ def linear_equilib_energy(
 
     **Other arguments:**
 
+    - `skip_model`: Optional skip connection model.
     - `param_type`: Determines the parameterisation. Options are `"sp"` 
         (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
         or `"ntp"` (neural tangent parameterisation). 
@@ -95,6 +98,7 @@ def linear_equilib_energy(
     scalings = _get_param_scalings(
         model=model,
         input=x,
+        skip_model=skip_model,
         param_type=param_type,
         gamma=gamma
     )
@@ -122,9 +126,11 @@ def linear_equilib_energy(
             cumulative_scaling *= scalings[j]
         S += (cumulative_scaling ** 2) * (cumulative_prod @ cumulative_prod.T)
 
+    residual = y - vmap(lambda x: WLto1 @ x)(x)
+    
     equilib_energy = vmap(
-        lambda x, y: 0.5 * (y - WLto1 @ x).T @ jnp.linalg.solve(S, y - WLto1 @ x)
-    )(x, y).mean()
+        lambda r: 0.5 * r.T @ jnp.linalg.solve(S, r)
+    )(residual).mean()
     
     if return_rescaling:
         return equilib_energy, S
