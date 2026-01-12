@@ -23,7 +23,7 @@ def test_compute_linear_equilib_energy(key, x, y, input_dim, hidden_dim, output_
         model.append(nn.Sequential([nn.Lambda(lambda x: x), linear]))
     
     energy = linear_equilib_energy(
-        model=model,
+        params=(model, None),
         x=x,
         y=y
     )
