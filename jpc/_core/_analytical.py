@@ -6,18 +6,17 @@ import numpy as np
 import equinox as eqx
 import equinox.nn as nn
 from jaxtyping import PyTree, ArrayLike, Array, Scalar
-from typing import Optional, Dict, Tuple
+from typing import Optional, Dict, Tuple, Callable
 from optax import GradientTransformation, GradientTransformationExtraArgs, OptState
 from ._errors import _check_param_type
 from ._energies import _get_param_scalings
 
 
 def linear_equilib_energy(
-        model: PyTree[nn.Linear],
+        params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
         x: ArrayLike,
         y: ArrayLike,
         *,
-        skip_model: Optional[PyTree[nn.Linear]] = None,
         param_type: str = "sp",
         gamma: Optional[Scalar] = None,
         return_rescaling: bool = False
@@ -68,13 +67,12 @@ def linear_equilib_energy(
 
     **Main arguments:**
 
-    - `model`: Linear network defined as a list of Equinox Linear layers.
+    - `params`: Tuple with callable network layers and optional skip connections.
     - `x`: Network input.
     - `y`: Network output.
 
     **Other arguments:**
 
-    - `skip_model`: Optional skip connection model.
     - `param_type`: Determines the parameterisation. Options are `"sp"` 
         (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
         or `"ntp"` (neural tangent parameterisation). 
@@ -95,6 +93,8 @@ def linear_equilib_energy(
     """
     _check_param_type(param_type)
 
+    model, skip_model = params
+
     scalings = _get_param_scalings(
         model=model,
         input=x,
@@ -107,24 +107,53 @@ def linear_equilib_energy(
         layer.weight for seq in model for layer in seq if hasattr(layer, "weight")
     ]
     L = len(Ws)
-
-    scaling_product = 1.0
-    for scaling in scalings:
-        scaling_product *= scaling
+    N = Ws[0].shape[0]
     
-    WLto1 = jnp.eye(Ws[-1].shape[0])
-    for i in range(L - 1, -1, -1):
-        WLto1 = WLto1 @ Ws[i]
-    WLto1 = scaling_product * WLto1
+    has_skips = skip_model is not None and any(s is not None for s in skip_model)
+    
+    if has_skips:
+        W1 = scalings[0] * Ws[0]
+        
+        hidden_prod = jnp.eye(N)
+        for l in range(1, L - 1):
+            I = jnp.eye(N)
+            hidden_prod = (I + scalings[l] * Ws[l]) @ hidden_prod
+        
+        WLto1 = scalings[-1] * Ws[-1] @ hidden_prod @ W1
+        
+        S = jnp.eye(Ws[-1].shape[0])
+        S += (scalings[-1] ** 2) * (Ws[-1] @ Ws[-1].T)
+        
+        for l in range(1, L - 1):  # Layers 1 to L-2 (0-indexed)
+            
+            # Compute p^(L:ℓ) = w^(L) * ∏(ℓ to L-1) (I_N + scalings[ℓ] * W^(ℓ))
+            prod_term = jnp.eye(N)
+            for k in range(l, L - 1):
+                I_k = jnp.eye(N)
+                prod_term = (I_k + scalings[k] * Ws[k]) @ prod_term
+            
+            p_L_ell = scalings[-1] * Ws[-1] @ prod_term  # Shape: (d_y, N)
+            
+            S += p_L_ell @ p_L_ell.T
+        
+    else:
+        scaling_product = 1.0
+        for scaling in scalings:
+            scaling_product *= scaling
+        
+        WLto1 = jnp.eye(Ws[-1].shape[0])
+        for i in range(L - 1, -1, -1):
+            WLto1 = WLto1 @ Ws[i]
+        WLto1 = scaling_product * WLto1
 
-    S = jnp.eye(Ws[-1].shape[0])
-    cumulative_prod = jnp.eye(Ws[-1].shape[0])
-    for i in range(L - 1, 0, -1):
-        cumulative_prod = cumulative_prod @ Ws[i]
-        cumulative_scaling = 1.0
-        for j in range(i, L):
-            cumulative_scaling *= scalings[j]
-        S += (cumulative_scaling ** 2) * (cumulative_prod @ cumulative_prod.T)
+        S = jnp.eye(Ws[-1].shape[0])
+        cumulative_prod = jnp.eye(Ws[-1].shape[0])
+        for i in range(L - 1, 0, -1):
+            cumulative_prod = cumulative_prod @ Ws[i]
+            cumulative_scaling = 1.0
+            for j in range(i, L):
+                cumulative_scaling *= scalings[j]
+            S += (cumulative_scaling ** 2) * (cumulative_prod @ cumulative_prod.T)
 
     residual = y - vmap(lambda x: WLto1 @ x)(x)
     
@@ -139,7 +168,7 @@ def linear_equilib_energy(
 
 
 def compute_linear_equilib_energy_grads(
-    model: PyTree[nn.Linear],
+    params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
     x: ArrayLike,
     y: ArrayLike,
     *,
@@ -151,7 +180,7 @@ def compute_linear_equilib_energy_grads(
 
     **Main arguments:**
 
-    - `model`: Linear network defined as a list of Equinox Linear layers.
+    - `params`: Tuple with callable model layers and optional skip connections.
     - `x`: Network input.
     - `y`: Network output.
 
@@ -173,7 +202,7 @@ def compute_linear_equilib_energy_grads(
 
     """
     return eqx.filter_grad(linear_equilib_energy)(
-        model,
+        params,
         x,
         y,
         param_type=param_type,
@@ -183,7 +212,7 @@ def compute_linear_equilib_energy_grads(
 
 @eqx.filter_jit
 def update_linear_equilib_energy_params(
-    model: PyTree[nn.Linear],
+    params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
     optim: GradientTransformation | GradientTransformationExtraArgs,
     opt_state: OptState,
     x: ArrayLike,
@@ -198,7 +227,7 @@ def update_linear_equilib_energy_params(
 
     **Main arguments:**
 
-    - `model`: Linear network defined as a list of Equinox Linear layers.
+    - `params`: Tuple with callable model layers and optional skip connections.
     - `optim`: optax optimiser, e.g. `optax.sgd()`.
     - `opt_state`: State of optax optimiser.
     - `x`: Network input.
@@ -222,7 +251,7 @@ def update_linear_equilib_energy_params(
 
     """
     grads = compute_linear_equilib_energy_grads(
-        model=model,
+        params=params,
         x=x,
         y=y,
         param_type=param_type,
@@ -231,14 +260,15 @@ def update_linear_equilib_energy_params(
     updates, opt_state = optim.update(
         updates=grads,
         state=opt_state,
-        params=model
+        params=params
     )
-    model = eqx.apply_updates(
-        model=model,
+    model, skip_model = eqx.apply_updates(
+        model=params,
         updates=updates
     )
     return {
         "model": model,
+        "skip_model": skip_model,
         "grads": grads,
         "opt_state": opt_state
     }
