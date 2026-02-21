@@ -10,6 +10,24 @@ import equinox as eqx
 import equinox.nn as nn
 
 
+def configure_param_optim(optim_id, param_type, use_skips, param_lr, gamma_0, width, depth):
+    if param_type == "sp":
+        return optax.sgd(param_lr) if optim_id == "gd" else optax.adam(param_lr)
+    else:
+        if optim_id == "gd":
+            scaled_lr = param_lr * (gamma_0**2) * width
+            return optax.sgd(scaled_lr)
+        elif optim_id == "adam":
+            if use_skips:
+                scaled_lr = param_lr / ( np.sqrt(width) * np.sqrt(depth) )
+            else:
+                scaled_lr = param_lr / np.sqrt(width)
+            return optax.adam(scaled_lr)
+        else:
+            raise ValueError(f"Invalid optimiser: {optim_id}")
+
+
+
 def setup_pc_experiment(
         results_dir,
         input_dim,
