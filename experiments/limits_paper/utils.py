@@ -6,6 +6,7 @@ from jax.flatten_util import ravel_pytree
 from jax import vmap
 
 import jpc
+import optax
 import equinox as eqx
 import equinox.nn as nn
 
