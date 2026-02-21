@@ -250,7 +250,7 @@ if __name__ == "__main__":
     
     # Model parameters
     parser.add_argument("--act_fn", type=str, default="linear")
-    parser.add_argument("--param_types", type=str, nargs='+', default=["mupc", "sp"])
+    parser.add_argument("--param_types", type=str, nargs='+', default=["mupc"])
     parser.add_argument("--use_skips", nargs='+', default=[False, True])
 
     # Training parameters
