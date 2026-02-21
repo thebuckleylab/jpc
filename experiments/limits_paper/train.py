@@ -249,8 +249,8 @@ if __name__ == "__main__":
     parser.add_argument("--n_samples", type=int, default=20)
     
     # Model parameters
-    parser.add_argument("--act_fn", type=str, default="tanh")
-    parser.add_argument("--param_types", type=str, nargs='+', default=["mupc"])
+    parser.add_argument("--act_fn", type=str, default="linear")
+    parser.add_argument("--param_types", type=str, nargs='+', default=["mupc", "sp"])
     parser.add_argument("--use_skips", nargs='+', default=[False, True])
 
     # Training parameters
@@ -260,21 +260,18 @@ if __name__ == "__main__":
     parser.add_argument("--n_train_iters", type=int, default=100)
     
     # Inference parameters
-    parser.add_argument("--infer_mode", type=str, default="optim")  # NOTE: closed_form
+    parser.add_argument("--infer_mode", type=str, default="closed_form", options=["optim", "closed_form"])
     parser.add_argument("--n_infer_iters", type=int, default=20) 
-    parser.add_argument("--activity_lrs", type=float, nargs='+', default=[1e-1, 5e-1, 1, 2, 5, 10])
+    parser.add_argument("--activity_lrs", type=float, nargs='+', default=[5e-1])
     
     # loop parameters
     parser.add_argument("--n_seeds", type=int, default=1)
-    parser.add_argument("--n_hiddens", type=int, nargs='+', default=[1, 3, 7, 15])  #1, 3, 7, 15, 31
+    parser.add_argument("--n_hiddens", type=int, nargs='+', default=[4])
     parser.add_argument("--widths", type=int, nargs='+', 
-        default=[2048]
-    )  #[8, 16, 32, 64, 128, 256, 512, 1024, 2048]
-    #1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048
+        default=[8, 16, 32, 64, 128, 256, 512, 1024, 2048]
+    )
     parser.add_argument("--compute_cos_sims", action="store_true", default=True)
     args = parser.parse_args()
-    # import jax
-    # jax.config.update("jax_enable_x64", True)
 
     if len(args.n_hiddens) > 1 and len(args.widths) > 1:
         # NOTE: need higher precision for large width & depth computation of s(theta)
