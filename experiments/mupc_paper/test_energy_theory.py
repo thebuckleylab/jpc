@@ -7,6 +7,7 @@ import optax
 import equinox as eqx
 
 from experiments.datasets import get_dataloaders
+from utils import set_seed
 
 
 def run_test(
