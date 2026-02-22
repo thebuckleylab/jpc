@@ -36,6 +36,7 @@ def train_pcn(
       param_optim_id,
       param_lr,
       n_train_iters,
+      loss_id,
       save_dir,
       store_grads=False
 ):    
@@ -47,7 +48,7 @@ def train_pcn(
     # Optimisers
     activity_optim = optax.sgd(activity_lr)
     param_optim = configure_param_optim(
-        param_optim_id, param_type, use_skips, param_lr, gamma_0, width, depth
+        param_optim_id, param_type, use_skips, param_lr, width, depth, gamma_0
     )
     param_opt_state = param_optim.init(
         (eqx.filter(model, eqx.is_array), skip_model)
@@ -101,7 +102,8 @@ def train_pcn(
                     output=Y_target,
                     input=X_input,
                     param_type=param_type,
-                    gamma=gamma_0
+                    gamma=gamma_0,
+                    loss_id=loss_id
                 )
                 activities = activity_update_result["activities"]
                 activity_opt_state = activity_update_result["opt_state"]
@@ -117,7 +119,8 @@ def train_pcn(
                 output=Y_target,
                 input=X_input,
                 param_type=param_type,
-                gamma=gamma_0
+                gamma=gamma_0,
+                loss_id=loss_id
             )
 
         else:
@@ -150,7 +153,10 @@ def train_pcn(
             param_type=param_type,
             gamma=gamma_0
         )
-        train_loss = jpc.mse_loss(activities[-1], Y_target)
+        if loss_id == "mse":
+            train_loss = jpc.mse_loss(activities[-1], Y_target)
+        else:
+            train_loss = jpc.cross_entropy_loss(activities[-1], Y_target)
         train_losses.append(train_loss)
 
     energies = (
@@ -176,6 +182,7 @@ def train_bpn(
       optim_id,
       param_lr,
       n_train_iters,
+      loss_id,
       save_dir,
       store_grads=False
 ):
@@ -187,10 +194,16 @@ def train_bpn(
     )
     opt_state = optim.init(eqx.filter(model, eqx.is_array))
 
-    @eqx.filter_jit
-    def loss_fn(model, x, y):
-        y_pred = jax.vmap(model)(x)
-        return 0.5 * jnp.mean(jnp.sum((y - y_pred) ** 2, axis=1))
+    if loss_id == "mse":
+        @eqx.filter_jit
+        def loss_fn(model, x, y):
+            y_pred = jax.vmap(model)(x)
+            return 0.5 * jnp.mean(jnp.sum((y - y_pred) ** 2, axis=1))
+    else:
+        @eqx.filter_jit
+        def loss_fn(model, x, y):
+            y_pred = jax.vmap(model)(x)
+            return jpc.cross_entropy_loss(y_pred, y)
 
     @eqx.filter_jit
     def make_step(model, optim, opt_state, x, y):
@@ -228,32 +241,35 @@ if __name__ == "__main__":
     parser.add_argument("--results_dir", type=str, default="results")
 
     # Dataset parameters
-    parser.add_argument("--dataset", type=str, default="toy")
+    parser.add_argument("--dataset", type=str, default="toy", choices=["toy", "Fashion-MNIST", "CIFAR10"])
     parser.add_argument("--input_dim", type=int, default=40)
     parser.add_argument("--n_samples", type=int, default=20)
     
     # Model parameters
-    parser.add_argument("--act_fn", type=str, default="linear")
-    parser.add_argument("--param_types", type=str, nargs='+', default=["mupc"])
-    parser.add_argument("--use_skips", nargs='+', default=[False, True])
+    parser.add_argument("--act_fn", type=str, default="linear", choices=["linear", "tanh", "relu"])
+    parser.add_argument("--param_types", type=str, nargs='+', default=["mupc"], choices=["mupc", "sp"])
+    parser.add_argument("--use_skips", nargs='+', default=[True, False])
 
     # Training parameters
     parser.add_argument("--param_optim", type=str, default="gd")
     parser.add_argument("--param_lr", type=float, default=0.025)
     parser.add_argument("--gamma_0s", type=float, nargs='+', default=[1])
     parser.add_argument("--n_train_iters", type=int, default=100)
+    parser.add_argument("--loss_id", type=str, default="ce", choices=["mse", "ce"])
     
     # Inference parameters
-    parser.add_argument("--infer_mode", type=str, default="closed_form", options=["optim", "closed_form"])
-    parser.add_argument("--n_infer_iters", type=int, default=20) 
+    parser.add_argument("--infer_mode", type=str, default="closed_form", choices=["optim", "closed_form"])
+    parser.add_argument("--n_infer_iters", type=int, default=20)
     parser.add_argument("--activity_lrs", type=float, nargs='+', default=[5e-1])
     
-    # loop parameters
+    # Loop parameters
     parser.add_argument("--n_seeds", type=int, default=1)
     parser.add_argument("--n_hiddens", type=int, nargs='+', default=[4])
     parser.add_argument("--widths", type=int, nargs='+', 
         default=[8, 16, 32, 64, 128, 256, 512, 1024, 2048]
     )
+    
+    # Other parameters
     parser.add_argument("--compute_cos_sims", action="store_true", default=True)
     args = parser.parse_args()
 
@@ -334,6 +350,9 @@ if __name__ == "__main__":
                             X_input = X.T # Shape (P, D)
                             Y_target = y[:, None] if y.ndim == 1 else y
 
+                            # Loss: toy always MSE
+                            loss_id = "mse" if args.dataset == "toy" else args.loss_id
+
                             # --- Run Numerical Experiment ---
                             for width in args.widths:
                                 print(f"\t\t\t\t\tNumerical simulation for width N = {width}")
@@ -359,6 +378,7 @@ if __name__ == "__main__":
                                     n_infer_iters=n_infer_iters,
                                     activity_lr=activity_lr,
                                     width=width,
+                                    loss_id=loss_id,
                                     seed=seed
                                 )
                                 pc_model = jpc.make_mlp(
@@ -386,7 +406,8 @@ if __name__ == "__main__":
                                     param_lr=args.param_lr,
                                     n_train_iters=args.n_train_iters,
                                     save_dir=pc_save_dir,
-                                    store_grads=args.compute_cos_sims
+                                    store_grads=args.compute_cos_sims,
+                                    loss_id=loss_id
                                 )
                     
                                 # --- BP ---
@@ -403,6 +424,7 @@ if __name__ == "__main__":
                                     gamma_0=gamma_0,
                                     n_train_iters=args.n_train_iters,
                                     width=width,
+                                    loss_id=loss_id,
                                     seed=seed
                                 )
                                 bp_model = MLP(
@@ -451,7 +473,8 @@ if __name__ == "__main__":
                                     param_lr=args.param_lr,
                                     n_train_iters=args.n_train_iters,
                                     save_dir=bp_save_dir,
-                                    store_grads=args.compute_cos_sims
+                                    store_grads=args.compute_cos_sims,
+                                    loss_id=loss_id
                                 )
                                 
                                 if args.compute_cos_sims:
@@ -460,3 +483,5 @@ if __name__ == "__main__":
                                         f"{pc_save_dir}/grad_cosine_similarities.npy", 
                                         cosine_similarities
                                     )
+
+                                    print(f"Cosine similarities: {cosine_similarities}")

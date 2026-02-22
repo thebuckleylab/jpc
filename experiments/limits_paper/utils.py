@@ -11,7 +11,7 @@ import equinox as eqx
 import equinox.nn as nn
 
 
-def configure_param_optim(optim_id, param_type, use_skips, param_lr, gamma_0, width, depth):
+def configure_param_optim(optim_id, param_type, use_skips, param_lr, width, depth, gamma_0=1.0):
     if param_type == "sp":
         return optax.sgd(param_lr) if optim_id == "gd" else optax.adam(param_lr)
     else:
@@ -26,7 +26,6 @@ def configure_param_optim(optim_id, param_type, use_skips, param_lr, gamma_0, wi
             return optax.adam(scaled_lr)
         else:
             raise ValueError(f"Invalid optimiser: {optim_id}")
-
 
 
 def setup_pc_experiment(
@@ -45,6 +44,7 @@ def setup_pc_experiment(
         n_infer_iters,
         activity_lr,
         width,
+        loss_id,
         seed
 ):
     return os.path.join(
@@ -63,6 +63,7 @@ def setup_pc_experiment(
         f"{n_infer_iters}_n_infer_iters",
         f"{activity_lr}_activity_lr",
         f"{width}_width",
+        f"{loss_id}_loss_id",
         str(seed)
     )
 
@@ -80,6 +81,7 @@ def setup_bp_experiment(
         gamma_0,
         n_train_iters,
         width,
+        loss_id,
         seed
 ):
     return os.path.join(
@@ -95,6 +97,7 @@ def setup_bp_experiment(
         f"{gamma_0}_gamma_0",
         f"{n_train_iters}_n_train_iters",
         f"{width}_width",
+        f"{loss_id}_loss_id",
         str(seed)
     )
 
