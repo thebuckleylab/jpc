@@ -900,13 +900,13 @@ if __name__ == "__main__":
         "--n_hiddens",
         type=int,
         nargs='+',
-        default=[3],
+        default=[4],
         help="List of hidden layer counts H to plot. If not provided, plots without n_hidden filtering."
     )
     parser.add_argument(
         "--plot_dir",
         type=str,
-        default="main_plots",
+        default="toy_plots",
         help="Directory to save plots. Will create subdirectories for dataset ID and then for each n_hidden."
     )
     parser.add_argument(
@@ -1008,7 +1008,7 @@ if __name__ == "__main__":
     os.makedirs(args.plot_dir, exist_ok=True)
     
     # Define param types to process
-    param_types = ['sp', 'mupc']
+    param_types = ['sp', 'mupc' , 'my-mup']
     
     # Define use_skips values to process
     # If args.use_skips is specified, only process that value; otherwise process both True and False
