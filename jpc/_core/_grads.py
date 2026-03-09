@@ -161,8 +161,8 @@ def compute_bpc_activity_grad(
     bottom_up_model: PyTree[Callable],
     activities: PyTree[ArrayLike],
     y: ArrayLike,
-    x: ArrayLike,
     *,
+    x: Optional[ArrayLike] = None,
     skip_model: Optional[PyTree[Callable]] = None,
     param_type: str = "sp",
     backward_energy_weight: Scalar = 1.0,
@@ -179,10 +179,11 @@ def compute_bpc_activity_grad(
         the backward model.
     - `activities`: List of activities for each layer free to vary.
     - `y`: Target of the `top_down_model` and input to the `bottom_up_model`.
-    - `x`: Input to the `top_down_model` and target of the `bottom_up_model`.
 
     **Other arguments:**
 
+    - `x`: Optional input to the `top_down_model` and target of the 
+        `bottom_up_model`.
     - `skip_model`: Optional skip connection model.
     - `param_type`: Determines the parameterisation. Options are `"sp"` 
         (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
@@ -224,6 +225,7 @@ def compute_pdm_activity_grad(
     skip_model: Optional[PyTree[Callable]] = None,
     lateral_model: Optional[PyTree[Callable]] = None,
     param_type: str = "sp",
+    lateral_gamma: Scalar = 0.0,
     include_previous_backward_error: bool = False,
     include_next_forward_error: bool = False,
     projection_matrix_prev: Optional[PyTree[Callable]] = None,
@@ -231,7 +233,7 @@ def compute_pdm_activity_grad(
     backward_energy_weight: Scalar = 1.0,
     forward_energy_weight: Scalar = 1.0,
     bpc_terms_factor: Scalar = 0.0,
-    stop_gradient_on_extra_errors: bool = True
+    stop_gradient_on_extra_errors: bool = True,
 ) -> Tuple[Scalar, PyTree[Array]]:
     """Computes the gradient of each layer PDM energy[`_pdm_single_layer_energy()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._pdm_single_layer_energy)
     with respect to the activities $∇_{\mathbf{z}_\ell} \mathcal{F}_\ell$ of 
@@ -294,6 +296,9 @@ def compute_pdm_activity_grad(
     The PDMenergy and list of gradients with respect to the activities of each layer.
 
     """
+    # When gamma != 0, lateral is used only for the regulariser (not in dynamics).
+    lateral_for_dynamics = None if lateral_gamma != 0.0 else lateral_model
+
     # Compute PDM gradient (direct terms only)
     energy = pdm_energy_fn(
         top_down_model=top_down_model,
@@ -304,13 +309,14 @@ def compute_pdm_activity_grad(
         skip_model=skip_model,
         lateral_model=lateral_model,
         param_type=param_type,
+        lateral_gamma=lateral_gamma,
         include_previous_backward_error=include_previous_backward_error,
         include_next_forward_error=include_next_forward_error,
         projection_matrix_prev=projection_matrix_prev,
         projection_matrix_next=projection_matrix_next,
         backward_energy_weight=backward_energy_weight,
         forward_energy_weight=forward_energy_weight,
-        stop_gradient_on_extra_errors=stop_gradient_on_extra_errors
+        stop_gradient_on_extra_errors=stop_gradient_on_extra_errors,
     )
 
     H = len(top_down_model) - 1
@@ -333,7 +339,7 @@ def compute_pdm_activity_grad(
                 x=x,
                 layer_idx=l,
                 skip_model=skip_model,
-                lateral_model=lateral_model,
+                lateral_model=lateral_for_dynamics,
                 param_type=param_type,
                 include_previous_backward_error=include_previous_backward_error,
                 include_next_forward_error=include_next_forward_error,
@@ -341,7 +347,7 @@ def compute_pdm_activity_grad(
                 projection_matrix_next=projection_matrix_next,
                 backward_energy_weight=backward_energy_weight,
                 forward_energy_weight=forward_energy_weight,
-                stop_gradient_on_extra_errors=stop_gradient_on_extra_errors
+                stop_gradient_on_extra_errors=stop_gradient_on_extra_errors,
             )
         
         grad_l = grad(energy_l)(activities[l])
@@ -490,8 +496,8 @@ def compute_bpc_param_grads(
     bottom_up_model: PyTree[Callable],
     activities: PyTree[ArrayLike],
     y: ArrayLike,
-    x: ArrayLike,
     *,
+    x: Optional[ArrayLike] = None,
     skip_model: Optional[PyTree[Callable]] = None,
     param_type: str = "sp",
     backward_energy_weight: Scalar = 1.0,
@@ -508,10 +514,11 @@ def compute_bpc_param_grads(
         the backward model.
     - `activities`: List of activities for each layer free to vary.
     - `y`: Target of the `top_down_model` and input to the `bottom_up_model`.
-    - `x`: Input to the `top_down_model` and target of the `bottom_up_model`.
 
     **Other arguments:**
 
+    - `x`: Optional input to the `top_down_model` and target of the 
+        `bottom_up_model`.
     - `skip_model`: Optional skip connection model.
     - `param_type`: Determines the parameterisation. Options are `"sp"` 
         (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
@@ -566,6 +573,7 @@ def compute_pdm_param_grads(
     lateral_model: Optional[PyTree[Callable]] = None,
     param_type: str = "sp",
     spectral_penalty: Scalar = 0.0,
+    lateral_gamma: Scalar = 0.0,
     include_previous_backward_error: bool = False,
     include_next_forward_error: bool = False,
     projection_matrix_prev: Optional[PyTree[Callable]] = None,
@@ -637,7 +645,7 @@ def compute_pdm_param_grads(
     """
     if include_previous_backward_error or include_next_forward_error or backward_energy_weight != 1.0 or forward_energy_weight != 1.0 or lateral_model is not None:
         # When including previous backward error, next forward error, energy weightings, or lateral connections, compute gradients directly from pdm_energy_fn
-        def wrapped_energy_fn(models, activities, y, x, skip_model, lateral_model, param_type, spectral_penalty, include_previous_backward_error, include_next_forward_error, projection_matrix_prev, projection_matrix_next, backward_energy_weight, forward_energy_weight, stop_gradient_on_extra_errors):
+        def wrapped_energy_fn(models, activities, y, x, skip_model, lateral_model, param_type, spectral_penalty, lateral_gamma, include_previous_backward_error, include_next_forward_error, projection_matrix_prev, projection_matrix_next, backward_energy_weight, forward_energy_weight, stop_gradient_on_extra_errors):
             top_down_model, bottom_up_model = models
             return pdm_energy_fn(
                 top_down_model=top_down_model,
@@ -649,13 +657,14 @@ def compute_pdm_param_grads(
                 lateral_model=lateral_model,
                 param_type=param_type,
                 spectral_penalty=spectral_penalty,
+                lateral_gamma=lateral_gamma,
                 include_previous_backward_error=include_previous_backward_error,
                 include_next_forward_error=include_next_forward_error,
                 projection_matrix_prev=projection_matrix_prev,
                 projection_matrix_next=projection_matrix_next,
                 backward_energy_weight=backward_energy_weight,
                 forward_energy_weight=forward_energy_weight,
-                stop_gradient_on_extra_errors=stop_gradient_on_extra_errors
+                stop_gradient_on_extra_errors=stop_gradient_on_extra_errors,
             )
         
         top_down_grads, bottom_up_grads = filter_grad(wrapped_energy_fn)(
@@ -667,13 +676,14 @@ def compute_pdm_param_grads(
             lateral_model=lateral_model,
             param_type=param_type,
             spectral_penalty=spectral_penalty,
+            lateral_gamma=lateral_gamma,
             include_previous_backward_error=include_previous_backward_error,
             include_next_forward_error=include_next_forward_error,
             projection_matrix_prev=projection_matrix_prev,
             projection_matrix_next=projection_matrix_next,
             backward_energy_weight=backward_energy_weight,
             forward_energy_weight=forward_energy_weight,
-            stop_gradient_on_extra_errors=stop_gradient_on_extra_errors
+            stop_gradient_on_extra_errors=stop_gradient_on_extra_errors,
         )
         
         # Compute lateral gradients if lateral_model is provided
@@ -690,13 +700,14 @@ def compute_pdm_param_grads(
                     lateral_model=lat_model,
                     param_type=param_type,
                     spectral_penalty=spectral_penalty,
+                    lateral_gamma=lateral_gamma,
                     include_previous_backward_error=include_previous_backward_error,
                     include_next_forward_error=include_next_forward_error,
                     projection_matrix_prev=projection_matrix_prev,
                     projection_matrix_next=projection_matrix_next,
                     backward_energy_weight=backward_energy_weight,
                     forward_energy_weight=forward_energy_weight,
-                    stop_gradient_on_extra_errors=stop_gradient_on_extra_errors
+                    stop_gradient_on_extra_errors=stop_gradient_on_extra_errors,
                 )
             lateral_grads = filter_grad(lateral_energy_fn)(lateral_model)
     else:
@@ -772,13 +783,14 @@ def compute_pdm_param_grads(
                     lateral_model=lat_model,
                     param_type=param_type,
                     spectral_penalty=spectral_penalty,
+                    lateral_gamma=lateral_gamma,
                     include_previous_backward_error=include_previous_backward_error,
                     include_next_forward_error=include_next_forward_error,
                     projection_matrix_prev=projection_matrix_prev,
                     projection_matrix_next=projection_matrix_next,
                     backward_energy_weight=backward_energy_weight,
                     forward_energy_weight=forward_energy_weight,
-                    stop_gradient_on_extra_errors=stop_gradient_on_extra_errors
+                    stop_gradient_on_extra_errors=stop_gradient_on_extra_errors,
                 )
             lateral_grads = filter_grad(lateral_energy_fn)(lateral_model)
     
