@@ -3,6 +3,7 @@
 from jax import vmap
 from jax.lax import stop_gradient
 from jax.numpy import sum, array, eye, sqrt
+import jax.numpy as jnp
 from jax.nn import log_softmax
 from jaxtyping import PyTree, ArrayLike, Scalar, Array
 from typing import Tuple, Callable, Optional
@@ -239,8 +240,8 @@ def bpc_energy_fn(
     bottom_up_model: PyTree[Callable],
     activities: PyTree[ArrayLike],
     y: ArrayLike,
-    x: ArrayLike,
     *,
+    x: Optional[ArrayLike] = None,
     skip_model: Optional[PyTree[Callable]] = None,
     param_type: str = "sp",
     record_layers: bool = False,
@@ -278,10 +279,12 @@ def bpc_energy_fn(
         the backward model.
     - `activities`: List of activities for each layer free to vary.
     - `y`: Target of the `top_down_model` and input to the `bottom_up_model`.
-    - `x`: Input to the `top_down_model` and target of the `bottom_up_model`.
 
     **Other arguments:**
 
+    - `x`: Optional input to the `top_down_model` and target of the `bottom_up_model`.
+        When `None`, the lowest activity layer `activities[0]` is treated as an
+        unclamped input and is used in place of `x` in the energy.
     - `skip_model`: Optional skip connection model.
     - `param_type`: Determines the parameterisation. Options are `"sp"` 
         (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
@@ -309,8 +312,11 @@ def bpc_energy_fn(
     if skip_model is None:
         skip_model = [None] * (H + 1)
 
+    # Effective input: if x is None, treat the lowest activity as an unclamped input.
+    x_eff = activities[0] if x is None else x
+
     # discriminative (bottom-up) loss
-    delta_0 = x - vmap(bottom_up_model[0])(activities[0])
+    delta_0 = x_eff - vmap(bottom_up_model[0])(activities[0])
     bottom_up_energy = backward_energy_weight * 0.5 * sum(delta_0 ** 2)
 
     # generative (top-down) loss
@@ -320,7 +326,7 @@ def bpc_energy_fn(
     energies.append((top_down_energy, bottom_up_energy))
 
     for l in range(H):
-        act_prev = x if l == 0 else activities[l - 1]
+        act_prev = x_eff if l == 0 else activities[l - 1]
         e_l = activities[l] - vmap(top_down_model[l])(act_prev)
         if skip_model[l] is not None and l > 0:
             e_l -= vmap(skip_model[l])(act_prev)
@@ -461,7 +467,7 @@ def _pdm_single_layer_energy(
     projection_matrix_next: Optional[PyTree[Callable]] = None,
     backward_energy_weight: Scalar = 1.0,
     forward_energy_weight: Scalar = 1.0,
-    stop_gradient_on_extra_errors: bool = True
+    stop_gradient_on_extra_errors: bool = True,
 ) -> Scalar:
     r"""Computes the energy for a single layer of a predictive dendrites model (PDM)
 
@@ -494,8 +500,9 @@ def _pdm_single_layer_energy(
     - `skip_model`: Optional skip connection model.
     - `lateral_model`: Optional list of lateral connection models, one per hidden layer.
         Each lateral model maps layer activities to themselves, adding within-layer
-        predictions to the backward error: $\boldsymbol{\delta}_{\ell+1} = \mathbf{z}_\ell - g_{\ell+1}(\mathbf{z}_{\ell+1}) - \mathbf{W}_{lat,\ell} \mathbf{z}_\ell$.
-        Defaults to `None`.
+        predictions to the backward error. The lateral connections are combined with
+        the backward prediction BEFORE activation: $\boldsymbol{\delta}_{\ell+1} = \mathbf{z}_\ell - \phi(V_{\ell+1} \mathbf{z}_{\ell+1} + \mathbf{W}_{lat,\ell} \mathbf{z}_\ell)$
+        where $\phi$ is the activation function. Defaults to `None`.
     - `param_type`: Determines the parameterisation. Options are `"sp"` 
         (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
         or `"ntp"` (neural tangent parameterisation). 
@@ -552,15 +559,41 @@ def _pdm_single_layer_energy(
     if skip_model[layer_idx] is not None and layer_idx > 0:
         forward_pred += vmap(skip_model[layer_idx])(act_prev)
     e_l = activities[layer_idx] - forward_pred
-    
-    # Backward error: δ_{ℓ+1} = z_ℓ - V_{ℓ+1} z_{ℓ+1} - W_lat z_ℓ (if lateral connections)
+
+    # Backward error: δ_{ℓ+1} = z_ℓ - activation(V_{ℓ+1} z_{ℓ+1} + W_lat z_ℓ) (if lateral connections)
+    # For lateral connections, we combine backward and lateral predictions BEFORE activation
     act_next = y if layer_idx == H - 1 else activities[layer_idx + 1]
-    backward_pred = vmap(bottom_up_model[layer_idx + 1])(act_next)
-    if skip_model[layer_idx + 1] is not None and layer_idx < H - 1:
-        backward_pred += vmap(skip_model[layer_idx + 1])(act_next)
-    # Add lateral connections (within-layer predictions)
-    if lateral_model[layer_idx] is not None:
-        backward_pred += vmap(lateral_model[layer_idx])(activities[layer_idx])
+    
+    # Extract the backward model layer
+    backward_layer = bottom_up_model[layer_idx + 1]
+    
+    # Check if it's a Sequential (activation before linear) or just Linear
+    # For Sequential([Lambda(act_fn), Linear]), we need to extract the linear part
+    # and apply activation after combining with lateral
+    if hasattr(backward_layer, 'layers') and len(backward_layer.layers) == 2:
+        # Sequential structure: [Lambda(act_fn), Linear]
+        act_fn = backward_layer.layers[0]
+        linear_layer = backward_layer.layers[1]
+        backward_pred_unactivated = vmap(linear_layer)(act_next)
+        if skip_model[layer_idx + 1] is not None and layer_idx < H - 1:
+            backward_pred_unactivated += vmap(skip_model[layer_idx + 1])(act_next)
+        if lateral_model[layer_idx] is not None:
+            backward_pred_unactivated += vmap(lateral_model[layer_idx])(activities[layer_idx])
+        backward_pred = vmap(act_fn)(backward_pred_unactivated)
+    else:
+        # Just a Linear layer (no activation in backward model)
+        backward_pred_unactivated = vmap(backward_layer)(act_next)
+        if skip_model[layer_idx + 1] is not None and layer_idx < H - 1:
+            backward_pred_unactivated += vmap(skip_model[layer_idx + 1])(act_next)
+        if lateral_model[layer_idx] is not None:
+            backward_pred_unactivated += vmap(lateral_model[layer_idx])(activities[layer_idx])
+        forward_layer = top_down_model[layer_idx]
+        if hasattr(forward_layer, 'layers') and len(forward_layer.layers) == 2:
+            act_fn = forward_layer.layers[0]
+            backward_pred = vmap(act_fn)(backward_pred_unactivated)
+        else:
+            backward_pred = backward_pred_unactivated
+    
     delta_l_plus_1 = activities[layer_idx] - backward_pred
     
     # Compute previous backward error if needed: δ_{ℓ-1} = z_{ℓ-1} - V_ℓ z_ℓ
@@ -661,6 +694,7 @@ def pdm_energy_fn(
     lateral_model: Optional[PyTree[Callable]] = None,
     param_type: str = "sp",
     spectral_penalty: Scalar = 0.0,
+    lateral_gamma: Scalar = 0.0,
     include_previous_backward_error: bool = False,
     include_next_forward_error: bool = False,
     projection_matrix_prev: Optional[PyTree[Callable]] = None,
@@ -704,6 +738,14 @@ def pdm_energy_fn(
         for the specific scalings of these different parameterisations. Defaults
         to `"sp"`.
     - `spectral_penalty`: Weight spectral penalty for forward weights (0 by default).
+    - `lateral_gamma`: Scalar $\gamma$ for the lateral regulariser. When `lateral_model`
+        is provided, this adds for each hidden layer $\ell$ a lateral energy term of the
+        form $E_{\text{lat},\ell} = \frac{1}{2N}\sum_i \mathbf{z}_{\ell,i}^\top 
+        \mathbf{L}_\ell \mathbf{z}_{\ell,i} - \frac{\gamma}{2}\operatorname{Tr}(\mathbf{L}_\ell)$,
+        where $\mathbf{L}_\ell$ is the lateral weight matrix for layer $\ell$ and $N$ is
+        the batch size. When $\gamma \neq 0$, lateral connections are *not* used in the
+        model dynamics (backward prediction); they contribute only to this regulariser.
+        Defaults to `0.0` (no trace regularisation).
     - `include_previous_backward_error`: If `True`, modifies the forward energy term to 
         $||\mathbf{e}_\ell + \mathbf{A}_\ell \boldsymbol{\delta}_{\ell-1}||^2/2$ where 
         $\boldsymbol{\delta}_{\ell-1}$ is the backward error at the previous layer.
@@ -740,8 +782,12 @@ def pdm_energy_fn(
     _check_param_type(param_type)
     
     H = len(top_down_model) - 1
+    batch_size = activities[0].shape[0]
     total_energy = 0.
-    
+
+    # When gamma != 0, use lateral only for the regulariser (not in backward prediction).
+    lateral_for_dynamics = None if lateral_gamma != 0.0 else lateral_model
+
     for l in range(H):
         layer_energy = _pdm_single_layer_energy(
             top_down_model=top_down_model,
@@ -751,7 +797,7 @@ def pdm_energy_fn(
             x=x,
             layer_idx=l,
             skip_model=skip_model,
-            lateral_model=lateral_model,
+            lateral_model=lateral_for_dynamics,
             param_type=param_type,
             include_previous_backward_error=include_previous_backward_error,
             include_next_forward_error=include_next_forward_error,
@@ -759,7 +805,7 @@ def pdm_energy_fn(
             projection_matrix_next=projection_matrix_next,
             backward_energy_weight=backward_energy_weight,
             forward_energy_weight=forward_energy_weight,
-            stop_gradient_on_extra_errors=stop_gradient_on_extra_errors
+            stop_gradient_on_extra_errors=stop_gradient_on_extra_errors,
         )
         total_energy += layer_energy
     
@@ -784,6 +830,40 @@ def pdm_energy_fn(
                 reg += sum((W_WT - I) ** 2)
         
         total_energy += spectral_penalty * reg
+
+    # Add lateral regulariser energy if lateral connections are present.
+    # For each hidden layer ℓ with lateral weight matrix L_ℓ and activities z_ℓ,
+    # we add:
+    #   E_lat,ℓ = (1/2N) ∑_i z_{ℓ,i}^T L_ℓ z_{ℓ,i} - (γ/2) Tr(L_ℓ)
+    # where N is the batch size and γ = lateral_gamma.
+    if lateral_model is not None:
+        # Assume lateral_model is an indexable container of per-layer modules.
+        for i in range(H):
+            layer = lateral_model[i] if isinstance(lateral_model, (list, tuple)) else lateral_model
+            if layer is None:
+                continue
+
+            # Extract the linear weight matrix from the lateral layer.
+            if hasattr(layer, "layers") and len(layer.layers) == 2 and hasattr(layer.layers[1], "weight"):
+                L = layer.layers[1].weight
+            elif hasattr(layer, "weight"):
+                L = layer.weight
+            else:
+                # If no recognizable weight attribute, skip this layer.
+                continue
+
+            z = activities[i]  # (batch_size, dim)
+            hidden_dim = z.shape[1]
+            # Scale by 1/hidden_dim so the lateral term doesn't dominate for large width.
+            # Compute per-sample quadratic form z_i^T L z_i and average over batch.
+            Lz = jnp.matmul(z, L.T)  # (batch_size, dim)
+            quad = sum(Lz * z) / batch_size
+
+            lateral_energy = 0.5 * quad / hidden_dim
+            if lateral_gamma != 0.0:
+                lateral_energy -= 0.5 * lateral_gamma * jnp.trace(L) / hidden_dim
+
+            total_energy += lateral_energy
     
     return total_energy
 
@@ -815,7 +895,7 @@ def _get_param_scalings(
     - `skip_model`: Optional skip connection model.
     - `param_type`: Determines the parameterisation. Options are `"sp"` 
         (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
-        or `"ntp"` (neural tangent parameterisation). Defaults to `"sp"`.
+        `"ntp"` (neural tangent parameterisation), or `"my-mup"`. Defaults to `"sp"`.
     - `gamma`: Optional scaling factor for the output layer. If provided, the output 
         layer scaling is multiplied by `1/gamma`. Defaults to `None` (no additional scaling).
 
