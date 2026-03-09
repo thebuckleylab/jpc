@@ -197,8 +197,8 @@ def update_bpc_activities(
     optim: GradientTransformation | GradientTransformationExtraArgs,
     opt_state: OptState,
     output: ArrayLike,
-    input: ArrayLike,
     *,
+    input: Optional[ArrayLike] = None,
     skip_model: Optional[PyTree[Callable]] = None,
     param_type: str = "sp",
     backward_energy_weight: Scalar = 1.0,
@@ -219,7 +219,8 @@ def update_bpc_activities(
 
     **Other arguments:**
 
-    - `input`: Input to the `top_down_model` and target of the `bottom_up_model`.
+    - `input`: Optional input to the `top_down_model` and target of the 
+        `bottom_up_model`.
     - `skip_model`: Optional skip connection model.
     - `param_type`: Determines the parameterisation. Options are `"sp"` 
         (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
@@ -276,8 +277,8 @@ def update_bpc_params(
     top_down_opt_state: OptState,
     bottom_up_opt_state: OptState,
     output: ArrayLike,
-    input: ArrayLike,
     *,
+    input: Optional[ArrayLike] = None,
     skip_model: Optional[PyTree[Callable]] = None,
     param_type: str = "sp",
     backward_energy_weight: Scalar = 1.0,
@@ -300,7 +301,8 @@ def update_bpc_params(
 
     **Other arguments:**
 
-    - `input`: Input to the `top_down_model` and target of the `bottom_up_model`.
+    - `input`: Optional input to the `top_down_model` and target of the 
+        `bottom_up_model`.
     - `skip_model`: Optional skip connection model.
     - `param_type`: Determines the parameterisation. Options are `"sp"` 
         (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
@@ -369,6 +371,7 @@ def update_pdm_activities(
     skip_model: Optional[PyTree[Callable]] = None,
     lateral_model: Optional[PyTree[Callable]] = None,
     param_type: str = "sp",
+    lateral_gamma: Scalar = 0.0,
     include_previous_backward_error: bool = False,
     include_next_forward_error: bool = False,
     projection_matrix_prev: Optional[PyTree[Callable]] = None,
@@ -376,7 +379,7 @@ def update_pdm_activities(
     backward_energy_weight: Scalar = 1.0,
     forward_energy_weight: Scalar = 1.0,
     bpc_terms_factor: Scalar = 0.0,
-    stop_gradient_on_extra_errors: bool = True
+    stop_gradient_on_extra_errors: bool = True,
 ) -> Dict:
     """Updates activities of a predictive dendrites model (PDM).
 
@@ -449,6 +452,7 @@ def update_pdm_activities(
         skip_model=skip_model,
         lateral_model=lateral_model,
         param_type=param_type,
+        lateral_gamma=lateral_gamma,
         include_previous_backward_error=include_previous_backward_error,
         include_next_forward_error=include_next_forward_error,
         projection_matrix_prev=projection_matrix_prev,
@@ -456,7 +460,7 @@ def update_pdm_activities(
         backward_energy_weight=backward_energy_weight,
         forward_energy_weight=forward_energy_weight,
         bpc_terms_factor=bpc_terms_factor,
-        stop_gradient_on_extra_errors=stop_gradient_on_extra_errors
+        stop_gradient_on_extra_errors=stop_gradient_on_extra_errors,
     )
     updates, opt_state = optim.update(
         updates=grads,
@@ -493,6 +497,7 @@ def update_pdm_params(
     lateral_opt_state: Optional[OptState] = None,
     param_type: str = "sp",
     spectral_penalty: Scalar = 0.0,
+    lateral_gamma: Scalar = 0.0,
     include_previous_backward_error: bool = False,
     include_next_forward_error: bool = False,
     projection_matrix_prev: Optional[PyTree[Callable]] = None,
@@ -505,7 +510,7 @@ def update_pdm_params(
     forward_energy_weight: Scalar = 1.0,
     update_projection_matrix_prev: bool = True,
     update_projection_matrix_next: bool = True,
-    stop_gradient_on_extra_errors: bool = True
+    stop_gradient_on_extra_errors: bool = True,
 ) -> Dict:
     """Updates parameters of a predictive dendrites model (PDM).
 
@@ -598,13 +603,14 @@ def update_pdm_params(
         lateral_model=lateral_model,
         param_type=param_type,
         spectral_penalty=spectral_penalty,
+        lateral_gamma=lateral_gamma,
         include_previous_backward_error=include_previous_backward_error,
         include_next_forward_error=include_next_forward_error,
         projection_matrix_prev=projection_matrix_prev,
         projection_matrix_next=projection_matrix_next,
         backward_energy_weight=backward_energy_weight,
         forward_energy_weight=forward_energy_weight,
-        stop_gradient_on_extra_errors=stop_gradient_on_extra_errors
+        stop_gradient_on_extra_errors=stop_gradient_on_extra_errors,
     )
     
     # Handle both cases: with and without lateral gradients
@@ -675,6 +681,7 @@ def update_pdm_params(
                 skip_model=skip_model,
                 lateral_model=lateral_model,
                 spectral_penalty=spectral_penalty,
+                lateral_gamma=lateral_gamma,
                 include_previous_backward_error=include_previous_backward_error,
                 include_next_forward_error=include_next_forward_error,
                 projection_matrix_prev=modified_proj_prev,
@@ -738,6 +745,7 @@ def update_pdm_params(
                             skip_model=skip_model,
                             lateral_model=lateral_model,
                             spectral_penalty=spectral_penalty,
+                            lateral_gamma=lateral_gamma,
                             include_previous_backward_error=include_previous_backward_error,
                             include_next_forward_error=include_next_forward_error,
                             projection_matrix_prev=projection_matrix_prev,
