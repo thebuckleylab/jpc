@@ -1,0 +1,13 @@
+jax==0.5.2               # to avoid conflict for `jax.core.ClosedJaxpr`
+hippogriffe==0.2.2,
+mkdocs==1.6.1,
+mkdocs-include-exclude-files==0.1.0,
+mkdocs-ipynb==0.1.1,
+mkdocs-material==9.6.7,
+mkdocstrings==0.28.3,
+mkdocstrings-python==1.16.8,
+pymdown-extensions==10.14.3,
+
+# Dependencies of JPC itself.
+# Always use most up-to-date versions.
+jax[cpu]
