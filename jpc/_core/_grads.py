@@ -8,6 +8,7 @@ from jaxtyping import PyTree, ArrayLike, Array, Scalar
 from typing import Tuple, Callable, Optional
 from diffrax import AbstractStepSizeController
 from ._energies import (
+    bss_energy_fn,
     pc_energy_fn, 
     hpc_energy_fn, 
     bpc_energy_fn, 
@@ -353,6 +354,38 @@ def compute_pdm_activity_grad(
         grad_l = grad(energy_l)(activities[l])
         direct_grads.append(grad_l)
     
+    # If `lateral_gamma != 0`, PDM uses lateral connections only through the
+    # *regulariser* (see `pdm_energy_fn`). The activity update path above only
+    # differentiates the per-layer prediction-error terms, so we also add the
+    # gradient of the lateral decorrelation term here.
+    if lateral_model is not None and lateral_gamma != 0.0:
+        batch_size = activities[0].shape[0]
+
+        for l in range(H):
+            layer = lateral_model[l] if isinstance(lateral_model, (list, tuple)) else lateral_model
+            if layer is None:
+                continue
+
+            # Extract the lateral weight matrix `L` (same logic as in `pdm_energy_fn`).
+            if hasattr(layer, "layers") and len(layer.layers) == 2 and hasattr(layer.layers[1], "weight"):
+                L = layer.layers[1].weight
+            elif hasattr(layer, "weight"):
+                L = layer.weight
+            else:
+                continue
+
+            def lateral_energy_l(acts_l):
+                z = acts_l
+                hidden_dim = z.shape[1]
+                Lz = jnp.matmul(z, L.T)  # (batch, hidden_dim)
+                quad = jnp.sum(Lz * z) / batch_size
+                lateral_energy = 0.5 * quad / hidden_dim
+                # trace(L) is constant w.r.t. activities; included for completeness
+                lateral_energy -= 0.5 * lateral_gamma * jnp.trace(L) / hidden_dim
+                return lateral_energy
+
+            direct_grads[l] = direct_grads[l] + grad(lateral_energy_l)(activities[l])
+
     # Add zero gradient for output layer (layer H) if activities includes it
     # The output layer is not included in the PDM energy, so its gradient is zero
     if len(activities) > H:
@@ -386,6 +419,28 @@ def compute_pdm_activity_grad(
     )
     
     return energy, modified_grads
+
+
+def compute_bss_activity_grad(
+    W: ArrayLike,
+    z: ArrayLike,
+    x: ArrayLike,
+    *,
+    L: Optional[ArrayLike] = None,
+) -> Tuple[Scalar, Array]:
+    """Value and gradient of the BSS energy w.r.t. ``z`` (online, batch size 1).
+
+    The energy has no correlation term; decorrelation is done solely by the
+    lateral matrix ``L``. When ``L`` is provided, the gradient is
+    ``dFdz = dE/dz + z @ L``, so the lateral connections are the active
+    agents of inhibition (input $W\\mathbf{x}$ balanced by $L\\mathbf{z}$).
+    """
+    energy, dFdz = value_and_grad(bss_energy_fn, argnums=1)(W, z, x)
+    if L is not None:
+        # Lateral inhibition: L is the primary source of decorrelation
+        # (z has shape (1, n_latent), L is (n_latent, n_latent))
+        dFdz = dFdz + z @ jnp.asarray(L)
+    return energy, dFdz
 
 
 ########################### PARAMETER GRADIENTS ################################
@@ -717,7 +772,7 @@ def compute_pdm_param_grads(
             bottom_up_model,
             activities,
             y,
-            x,
+            x=x,
             skip_model=skip_model,
             param_type=param_type
         )
@@ -897,3 +952,11 @@ def compute_epc_param_grads(
         loss=loss_id,
         param_type=param_type
     )
+
+
+def compute_bss_param_grads(
+    W: ArrayLike,
+    z: ArrayLike,
+    x: ArrayLike,
+) -> Array:
+    return grad(bss_energy_fn, argnums=0)(W, z, x)

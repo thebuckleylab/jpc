@@ -5,6 +5,7 @@ from ._init import (
     init_epc_errors as init_epc_errors
 )
 from ._energies import (
+    bss_energy_fn as bss_energy_fn,
     pc_energy_fn as pc_energy_fn,
     hpc_energy_fn as hpc_energy_fn,
     bpc_energy_fn as bpc_energy_fn,
@@ -14,6 +15,8 @@ from ._energies import (
 )
 from ._grads import (
     neg_pc_activity_grad as neg_pc_activity_grad, 
+    compute_bss_activity_grad as compute_bss_activity_grad,
+    compute_bss_param_grads as compute_bss_param_grads,
     compute_pc_activity_grad as compute_pc_activity_grad,
     compute_pc_param_grads as compute_pc_param_grads,
     compute_hpc_param_grads as compute_hpc_param_grads,
@@ -26,6 +29,8 @@ from ._grads import (
 )
 from ._infer import solve_inference as solve_inference
 from ._updates import (
+    update_bss_activities as update_bss_activities,
+    update_bss_params as update_bss_params,
     update_pc_activities as update_pc_activities,
     update_pc_params as update_pc_params,
     update_bpc_activities as update_bpc_activities,
