@@ -10,7 +10,6 @@ plt.rcParams.update({
     "text.latex.preamble": r"\usepackage{amsmath}\usepackage{amssymb}"
 })
 
-# Plot styling constants
 FIG_SIZE = (8, 6)
 FONT_SIZES = {"label": 45, "legend": 25, "tick": 35}
 LABEL_PAD = 15
@@ -67,7 +66,12 @@ def setup_plot(xlabel, ylabel, log_scale=False):
     # Only create legend if there are labeled artists
     handles, labels = plt.gca().get_legend_handles_labels()
     if handles:
-        plt.legend(fontsize=FONT_SIZES["legend"])
+        label_renames = {
+            "norm.": "Normalised",
+            "norm": "Normalised",
+        }
+        labels = [label_renames.get(l, l) for l in labels]
+        plt.legend(handles=handles, labels=labels, fontsize=FONT_SIZES["legend"])
     plt.grid(True, which="both", ls="-", alpha=0.4)
     plt.tick_params(axis='both', labelsize=FONT_SIZES["tick"])
     if log_scale:
@@ -874,7 +878,7 @@ if __name__ == "__main__":
         "--widths",
         type=int,
         nargs='+',
-        default=[32, 128, 512, 2048],  
+        default=[8, 16, 32, 64, 128],  #32, 128, 512, 2048
         help="List of widths N to plot"
     )
     parser.add_argument(
@@ -900,7 +904,7 @@ if __name__ == "__main__":
         "--n_hiddens",
         type=int,
         nargs='+',
-        default=[4],
+        default=[15],
         help="List of hidden layer counts H to plot. If not provided, plots without n_hidden filtering."
     )
     parser.add_argument(

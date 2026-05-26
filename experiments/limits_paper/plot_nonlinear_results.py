@@ -7,10 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
-
-# Reuse *exactly* the styling and helper utilities from plot_main_results.
-# This ensures consistent rcParams, fontsizes, line widths, legends, etc.
-import plot_main_results as pmr
+import plot_toy_results as pmr
 
 
 @dataclass(frozen=True)
@@ -500,22 +497,33 @@ if __name__ == "__main__":
     parser.add_argument("--n_samples", type=int, default=64)
 
     # Sweep axes requested by the user
-    parser.add_argument("--n_hiddens", type=int, nargs="+", default=[1, 3, 7, 15])
-    parser.add_argument("--activity_lrs", type=float, nargs="+", default=[1e-1, 5e-1, 1, 2, 5, 10, 20, 50])
-    parser.add_argument("--use_skips", nargs="+", default=[False, True])
-    parser.add_argument("--activity_lrs_beta_plot", type=float, nargs="+", default=[1e-1, 5e-1, 1, 5, 10, 20])
+    parser.add_argument("--n_hiddens", type=int, nargs="+", default=[31])
+    parser.add_argument("--activity_lrs", type=float, nargs="+", default=[0.3])
+    parser.add_argument("--use_skips", nargs="+", default=[True])
+    parser.add_argument("--activity_lrs_beta_plot", type=float, nargs="+", default=[0.4])
+    parser.add_argument(
+        "--activity_lrs_losses",
+        type=float,
+        nargs="+", 
+        default=None,
+        help=(
+            "Subset of activity_lrs for which to generate loss/energy plots "
+            "(single-run curves). If None, uses only the first value from "
+            "--activity_lrs (default single-run behavior)."
+        ),
+    )
 
     # Fixed (or lightly varying) experiment params used to locate runs
     parser.add_argument("--act_fns", type=str, nargs="+", default=["tanh", "relu"])
     parser.add_argument("--param_types", type=str, nargs="+", default=["mupc"])
-    parser.add_argument("--param_optim", type=str, default="gd")
-    parser.add_argument("--param_lr", type=float, default=0.025)
+    parser.add_argument("--param_optim", type=str, default="adam")
+    parser.add_argument("--param_lr", type=float, default=1e-3)
     parser.add_argument("--gamma_0s", type=float, nargs="+", default=[1.0])
     parser.add_argument("--n_train_iters", type=int, default=100)
     parser.add_argument("--infer_mode", type=str, default="optim")
 
     # Plot controls
-    parser.add_argument("--widths", type=int, nargs="+", default=[16, 32, 64, 128, 2048])
+    parser.add_argument("--widths", type=int, nargs="+", default=[8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096])
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--colormap", type=str, default="Blues")
     parser.add_argument("--log_x_scale", action="store_true", default=False)
@@ -567,7 +575,11 @@ if __name__ == "__main__":
                         activity_lrs_for_beta_plot = (
                             args.activity_lrs_beta_plot if args.activity_lrs_beta_plot is not None else args.activity_lrs
                         )
-                        activity_lrs_for_per_lr_plots = args.activity_lrs
+                        if args.activity_lrs_losses is not None:
+                            activity_lrs_for_per_lr_plots = args.activity_lrs_losses
+                        else:
+                            # Default: treat only the first activity_lr as the single-run
+                            activity_lrs_for_per_lr_plots = args.activity_lrs[:1]
                         activity_lrs_union = sorted(
                             set(float(x) for x in (list(activity_lrs_for_per_lr_plots) + list(activity_lrs_for_beta_plot)))
                         )
@@ -610,8 +622,14 @@ if __name__ == "__main__":
                                 data = load_nonlinear_data(dataset_results_dir, cfg, widths=args.widths)
                                 if not data["widths"]:
                                     print(
-                                        f"Warning: no PC runs found for dataset={dataset}, H={n_hidden}, "
-                                        f"use_skips={use_skips}, activity_lr={activity_lr}, gamma_0={gamma_0}, param_type={param_type}."
+                                        "Warning: no PC runs found for "
+                                        f"dataset={dataset}, input_dim={input_dim}, n_samples={args.n_samples}, "
+                                        f"act_fn={act_fn}, H={n_hidden}, use_skips={use_skips}, "
+                                        f"infer_mode={args.infer_mode}, activity_lr={activity_lr}, "
+                                        f"gamma_0={gamma_0}, param_type={param_type}, "
+                                        f"param_optim={args.param_optim}, param_lr={args.param_lr}, "
+                                        f"n_train_iters={args.n_train_iters}, seed={args.seed} "
+                                        f"(searched under {dataset_results_dir})."
                                     )
                                     continue
 

@@ -4,14 +4,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
-from plot_results import (
+from plot_toy_results import (
     extract_dataset_id,
     load_data_from_dir,
-    get_color_val,
-    is_sequential_colormap
+    get_color_val
 )
 
-# Plot styling constants (matching plot_main_results.py exactly)
 FIG_SIZE = (8, 6)
 FONT_SIZES = {"label": 45, "legend": 25, "tick": 35}
 LABEL_PAD = 15

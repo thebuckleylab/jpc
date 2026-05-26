@@ -2,7 +2,6 @@ import argparse
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.patches import Patch
 
 plt.rcParams.update({
@@ -12,7 +11,6 @@ plt.rcParams.update({
     "text.latex.preamble": r"\usepackage{amsmath}\usepackage{amssymb}"
 })
 
-# Plot styling constants
 FIG_SIZE = (10, 8)
 FONT_SIZES = {"label": 35, "legend": 25, "tick": 30}
 LABEL_PAD = 20

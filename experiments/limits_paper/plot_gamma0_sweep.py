@@ -11,7 +11,6 @@ plt.rcParams.update({
     "text.latex.preamble": r"\usepackage{amsmath}\usepackage{amssymb}"
 })
 
-# Plot styling constants
 FIG_SIZE = (8, 6)
 FONT_SIZES = {"label": 45, "legend": 25, "tick": 35}
 LABEL_PAD = 15
