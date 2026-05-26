@@ -22,7 +22,7 @@ from utils import (
 from theory_utils import solve_kernels, get_Delta
 
 
-def train_pcn( 
+def train_pcn(
       model,
       use_skips,
       X_input,
@@ -46,7 +46,8 @@ def train_pcn(
     skip_model = jpc.make_skip_model(depth) if use_skips else None
 
     # Optimisers
-    activity_optim = optax.sgd(activity_lr)
+    batch_size = X_input.shape[0]
+    activity_optim = optax.sgd(activity_lr * batch_size)
     param_optim = configure_param_optim(
         param_optim_id, param_type, use_skips, param_lr, width, depth, gamma_0
     )
@@ -247,14 +248,14 @@ if __name__ == "__main__":
     
     # Model parameters
     parser.add_argument("--act_fn", type=str, default="linear", choices=["linear", "tanh", "relu"])
-    parser.add_argument("--param_types", type=str, nargs='+', default=["mupc"], choices=["mupc", "sp"])
-    parser.add_argument("--use_skips", nargs='+', default=[True, False])
+    parser.add_argument("--param_types", type=str, nargs='+', default=["my-mup"], choices=["mupc", "sp", "my-mup"])
+    parser.add_argument("--use_skips", nargs='+', default=[False])
 
     # Training parameters
     parser.add_argument("--param_optim", type=str, default="gd")
-    parser.add_argument("--param_lr", type=float, default=0.025)
+    parser.add_argument("--param_lr", type=float, default=0.5)
     parser.add_argument("--gamma_0s", type=float, nargs='+', default=[1])
-    parser.add_argument("--n_train_iters", type=int, default=100)
+    parser.add_argument("--n_train_iters", type=int, default=1000)
     parser.add_argument("--loss_id", type=str, default="ce", choices=["mse", "ce"])
     
     # Inference parameters
@@ -264,13 +265,13 @@ if __name__ == "__main__":
     
     # Loop parameters
     parser.add_argument("--n_seeds", type=int, default=1)
-    parser.add_argument("--n_hiddens", type=int, nargs='+', default=[4])
+    parser.add_argument("--n_hiddens", type=int, nargs='+', default=[15])
     parser.add_argument("--widths", type=int, nargs='+', 
-        default=[8, 16, 32, 64, 128, 256, 512, 1024, 2048]
+        default=[8, 16, 32, 64, 128]  #256, 512, 1024, 2048 
     )
     
     # Other parameters
-    parser.add_argument("--compute_cos_sims", action="store_true", default=True)
+    parser.add_argument("--compute_cos_sims", action="store_true", default=False)
     args = parser.parse_args()
 
     if len(args.n_hiddens) > 1 and len(args.widths) > 1:
@@ -483,5 +484,3 @@ if __name__ == "__main__":
                                         f"{pc_save_dir}/grad_cosine_similarities.npy", 
                                         cosine_similarities
                                     )
-
-                                    print(f"Cosine similarities: {cosine_similarities}")

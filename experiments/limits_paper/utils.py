@@ -26,7 +26,7 @@ def configure_param_optim(optim_id, param_type, use_skips, param_lr, width, dept
             return optax.adam(scaled_lr)
         else:
             raise ValueError(f"Invalid optimiser: {optim_id}")
-
+    
 
 def setup_pc_experiment(
         results_dir,
