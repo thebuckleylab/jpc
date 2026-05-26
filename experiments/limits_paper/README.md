@@ -92,12 +92,12 @@ A.8 of the paper.
   python train.py \
     --dataset CIFAR10 \
     --n_samples 64 \
-    --act_fn "linear" \
-    --param_types ["mupc"] \
+    --act_fn linear \
+    --param_types mupc \
     --use_skips True \
     --param_optim adam \
     --param_lr 1e-3 \
-    --infer_mode "closed_form" \
+    --infer_mode closed_form \
     --n_hiddens 1 3 7 15 31 \
     --widths 2 8 32 128 512 2048 \
     --n_seeds 3
