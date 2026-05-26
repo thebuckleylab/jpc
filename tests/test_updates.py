@@ -1,6 +1,5 @@
 """Tests for update functions."""
 
-import pytest
 import jax
 import jax.numpy as jnp
 import optax

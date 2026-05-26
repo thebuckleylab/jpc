@@ -1,6 +1,5 @@
 """Tests for energy functions."""
 
-import pytest
 import jax
 import jax.numpy as jnp
 from jpc import (

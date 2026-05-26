@@ -1,6 +1,5 @@
 """Tests for gradient computation functions."""
 
-import pytest
 import jax
 import jax.numpy as jnp
 from jpc import (
@@ -409,4 +408,3 @@ def test_compute_epc_param_grads_different_param_types(key, x, y, input_dim, hid
         
         model_grads, skip_grads = grads
         assert len(model_grads) == len(model)
-
