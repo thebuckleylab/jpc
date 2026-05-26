@@ -16,49 +16,90 @@ pip install -e .
 ```
 For GPU usage, upgrade jax to the appropriate cuda version (12 as an example 
 here).
-
 ```
 pip install --upgrade "jax[cuda12]==0.5.2"
 ```
 Now navigate to `experiments/limits_paper` and install all the requirements
-
 ```
 pip install -r requirements.txt
 ```
 
 
 ## Compute resources
-We recommend using a GPU for the **Image classification tasks** below.
+We recommend using a GPU for the experiments in Figures 1 & 4, detailed below.
 
 
 ## Scripts
-All experiments rely on the `train.py` script. Below are the specific argument configurations that can be used to reproduce the main experiments in the paper. 
-For details of all the experiments, see Section A.8 of the paper.
-* **Image classification tasks**: for the results of Figure 1, in `/limits_paper` run
-  ```bash
-  python train.py \
-    --dataset CIFAR10 \
-    --n_samples 64 \
-    --use_skips True \
-    --param_optim adam \
-    --param_lr 1e-3 \
-    --n_hiddens 1 3 7 15 31 \
-    --widths 2 8 32 128 512 2048 \
-    --n_seeds 3
-  ```
-  For the results of Figure 4, run 
+Below are specific argument configurations that can be used to reproduce the 
+main experiments in the paper. For details of all the experiments, see Section 
+A.8 of the paper.
+* **Nonlinear networks (Figure 4)**: For the results with residual MLPs, in `/limits_paper` run
   ```bash
   python train.py \
     --dataset CIFAR10 \
     --n_samples 64 \
     --act_fn tanh \
+    --param_types mupc \
     --use_skips True \
     --param_optim adam \
     --param_lr 1e-3 \
     --infer_mode optim \
-    --activity_lrs 0.1 0.5 1 5 10 20
-    --n_hiddens 1 15 \
-    --widths 2048 \
+    --n_infer_iters 100000 \
+    --activity_lrs 0.3 \
+    --n_hiddens 31 \
+    --widths 8 16 32 64 128 256 512 \
+    --n_seeds 1
+  ```
+  For the CNN results, in `/limits_paper/cnn` run
+  ```bash
+  python test_theory.py \
+    --dataset imagenet \
+    --widths 2 8 16 32 \
+    --n_res_blocks 3 \
+    --param_type mupc \
+    --act_fn tanh \
+    --additive_depth_factor 4 \
+    --batch_size 128 \
+    --param_optim adam \
+    --param_lr 1e-3 \
+    --loss_id ce \
+    --n_infer_iters 200 \
+    --activity_lrs 0.3
+  ```
+  Finally, for the transformer results, in `/limits_paper/transformer` run
+  ```bash
+  python train.py \
+    --seq_len 32 \
+    --batch_size 128
+    --d_models 8 16 32 64 128 256 512 \
+    --n_blocks 12 \
+    --n_heads 8 \
+    --param_type mupc \
+    --use_layer_norm False \
+    --use_softmax True \
+    --act_fn gelu \
+    --init_std 0.02 \
+    --param_lr 1e-3 \
+    --beta1 0.9 \
+    --beta2 0.95 \
+    --adam_eps 1e-12 \
+    --weight_decay 0. \
+    --n_infer_iters 800 \
+    --activity_lrs 0.45
+  ```
+* **Figure 1**: In `/limits_paper` run
+  ```bash
+  python train.py \
+    --dataset CIFAR10 \
+    --n_samples 64 \
+    --act_fn "linear" \
+    --param_types ["mupc"] \
+    --use_skips True \
+    --param_optim adam \
+    --param_lr 1e-3 \
+    --infer_mode "closed_form" \
+    --n_hiddens 1 3 7 15 31 \
+    --widths 2 8 32 128 512 2048 \
     --n_seeds 3
   ```
 * **Toy task**: run `python train.py --param_types mupc` for results of Figures 2 & 
