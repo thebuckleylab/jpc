@@ -8,7 +8,6 @@ from jaxtyping import PyTree, ArrayLike, Array, Scalar
 from typing import Tuple, Callable, Optional
 from diffrax import AbstractStepSizeController
 from ._energies import (
-    bss_energy_fn,
     pc_energy_fn, 
     hpc_energy_fn, 
     bpc_energy_fn, 
@@ -419,28 +418,6 @@ def compute_pdm_activity_grad(
     )
     
     return energy, modified_grads
-
-
-def compute_bss_activity_grad(
-    W: ArrayLike,
-    z: ArrayLike,
-    x: ArrayLike,
-    *,
-    L: Optional[ArrayLike] = None,
-) -> Tuple[Scalar, Array]:
-    """Value and gradient of the BSS energy w.r.t. ``z`` (online, batch size 1).
-
-    The energy has no correlation term; decorrelation is done solely by the
-    lateral matrix ``L``. When ``L`` is provided, the gradient is
-    ``dFdz = dE/dz + z @ L``, so the lateral connections are the active
-    agents of inhibition (input $W\\mathbf{x}$ balanced by $L\\mathbf{z}$).
-    """
-    energy, dFdz = value_and_grad(bss_energy_fn, argnums=1)(W, z, x)
-    if L is not None:
-        # Lateral inhibition: L is the primary source of decorrelation
-        # (z has shape (1, n_latent), L is (n_latent, n_latent))
-        dFdz = dFdz + z @ jnp.asarray(L)
-    return energy, dFdz
 
 
 ########################### PARAMETER GRADIENTS ################################
@@ -952,11 +929,3 @@ def compute_epc_param_grads(
         loss=loss_id,
         param_type=param_type
     )
-
-
-def compute_bss_param_grads(
-    W: ArrayLike,
-    z: ArrayLike,
-    x: ArrayLike,
-) -> Array:
-    return grad(bss_energy_fn, argnums=0)(W, z, x)

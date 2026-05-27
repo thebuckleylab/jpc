@@ -5,8 +5,6 @@ from jaxtyping import PyTree, ArrayLike, Scalar
 from typing import Tuple, Callable, Optional, Dict
 from optax import GradientTransformation, GradientTransformationExtraArgs, OptState
 from ._grads import (
-    compute_bss_activity_grad,
-    compute_bss_param_grads,
     compute_pc_activity_grad, 
     compute_pc_param_grads, 
     compute_bpc_activity_grad, 
@@ -939,75 +937,3 @@ def update_epc_params(
         "grads": grads,
         "opt_state": opt_state
     }
-
-
-@eqx.filter_jit
-def update_bss_activities(
-    W: ArrayLike,
-    z: ArrayLike,
-    x: ArrayLike,
-    optim: GradientTransformation | GradientTransformationExtraArgs,
-    opt_state: OptState,
-    *,
-    L: Optional[ArrayLike] = None,
-) -> Dict:
-    """Updates latent variables ``z`` by descending the BSS activity gradient.
-
-    When ``L`` is provided, the gradient includes lateral inhibition (L cancels
-    learned correlations during the activity phase).
-    """
-    energy, grads = compute_bss_activity_grad(W=W, z=z, x=x, L=L)
-    updates, opt_state = optim.update(
-        updates=grads,
-        state=opt_state,
-        params=z,
-    )
-    z = eqx.apply_updates(model=z, updates=updates)
-    return {
-        "energy": energy,
-        "z": z,
-        "grads": grads,
-        "opt_state": opt_state,
-    }
-
-
-@eqx.filter_jit
-def update_bss_params(
-    W: ArrayLike,
-    z: ArrayLike,
-    x: ArrayLike,
-    optim: GradientTransformation | GradientTransformationExtraArgs,
-    opt_state: OptState,
-    *,
-    L: Optional[ArrayLike] = None,
-    lambda_param: Optional[float] = None,
-) -> Dict:
-    """Updates ``W`` (and optionally ``L``) for the BSS energy.
-
-    - ``W`` is always updated by gradient descent using the given optimiser.
-    - When `L` and `lambda_param` are provided, ``L`` is updated with the
-      moving average: ``L_new = lambda_param * L + (1 - lambda_param) * (z^T z)``
-      (online, single sample). This keeps a running estimate of the latent
-      correlation; the BSS energy does not depend on ``L``.
-    """
-    W_grads = compute_bss_param_grads(W=W, z=z, x=x)
-
-    updates, opt_state = optim.update(
-        updates=W_grads,
-        state=opt_state,
-        params=W,
-    )
-    W = eqx.apply_updates(model=W, updates=updates)
-
-    result = {
-        "W": W,
-        "grads": W_grads,
-        "opt_state": opt_state,
-    }
-
-    if L is not None and lambda_param is not None:
-        # Online: batch size 1, so E[z z^T] = z.T @ z
-        L = lambda_param * L + (1.0 - lambda_param) * (z.T @ z)
-        result["L"] = L
-
-    return result

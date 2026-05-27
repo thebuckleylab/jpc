@@ -868,46 +868,6 @@ def pdm_energy_fn(
     return total_energy
 
 
-def bss_energy_fn(
-    W: ArrayLike,
-    z: ArrayLike,
-    x: ArrayLike,
-) -> Scalar:
-    r"""Computes the energy for a blind source separation (BSS) problem
-    (online learning, single sample).
-
-    Decorrelation is *not* in the energy; it is handled by the lateral
-    matrix $L$ in the activity gradient (see ``compute_bss_activity_grad``).
-
-    $$
-    E = \frac{1}{2} \sum_i (z_i - v_i)^2
-        + \frac{1}{2} \sum_i (1 - z_i^2)^2
-    $$
-
-    with $\mathbf{v} = \mathbf{W} \mathbf{x}$. Assumes batch size 1 (one sample).
-
-    **Arguments:**
-
-    - `W`: Weight matrix (demixing matrix), shape ``(n_latent, n_input)``.
-    - `z`: Latent activities, shape ``(1, n_latent)``.
-    - `x`: Input (observed mixture), shape ``(1, n_input)``.
-
-    **Returns:**
-
-    The BSS energy (scalar).
-
-    """
-    v = x @ W.T  # (1, n_latent)
-
-    # (1/2) (z_i - v_i)^2  (reconstruction / drive)
-    term1 = 0.5 * jnp.sum((z - v) ** 2)
-
-    # (1/2) sum_i (1 - z_i^2)^2  (unit second moment)
-    term2 = 0.5 * jnp.sum((1.0 - z ** 2) ** 2)
-
-    return term1 + term2
-
-
 def _get_param_scalings(
     model: PyTree[Callable], 
     input: ArrayLike, 
