@@ -22,6 +22,7 @@ and checking the [documentation](https://thebuckleylab.github.io/jpc/).
 
 ## 💻 Installation
 Clone the repo and in the project's directory run
+
 ```
 pip install .
 ```
@@ -36,7 +37,8 @@ pip install --upgrade "jax[cuda12]"
 ## ⚡️ Quick example
 Use `jpc.make_pc_step()` to update the parameters of any neural network 
 compatible with PC updates (see [examples](https://thebuckleylab.github.io/jpc/examples/discriminative_pc/))
-```py
+
+```python
 import jax.random as jr
 import jax.numpy as jnp
 import equinox as eqx
@@ -74,6 +76,7 @@ result = jpc.make_pc_step(
 # updated model and optimiser
 model, opt_state = result["model"], result["opt_state"]
 ```
+
 Under the hood, `jpc.make_pc_step()`
 
 1. integrates the inference (activity) dynamics using a [diffrax](https://github.com/patrick-kidger/diffrax) ODE solver, and
@@ -86,7 +89,8 @@ Under the hood, `jpc.make_pc_step()`
 Advanced users can access all the underlying functions of `jpc.make_pc_step()` 
 as well as additional features. A custom PC training step looks like the 
 following:
-```py
+
+```python
 import jpc
 
 # 1. initialise activities with a feedforward pass
@@ -116,6 +120,7 @@ result = jpc.update_params(
     input=x
 )
 ```
+
 which can be embedded in a jitted function with any other additional 
 computations.
 
@@ -130,6 +135,7 @@ If you found this library useful in your work, please cite ([paper link](https:/
   year={2024}
 }
 ```
+
 Also consider starring the project [on GitHub](https://github.com/thebuckleylab/jpc)! ⭐️ 
 
 ## 🙏 Acknowledgements

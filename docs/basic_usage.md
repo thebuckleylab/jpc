@@ -7,7 +7,8 @@ coding in a few lines of code, and
 # Basic usage
 At a high level, JPC provides a single convenience function `jpc.make_pc_step()` 
 to update the parameters of a neural network with PC.
-```py
+
+```python
 import jax.random as jr
 import jax.numpy as jnp
 import equinox as eqx
@@ -45,6 +46,7 @@ update_result = jpc.make_pc_step(
 # updated model and optimiser
 model, opt_state = update_result["model"], update_result["opt_state"]
 ```
+
 As shown above, at a minimum `jpc.make_pc_step()` takes a model, an [optax
 ](https://github.com/google-deepmind/optax) optimiser and its 
 state, and some data. The model needs to be compatible with PC updates in the 
@@ -67,7 +69,8 @@ details.
 A similar convenience function `jpc.make_hpc_step()` is provided for updating the
 parameters of a hybrid PCN ([Tschantz et al., 2023
 ](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1011280)).
-```py
+
+```python
 import jax.random as jr
 import equinox as eqx
 import optax
@@ -119,6 +122,7 @@ generator, amortiser = update_result["generator"], update_result["amortiser"]
 opt_states = update_result["opt_states"]
 gen_loss, amort_loss = update_result["losses"]
 ```
+
 See the [docs
 ](https://thebuckleylab.github.io/jpc/api/Training/#jpc.make_hpc_step) and the
 [example notebook

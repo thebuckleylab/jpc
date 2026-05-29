@@ -3,7 +3,8 @@
 Advanced users can access all the underlying functions of `jpc.make_pc_step()` 
 as well as additional features. A custom PC training step looks like the 
 following:
-```py
+
+```python
 import jpc
 
 # 1. initialise activities with a feedforward pass
@@ -31,12 +32,14 @@ param_update_result = jpc.update_params(
 model = param_update_result["model"]
 param_opt_state = param_update_result["opt_state"]
 ```
+
 which can be embedded in a jitted function with any other additional 
 computations. One can also use any [optax
 ](https://optax.readthedocs.io/en/latest/api/optimizers.html) optimiser to 
 equilibrate the inference dynamics by replacing the function in step 2, as 
 shown below.
-```py
+
+```python
 activity_optim = optax.adam(1e-3)
 
 # 1. initialise activities
@@ -61,6 +64,7 @@ for t in range(T):
 # 3. update parameters at the activities' solution with PC
 ...
 ```
+
 See the [updates docs
 ](https://thebuckleylab.github.io/jpc/api/Updates/) for more details. JPC also 
 comes with some analytical tools that can be used to study and potentially 
