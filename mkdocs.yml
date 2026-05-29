@@ -49,7 +49,10 @@ extra_css:
 markdown_extensions:
     - pymdownx.arithmatex:  # Render LaTeX via MathJax
         generic: true
-    - pymdownx.superfences  # Seems to enable syntax highlighting when used with the Material theme.
+    - pymdownx.highlight:  # Required for superfences; also needs pymdown-extensions>=10.21.2 (Pygments 2.20 compat)
+        anchor_linenums: true
+        pygments_lang_class: true
+    - pymdownx.superfences
     - pymdownx.details  # Allowing hidden expandable regions denoted by ???
     - pymdownx.snippets:  # Include one Markdown file into another
         base_path: docs

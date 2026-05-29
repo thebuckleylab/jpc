@@ -6,7 +6,7 @@ mkdocs-ipynb==0.1.1,
 mkdocs-material==9.6.7,
 mkdocstrings==0.28.3,
 mkdocstrings-python==1.16.8,
-pymdown-extensions==10.14.3,
+pymdown-extensions>=10.21.2,
 
 # Dependencies of JPC itself.
 # Always use most up-to-date versions.
