@@ -10,7 +10,7 @@
 ![coverage](https://img.shields.io/badge/coverage-93%25-brightgreen)
 
 ## 📢 Updates
-* Feb 2026: Added code for paper "On the Infinite Width and Depth Limits of PCNs" ([Innocenti, et al., 2026](https://arxiv.org/abs/2602.07697))
+* Feb 2026: Added [code](https://github.com/thebuckleylab/jpc/tree/main/experiments/limits_paper) for paper "On the Infinite Width and Depth Limits of PCNs" ([Innocenti, et al., 2026](https://arxiv.org/abs/2602.07697))
 * [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/thebuckleylab/jpc/blob/main/examples/epc.ipynb)  Nov 2025: Added "ePC" ([Goemaere, et al., 2025](https://arxiv.org/abs/2505.20137))
 * [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/thebuckleylab/jpc/blob/main/examples/bidirectional_pc.ipynb) Oct 2025: Added bidirectional PC (bPC, [Oliviers, et al., 2025](https://arxiv.org/abs/2505.23415))
 * [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/thebuckleylab/jpc/blob/main/examples/mupc.ipynb) May 2025: Added "μPC" ([Innocenti et al., 2025](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1)))
