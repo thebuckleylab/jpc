@@ -581,7 +581,7 @@ if __name__ == "__main__":
     parser.add_argument("--widths", type=int, nargs='+', default=[1, 2, 4, 8, 16, 32, 64])
     parser.add_argument("--n_res_blocks", type=int, default=3)
     parser.add_argument("--param_type", type=str, default="mupc", choices=["sp", "mupc"])
-    parser.add_argument("--act_fn", type=str, default="tanh")
+    parser.add_argument("--act_fn", type=str, default="linear")
     parser.add_argument("--scale_non_res_layers", action="store_true", default=False)
     parser.add_argument("--additive_depth_factor", type=int, default=4)
 
