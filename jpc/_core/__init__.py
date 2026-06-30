@@ -43,3 +43,7 @@ from ._analytical import (
     update_linear_equilib_energy_params as update_linear_equilib_energy_params
 )
 from ._errors import _check_param_type as _check_param_type
+from .experimental import (
+    new_linear_equilib_energy as new_linear_equilib_energy,
+    compute_new_linear_equilib_energy_grads as compute_new_linear_equilib_energy_grads,
+)
