@@ -22,7 +22,8 @@ def pc_energy_fn(
     spectral_penalty: Scalar = 0.,
     activity_decay: Scalar = 0.,
     record_layers: bool = False,
-    gamma: Optional[Scalar] = None
+    gamma: Optional[Scalar] = None,
+    output_energy_scaling: Optional[Scalar] = None,
 ) -> Scalar | Array:
     r"""Computes the PC energy for a neural network of the form
 
@@ -65,8 +66,13 @@ def pc_energy_fn(
         $||\mathbf{I} - \mathbf{W}_\ell^T \mathbf{W}_\ell||^2$ (0 by default).
     - `activity_decay`: $\ell^2$ regulariser for the activities (0 by default).
     - `record_layers`: If `True`, returns the energy of each layer.
-    - `gamma`: Optional scaling factor for the output layer. If provided, the output 
-        layer scaling is multiplied by `1/gamma`.  Defaults to `None` (no additional scaling).
+    - `gamma`: Optional scaling factor for the output layer. If provided, the
+        output layer parameter scaling is multiplied by `1/gamma`. Defaults to
+        `None` (no additional scaling).
+    - `output_energy_scaling`: Optional multiplier for the output-layer energy
+        term. Note that this equals the precision
+        (inverse covariance) of the generative distribution at the output layer.
+        Defaults to `None` (equivalent to a scaling of 1).
 
     **Returns:**
 
@@ -89,16 +95,18 @@ def pc_energy_fn(
         input=x, 
         skip_model=skip_model, 
         param_type=param_type,
-        gamma=gamma
+        gamma=gamma,
     )
+
+    output_scale = 1. if output_energy_scaling is None else output_energy_scaling
 
     if loss == "mse":
         eL = y - scalings[-1] * vmap(model[-1])(activities[-2])
-        energies = [0.5 * sum(eL ** 2)]
+        energies = [0.5 * output_scale * sum(eL ** 2)]
 
     elif loss == "ce":
         logits = scalings[-1] * vmap(model[-1])(activities[-2])
-        energies = [- sum(y * log_softmax(logits))]
+        energies = [-output_scale * sum(y * log_softmax(logits))]
 
     for act_l, net_l in zip(
             range(start_activity_l, n_activity_layers),
@@ -874,7 +882,7 @@ def _get_param_scalings(
     *,
     skip_model: Optional[PyTree[Callable]] = None, 
     param_type: str = "sp",
-    gamma: Optional[Scalar] = None
+    gamma: Optional[Scalar] = None,
 ) -> list[float]:
     """Gets layer scalings for a given parameterisation.
 
@@ -895,8 +903,9 @@ def _get_param_scalings(
     - `param_type`: Determines the parameterisation. Options are `"sp"` 
         (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
         `"ntp"` (neural tangent parameterisation), or `"my-mup"`. Defaults to `"sp"`.
-    - `gamma`: Optional scaling factor for the output layer. If provided, the output 
-        layer scaling is multiplied by `1/gamma`. Defaults to `None` (no additional scaling).
+    - `gamma`: Optional scaling factor for the output layer. If provided, the
+        output layer parameter scaling is multiplied by `1/gamma`. Defaults to
+        `None` (no additional scaling).
 
     **Returns:**
 
@@ -918,7 +927,6 @@ def _get_param_scalings(
         aL = 1 / N if param_type == "mupc" else 1 / sqrt(N)
         scalings = [a1] + [al] * (L-2) + [aL]
 
-    # Apply gamma scaling to output layer if provided
     if gamma is not None:
         scalings[-1] = scalings[-1] / gamma
 

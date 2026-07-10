@@ -32,6 +32,7 @@ from ._core import (
     update_pdm_params as update_pdm_params,
     linear_equilib_energy as linear_equilib_energy,
     new_linear_equilib_energy as new_linear_equilib_energy,
+    compute_linear_equilib_rescaling as compute_linear_equilib_rescaling,
     compute_linear_activity_hessian as compute_linear_activity_hessian,
     compute_linear_activity_solution as compute_linear_activity_solution,
     compute_linear_equilib_energy_grads as compute_linear_equilib_energy_grads,

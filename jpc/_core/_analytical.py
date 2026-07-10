@@ -12,6 +12,117 @@ from ._errors import _check_param_type
 from ._energies import _get_param_scalings
 
 
+def _compute_linear_equilib_rescaling(
+    Ws: list[Array],
+    scalings: list[float],
+    *,
+    output_energy_scaling: Scalar = 1.0,
+    use_skips: bool = False,
+    width: int,
+) -> Array:
+    """Build the equilibrated-energy rescaling matrix for a deep linear network.
+
+    When the output-layer energy term is scaled by ``output_energy_scaling``
+    (the output precision λ), the equilibrated energy is
+
+    $$
+    \\mathcal{F}^* = \\frac{1}{2B}\\sum_i
+    (\\mathbf{y}_i - \\hat{\\mathbf{y}}_i)^T
+    \\mathbf{S}^{-1}
+    (\\mathbf{y}_i - \\hat{\\mathbf{y}}_i),
+    \\qquad
+    \\mathbf{S} = \\mathbf{I}_{d_y}/\\lambda + \\sum_\\ell \\mathbf{P}_\\ell \\mathbf{P}_\\ell^T,
+    $$
+
+    where $\\hat{\\mathbf{y}}_i$ is the feedforward prediction and
+    $\\mathbf{P}_\\ell$ are the scaled layer products used in the
+    no-skip and skip branches below. For scalar output this reduces to
+    $\\mathcal{F}^* = \\mathcal{L}/s$ with $s = S_{00}$ and feedforward MSE
+    loss $\\mathcal{L}$.
+    """
+    L = len(Ws)
+    d_y = Ws[-1].shape[0]
+    S = jnp.eye(d_y) / output_energy_scaling
+
+    if use_skips:
+        S += (scalings[-1] ** 2) * (Ws[-1] @ Ws[-1].T)
+
+        for l in range(1, L - 1):
+            prod_term = jnp.eye(width)
+            for k in range(l, L - 1):
+                prod_term = (jnp.eye(width) + scalings[k] * Ws[k]) @ prod_term
+
+            p_L_ell = scalings[-1] * Ws[-1] @ prod_term
+            S += p_L_ell @ p_L_ell.T
+
+    else:
+        cumulative_prod = jnp.eye(d_y)
+        for i in range(L - 1, 0, -1):
+            cumulative_prod = cumulative_prod @ Ws[i]
+            cumulative_scaling = 1.0
+            for j in range(i, L):
+                cumulative_scaling *= scalings[j]
+            S += (cumulative_scaling ** 2) * (
+                cumulative_prod @ cumulative_prod.T
+            )
+
+    return S
+
+
+def compute_linear_equilib_rescaling(
+    params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
+    x: ArrayLike,
+    *,
+    param_type: str = "sp",
+    gamma: Optional[Scalar] = None,
+    output_energy_scaling: Optional[Scalar] = None,
+) -> Array:
+    """Computes the rescaling matrix ``S`` in the equilibrated-energy formula.
+
+    See [`linear_equilib_energy()`](https://thebuckleylab.github.io/jpc/api/Theoretical%20tools/#jpc.linear_equilib_energy)
+    for the full expression. For scalar output, the equilibrated energy can be
+    written as $\\mathcal{F}^* = \\mathcal{L}/s$ with $s = S_{00}$.
+
+    **Main arguments:**
+
+    - `params`: Tuple with callable network layers and optional skip connections.
+    - `x`: Network input.
+
+    **Other arguments:**
+
+    - `param_type`: Parameterisation (`"sp"`, `"mupc"`, or `"ntp"`).
+    - `gamma`: Optional output-layer parameter scaling factor.
+    - `output_energy_scaling`: Output-layer energy precision λ. Defaults to 1.
+
+    **Returns:**
+
+    Rescaling matrix ``S`` of shape $(d_y, d_y)$.
+    """
+    _check_param_type(param_type)
+
+    model, skip_model = params
+    scalings = _get_param_scalings(
+        model=model,
+        input=x,
+        skip_model=skip_model,
+        param_type=param_type,
+        gamma=gamma,
+    )
+    Ws = [
+        layer.weight for seq in model for layer in seq if hasattr(layer, "weight")
+    ]
+    has_skips = skip_model is not None and any(s is not None for s in skip_model)
+    output_scale = 1.0 if output_energy_scaling is None else output_energy_scaling
+
+    return _compute_linear_equilib_rescaling(
+        Ws=Ws,
+        scalings=scalings,
+        output_energy_scaling=output_scale,
+        use_skips=has_skips,
+        width=Ws[0].shape[0],
+    )
+
+
 def linear_equilib_energy(
         params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
         x: ArrayLike,
@@ -19,17 +130,25 @@ def linear_equilib_energy(
         *,
         param_type: str = "sp",
         gamma: Optional[Scalar] = None,
+        output_energy_scaling: Optional[Scalar] = None,
         return_rescaling: bool = False
 ) -> Array | Tuple[Array, Array]:
     """Computes the theoretical [PC energy](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.pc_energy_fn) 
     at the solution of the activities for a deep linear network ([Innocenti et al. 2024](https://proceedings.neurips.cc/paper_files/paper/2024/hash/6075fc6540b9a3cb951752099efd86ef-Abstract-Conference.html)):
 
     $$
-    \mathcal{F}^* = 1/2N \sum_i^N (\mathbf{y}_i - \mathbf{W}_{L:1}\mathbf{x}_i)^T \mathbf{S}^{-1}(\mathbf{y}_i - \mathbf{W}_{L:1}\mathbf{x}_i)
+    \mathcal{F}^* = \frac{1}{2B}\sum_i^B (\mathbf{y}_i - \hat{\mathbf{y}}_i)^T \mathbf{S}^{-1}(\mathbf{y}_i - \hat{\mathbf{y}}_i)
     $$
 
-    where $\mathbf{S} = \mathbf{I}_{d_y} + \sum_{\ell=2}^L (\mathbf{W}_{L:\ell})(\mathbf{W}_{L:\ell})^T$
-    and $\mathbf{W}_{k:\ell} = \mathbf{W}_k \dots \mathbf{W}_\ell$ for $\ell, k \in 1,\dots, L$.
+    where $\hat{\mathbf{y}}_i$ is the feedforward prediction,
+    $\mathbf{S} = \mathbf{I}_{d_y}/\lambda + \sum_\ell \mathbf{P}_\ell \mathbf{P}_\ell^T$,
+  $\lambda$ is the [`output_energy_scaling`](#output_energy_scaling) (output precision,
+    defaulting to 1), and $\mathbf{P}_\ell$ are the scaled layer products returned by
+    [`compute_linear_equilib_rescaling()`](https://thebuckleylab.github.io/jpc/api/Theoretical%20tools/#jpc.compute_linear_equilib_rescaling).
+    For scalar output this can be written as $\mathcal{F}^* = \mathcal{L}/s$ with
+    feedforward MSE loss $\mathcal{L}$ and scalar rescaling $s = S_{00}$. For example,
+    a one-hidden-layer $\mu$PC MLP with `output_energy_scaling = γ²NL` gives
+    $s = (1 + \|\mathbf{w}\|^2/N)/(\gamma^2 N L)$.
 
     !!! note
 
@@ -79,9 +198,13 @@ def linear_equilib_energy(
         See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations. Defaults
         to `"sp"`.
-    - `gamma`: Optional scaling factor for the output layer. If provided, the 
-        output layer scaling is multiplied by `1/gamma`. Defaults to `None` (no 
-        additional scaling).
+    - `gamma`: Optional scaling factor for the output layer. If provided, the
+        output layer parameter scaling is multiplied by `1/gamma`. Defaults to
+        `None` (no additional scaling).
+    - `output_energy_scaling`: Optional multiplier for the output-layer energy
+        term. Note that this equals the precision
+        (inverse covariance) of the generative distribution at the output layer.
+        Defaults to `None` (equivalent to a scaling of 1).
     - `return_rescaling`: If `True`, also returns the rescaling matrix `S`. 
         Defaults to `False`.
     
@@ -100,7 +223,7 @@ def linear_equilib_energy(
         input=x,
         skip_model=skip_model,
         param_type=param_type,
-        gamma=gamma
+        gamma=gamma,
     )
 
     Ws = [
@@ -111,56 +234,40 @@ def linear_equilib_energy(
     
     has_skips = skip_model is not None and any(s is not None for s in skip_model)
     
+    output_scale = 1.0 if output_energy_scaling is None else output_energy_scaling
+
     if has_skips:
         W1 = scalings[0] * Ws[0]
-        
+
         hidden_prod = jnp.eye(N)
         for l in range(1, L - 1):
-            I = jnp.eye(N)
-            hidden_prod = (I + scalings[l] * Ws[l]) @ hidden_prod
-        
+            hidden_prod = (jnp.eye(N) + scalings[l] * Ws[l]) @ hidden_prod
+
         WLto1 = scalings[-1] * Ws[-1] @ hidden_prod @ W1
-        
-        S = jnp.eye(Ws[-1].shape[0])
-        S += (scalings[-1] ** 2) * (Ws[-1] @ Ws[-1].T)
-        
-        for l in range(1, L - 1):  # Layers 1 to L-2 (0-indexed)
-            
-            # Compute p^(L:ℓ) = w^(L) * ∏(ℓ to L-1) (I_N + scalings[ℓ] * W^(ℓ))
-            prod_term = jnp.eye(N)
-            for k in range(l, L - 1):
-                I_k = jnp.eye(N)
-                prod_term = (I_k + scalings[k] * Ws[k]) @ prod_term
-            
-            p_L_ell = scalings[-1] * Ws[-1] @ prod_term  # Shape: (d_y, N)
-            
-            S += p_L_ell @ p_L_ell.T
-        
     else:
         scaling_product = 1.0
         for scaling in scalings:
             scaling_product *= scaling
-        
+
         WLto1 = jnp.eye(Ws[-1].shape[0])
         for i in range(L - 1, -1, -1):
             WLto1 = WLto1 @ Ws[i]
         WLto1 = scaling_product * WLto1
 
-        S = jnp.eye(Ws[-1].shape[0])
-        cumulative_prod = jnp.eye(Ws[-1].shape[0])
-        for i in range(L - 1, 0, -1):
-            cumulative_prod = cumulative_prod @ Ws[i]
-            cumulative_scaling = 1.0
-            for j in range(i, L):
-                cumulative_scaling *= scalings[j]
-            S += (cumulative_scaling ** 2) * (cumulative_prod @ cumulative_prod.T)
+    S = _compute_linear_equilib_rescaling(
+        Ws=Ws,
+        scalings=scalings,
+        output_energy_scaling=output_scale,
+        use_skips=has_skips,
+        width=N,
+    )
 
     residual = y - vmap(lambda x: WLto1 @ x)(x)
-    
+
     equilib_energy = vmap(
         lambda r: 0.5 * r.T @ jnp.linalg.solve(S, r)
     )(residual).mean()
-    
+
     if return_rescaling:
         return equilib_energy, S
     else:
@@ -173,7 +280,8 @@ def compute_linear_equilib_energy_grads(
     y: ArrayLike,
     *,
     param_type: str = "sp",
-    gamma: Optional[Scalar] = None
+    gamma: Optional[Scalar] = None,
+    output_energy_scaling: Optional[Scalar] = None
 ) -> PyTree[Array]:
     """Computes the gradient of the [linear equilibrium energy](https://thebuckleylab.github.io/jpc/api/Theoretical%20tools/#jpc.linear_equilib_energy)
     with respect to model parameters $∇_θ \mathcal{F}^*$.
@@ -192,9 +300,13 @@ def compute_linear_equilib_energy_grads(
         See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations. Defaults
         to `"sp"`.
-    - `gamma`: Optional scaling factor for the output layer. If provided, the 
-        output layer scaling is multiplied by `1/gamma`. Defaults to `None` (no 
-        additional scaling).
+    - `gamma`: Optional scaling factor for the output layer. If provided, the
+        output layer parameter scaling is multiplied by `1/gamma`. Defaults to
+        `None` (no additional scaling).
+    - `output_energy_scaling`: Optional multiplier for the output-layer energy
+        term. Note that this equals the precision
+        (inverse covariance) of the generative distribution at the output layer.
+        Defaults to `None` (equivalent to a scaling of 1).
 
     **Returns:**
 
@@ -206,7 +318,8 @@ def compute_linear_equilib_energy_grads(
         x,
         y,
         param_type=param_type,
-        gamma=gamma
+        gamma=gamma,
+        output_energy_scaling=output_energy_scaling
     )
 
 
@@ -219,7 +332,8 @@ def update_linear_equilib_energy_params(
     y: ArrayLike,
     *,
     param_type: str = "sp",
-    gamma: Optional[Scalar] = None
+    gamma: Optional[Scalar] = None,
+    output_energy_scaling: Optional[Scalar] = None
 ) -> Dict:
     """Updates parameters of a linear network by taking gradients of the 
     [linear equilibrium energy](https://thebuckleylab.github.io/jpc/api/Theoretical%20tools/#jpc.linear_equilib_energy)
@@ -241,9 +355,13 @@ def update_linear_equilib_energy_params(
         See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations. Defaults
         to `"sp"`.
-    - `gamma`: Optional scaling factor for the output layer. If provided, the 
-        output layer scaling is multiplied by `1/gamma`. Defaults to `None` (no 
-        additional scaling).
+    - `gamma`: Optional scaling factor for the output layer. If provided, the
+        output layer parameter scaling is multiplied by `1/gamma`. Defaults to
+        `None` (no additional scaling).
+    - `output_energy_scaling`: Optional multiplier for the output-layer energy
+        term. Note that this equals the precision
+        (inverse covariance) of the generative distribution at the output layer.
+        Defaults to `None` (equivalent to a scaling of 1).
 
     **Returns:**
 
@@ -255,7 +373,8 @@ def update_linear_equilib_energy_params(
         x=x,
         y=y,
         param_type=param_type,
-        gamma=gamma
+        gamma=gamma,
+        output_energy_scaling=output_energy_scaling
     )
     updates, opt_state = optim.update(
         updates=grads,
@@ -331,8 +450,9 @@ def compute_linear_activity_hessian(
     - `activity_decay`: $\ell^2$ regulariser for the activities.
     - `diag`: Whether to compute the diagonal blocks of the Hessian.
     - `off-diag`: Whether to compute the off-diagonal blocks of the Hessian.
-    - `gamma`: Optional scaling factor for the output layer. If provided, the output 
-        layer scaling is multiplied by `1/gamma`. Defaults to `None` (no additional scaling).
+    - `gamma`: Optional scaling factor for the output layer. If provided, the
+        output layer parameter scaling is multiplied by `1/gamma`. Defaults to
+        `None` (no additional scaling).
 
     **Returns:**
 
@@ -372,7 +492,6 @@ def compute_linear_activity_hessian(
             elif param_type == "mupc":
                 if i+1 == L:
                     a_l = 1 / N
-                    # Apply gamma scaling to output layer if provided
                     if gamma is not None:
                         a_l = a_l / gamma
                 else:
@@ -432,6 +551,7 @@ def compute_linear_activity_solution(
         param_type: str = "sp",
         activity_decay: bool = False,
         gamma: Optional[Scalar] = None,
+        output_energy_scaling: Optional[Scalar] = None,
         epsilon: Scalar = 0.,
         hessian: Optional[Array] = None,
 ) -> PyTree[Array]:
@@ -480,8 +600,13 @@ def compute_linear_activity_solution(
         for the specific scalings of these different parameterisations. Defaults
         to `"sp"`.
     - `activity_decay`: $\ell^2$ regulariser for the activities.
-    - `gamma`: Optional scaling factor for the output layer. If provided, the output 
-        layer scaling is multiplied by `1/gamma`. Defaults to `None` (no additional scaling).
+    - `gamma`: Optional scaling factor for the output layer. If provided, the
+        output layer parameter scaling is multiplied by `1/gamma`. Defaults to
+        `None` (no additional scaling).
+    - `output_energy_scaling`: Optional multiplier for the output-layer energy
+        term. Note that this equals the precision
+        (inverse covariance) of the generative distribution at the output layer.
+        Defaults to `None` (equivalent to a scaling of 1).
     - `epsilon`: Small regularization value added to the diagonal of the Hessian matrix 
         before inversion to improve numerical stability. Defaults to `0.`.
     - `hessian`: Optional Hessian matrix to use instead of computing it 
@@ -509,7 +634,7 @@ def compute_linear_activity_solution(
         param_type=param_type,
         use_skips=use_skips,
         activity_decay=activity_decay,
-        gamma=gamma
+        gamma=gamma,
     ) if hessian is None else hessian
 
     if param_type == "sp":
@@ -518,10 +643,11 @@ def compute_linear_activity_solution(
         a_1, a_L = 1/np.sqrt(D), 1/np.sqrt(N)
     elif param_type == "mupc":
         a_1, a_L = 1/np.sqrt(D), 1/N
-    
-    # Apply gamma scaling to output layer if provided
+
     if gamma is not None:
         a_L = a_L / gamma
+    
+    output_scale = 1. if output_energy_scaling is None else output_energy_scaling
 
     # get layer dimensions
     is_scalar = N == 1
@@ -533,13 +659,13 @@ def compute_linear_activity_solution(
     
     # compute activities solution
     A_inv = jnp.linalg.inv(A_reg)
-    def compute_linear_activity_solution_single(x, y, A_inv, Ws, dims, H, a_1, a_L):
+    def compute_linear_activity_solution_single(x, y, A_inv, Ws, dims, H, a_1, a_L, output_scale):
         b = jnp.zeros(len(A))
         if H == 1:
-            b = a_1 * Ws[0] @ x + a_L * Ws[-1].T @ y
+            b = a_1 * Ws[0] @ x + output_scale * a_L * Ws[-1].T @ y
         else:
             b = b.at[:dims[1]].set(a_1 * Ws[0] @ x)
-            b = b.at[-dims[-2]:].set(a_L * Ws[-1].T @ y)
+            b = b.at[-dims[-2]:].set(output_scale * a_L * Ws[-1].T @ y)
         
         z_star = A_inv @ b
     
@@ -557,6 +683,6 @@ def compute_linear_activity_solution(
 
     return vmap(
         lambda x, y: compute_linear_activity_solution_single(
-            x, y, A_inv, Ws, dims, H, a_1, a_L
+            x, y, A_inv, Ws, dims, H, a_1, a_L, output_scale
         )
     )(x, y)

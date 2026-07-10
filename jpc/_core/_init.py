@@ -42,8 +42,9 @@ def init_activities_with_ffwd(
         See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
         for the specific scalings of these different parameterisations. Defaults
         to `"sp"`.
-    - `gamma`: Optional scaling factor for the output layer. If provided, the output 
-        layer scaling is multiplied by `1/gamma`. Defaults to `None` (no additional scaling).
+    - `gamma`: Optional scaling factor for the output layer. If provided, the
+        output layer parameter scaling is multiplied by `1/gamma`. Defaults to
+        `None` (no additional scaling).
 
     **Returns:**
 

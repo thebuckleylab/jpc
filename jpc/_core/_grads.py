@@ -32,6 +32,7 @@ def neg_pc_activity_grad(
         Scalar,
         Scalar,
         Optional[Scalar],
+        Optional[Scalar],
         AbstractStepSizeController
     ]
 ) -> PyTree[Array]:
@@ -45,7 +46,7 @@ def neg_pc_activity_grad(
     - `t`: Time step of the ODE system, used for downstream integration by
         [`diffrax.diffeqsolve()`](https://docs.kidger.site/diffrax/api/diffeqsolve/#diffrax.diffeqsolve).
     - `activities`: List of activities for each layer free to vary.
-    - `args`: 10-Tuple with:
+    - `args`: 11-Tuple with:
 
         (i) Tuple with callable model layers and optional skip connections,
 
@@ -63,16 +64,18 @@ def neg_pc_activity_grad(
 
         (viii) $\ell^2$ regulariser for the activities (0 by default),
 
-        (ix) optional scaling factor for the output layer (`None` by default), and
+        (ix) optional output-layer parameter scaling factor `gamma` (`None` by default),
 
-        (x) diffrax controller for step size integration.
+        (x) optional output-layer energy scaling (`None` by default), and
+
+        (xi) diffrax controller for step size integration.
 
     **Returns:**
 
     List of negative gradients of the energy with respect to the activities.
 
     """
-    params, y, x, loss_id, param_type, weight_decay, spectral_penalty, activity_decay, gamma, _ = args
+    params, y, x, loss_id, param_type, weight_decay, spectral_penalty, activity_decay, gamma, output_energy_scaling, _ = args
     dFdzs = grad(pc_energy_fn, argnums=1)(
         params,
         activities,
@@ -83,7 +86,8 @@ def neg_pc_activity_grad(
         weight_decay=weight_decay,
         spectral_penalty=spectral_penalty,
         activity_decay=activity_decay,
-        gamma=gamma
+        gamma=gamma,
+        output_energy_scaling=output_energy_scaling
     )
     return tree_map(lambda dFdz: -dFdz, dFdzs)
 
@@ -99,7 +103,8 @@ def compute_pc_activity_grad(
     weight_decay: Scalar = 0.,
     spectral_penalty: Scalar = 0.,
     activity_decay: Scalar = 0.,
-    gamma: Optional[Scalar] = None
+    gamma: Optional[Scalar] = None,
+    output_energy_scaling: Optional[Scalar] = None,
 ) -> PyTree[Array]:
     """Computes the gradient of the [PC energy](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.pc_energy_fn)
     with respect to the activities $∇_{\mathbf{z}} \mathcal{F}$.
@@ -133,9 +138,14 @@ def compute_pc_activity_grad(
     - `spectral_penalty`: Weight spectral penalty of the form 
         $||\mathbf{I} - \mathbf{W}_\ell^T \mathbf{W}_\ell||^2$ (0 by default).
     - `activity_decay`: $\ell^2$ regulariser for the activities (0 by default).
-    - `gamma`: Optional scaling factor for the output layer. If provided, the output 
-        layer scaling is multiplied by `1/gamma`. Defaults to `None` (no additional scaling).
-
+    - `gamma`: Optional scaling factor for the output layer. If provided, the
+        output layer parameter scaling is multiplied by `1/gamma`. Defaults to
+        `None` (no additional scaling).
+    - `output_energy_scaling`: Optional multiplier for the output-layer energy
+        term. Note that this equals the precision
+        (inverse covariance) of the generative distribution at the output layer.
+        Defaults to `None` (equivalent to a scaling of 1).
+        
     **Returns:**
 
     The energy and its gradient with respect to the activities.
@@ -151,7 +161,8 @@ def compute_pc_activity_grad(
         weight_decay=weight_decay,
         spectral_penalty=spectral_penalty,
         activity_decay=activity_decay,
-        gamma=gamma
+        gamma=gamma,
+        output_energy_scaling=output_energy_scaling,
     )
     return energy, dFdzs
 
@@ -433,7 +444,8 @@ def compute_pc_param_grads(
     weight_decay: Scalar = 0.,
     spectral_penalty: Scalar = 0.,
     activity_decay: Scalar = 0.,
-    gamma: Optional[Scalar] = None
+    gamma: Optional[Scalar] = None,
+    output_energy_scaling: Optional[Scalar] = None,
 ) -> Tuple[PyTree[Array], PyTree[Array]]:
     """Computes the gradient of the [PC energy](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.pc_energy_fn)
     with respect to model parameters $∇_θ \mathcal{F}$.
@@ -459,8 +471,13 @@ def compute_pc_param_grads(
     - `spectral_penalty`: Weight spectral penalty of the form 
         $||\mathbf{I} - \mathbf{W}_\ell^T \mathbf{W}_\ell||^2$ (0 by default).
     - `activity_decay`: $\ell^2$ regulariser for the activities (0 by default).
-    - `gamma`: Optional scaling factor for the output layer. If provided, the output 
-        layer scaling is multiplied by `1/gamma`. Defaults to `None` (no additional scaling).
+    - `gamma`: Optional scaling factor for the output layer. If provided, the
+        output layer parameter scaling is multiplied by `1/gamma`. Defaults to
+        `None` (no additional scaling).
+    - `output_energy_scaling`: Optional multiplier for the output-layer energy
+        term. Note that this equals the precision
+        (inverse covariance) of the generative distribution at the output layer.
+        Defaults to `None` (equivalent to a scaling of 1).
 
     **Returns:**
 
@@ -477,7 +494,8 @@ def compute_pc_param_grads(
         weight_decay=weight_decay,
         spectral_penalty=spectral_penalty,
         activity_decay=activity_decay,
-        gamma=gamma
+        gamma=gamma,
+        output_energy_scaling=output_energy_scaling,
     )
 
 

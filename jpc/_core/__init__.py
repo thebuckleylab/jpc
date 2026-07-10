@@ -37,6 +37,7 @@ from ._updates import (
 )
 from ._analytical import (
     linear_equilib_energy as linear_equilib_energy,
+    compute_linear_equilib_rescaling as compute_linear_equilib_rescaling,
     compute_linear_activity_hessian as compute_linear_activity_hessian,
     compute_linear_activity_solution as compute_linear_activity_solution,
     compute_linear_equilib_energy_grads as compute_linear_equilib_energy_grads,
