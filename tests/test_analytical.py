@@ -289,3 +289,81 @@ def test_compute_linear_equilib_rescaling_scalar_mupc(key):
 
     assert jnp.allclose(energy, energy_from_loss, rtol=1e-5, atol=1e-5)
 
+
+def test_compute_linear_activity_solution_mupc_matches_inference(key):
+    """Analytical activity solution should match numerical PC inference."""
+    import jpc
+    import optax
+
+    input_dim = 16
+    width = 128
+    depth = 2
+    gamma = 0.01
+    batch_size = 2
+    output_energy_scaling = gamma**2 * width * depth
+
+    model_key, data_key = jax.random.split(key)
+    model = jpc.make_mlp(
+        key=model_key,
+        input_dim=input_dim,
+        width=width,
+        depth=depth,
+        output_dim=1,
+        act_fn="linear",
+        use_bias=False,
+        param_type="mupc",
+    )
+    data_key, x_key, y_key = jax.random.split(data_key, 3)
+    x = jax.random.normal(x_key, (batch_size, input_dim))
+    y = jax.random.normal(y_key, (batch_size, 1))
+    params = (model, None)
+
+    activities = jpc.init_activities_with_ffwd(
+        model=model,
+        input=x,
+        param_type="mupc",
+        gamma=gamma,
+    )
+    activity_optim = optax.sgd(0.5 * batch_size)
+    activity_opt_state = activity_optim.init(activities)
+    for _ in range(300):
+        activity_update_result = jpc.update_pc_activities(
+            params=params,
+            activities=activities,
+            optim=activity_optim,
+            opt_state=activity_opt_state,
+            output=y,
+            input=x,
+            param_type="mupc",
+            gamma=gamma,
+            output_energy_scaling=output_energy_scaling,
+        )
+        activities = activity_update_result["activities"]
+        activity_opt_state = activity_update_result["opt_state"]
+        numerical_energy = activity_update_result["energy"]
+
+    theory_activities = compute_linear_activity_solution(
+        model=model,
+        x=x,
+        y=y,
+        param_type="mupc",
+        gamma=gamma,
+        output_energy_scaling=output_energy_scaling,
+    )
+    theory_energy = jpc.pc_energy_fn(
+        params,
+        theory_activities,
+        y,
+        x=x,
+        param_type="mupc",
+        gamma=gamma,
+        output_energy_scaling=output_energy_scaling,
+    )
+
+    assert jnp.allclose(theory_energy, numerical_energy, rtol=1e-2, atol=1e-2)
+    assert jnp.allclose(
+        jnp.linalg.norm(activities[0] - theory_activities[0], axis=1).mean(),
+        0.0,
+        atol=1e-2,
+    )
+

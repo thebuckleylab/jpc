@@ -31,12 +31,10 @@ from ._core import (
     update_pdm_activities as update_pdm_activities,
     update_pdm_params as update_pdm_params,
     linear_equilib_energy as linear_equilib_energy,
-    new_linear_equilib_energy as new_linear_equilib_energy,
     compute_linear_equilib_rescaling as compute_linear_equilib_rescaling,
     compute_linear_activity_hessian as compute_linear_activity_hessian,
     compute_linear_activity_solution as compute_linear_activity_solution,
     compute_linear_equilib_energy_grads as compute_linear_equilib_energy_grads,
-    compute_new_linear_equilib_energy_grads as compute_new_linear_equilib_energy_grads,
     update_linear_equilib_energy_params as update_linear_equilib_energy_params,
     _check_param_type as _check_param_type
 )
