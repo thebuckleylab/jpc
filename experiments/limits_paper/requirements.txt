@@ -1,1 +1,8 @@
-pip @ file:///private/var/folders/j6/xx584hw1235b_ccdv3s53bph0000gn/T/tmp2i817at2/pip-24.3.1-py3-none-any.whl
+jax==0.5.2
+jaxlib==0.5.1
+equinox==0.11.12
+optax==0.2.4
+numpy==2.2.3
+matplotlib==3.10.1
+torch==2.5.1
+torchvision==0.20.1
