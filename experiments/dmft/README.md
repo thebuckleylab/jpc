@@ -14,3 +14,10 @@ here).
 ```
 pip install --upgrade "jax[cuda12]==0.5.2"
 ```
+
+
+# TODOs
+* check $h^*$ and deviation from $\hat{h}$
+* extend `test_equilib_energy.py` to training (including simple classification tasks)
+* check empirics for L>2
+* compute DMFT correlation and response functions
