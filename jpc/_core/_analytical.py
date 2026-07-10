@@ -402,7 +402,8 @@ def compute_linear_activity_hessian(
         activity_decay: bool = False,
         diag: bool = True,
         off_diag: bool = True,
-        gamma: Optional[Scalar] = None
+        gamma: Optional[Scalar] = None,
+        output_energy_scaling: Optional[Scalar] = None,
 ) -> Array:
     """Computes the theoretical Hessian matrix of the [PC energy](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.pc_energy_fn) 
     with respect to the activities for a linear network, 
@@ -453,6 +454,8 @@ def compute_linear_activity_hessian(
     - `gamma`: Optional scaling factor for the output layer. If provided, the
         output layer parameter scaling is multiplied by `1/gamma`. Defaults to
         `None` (no additional scaling).
+    - `output_energy_scaling`: Optional multiplier for the output-layer energy
+        term (output precision λ). Defaults to `None` (equivalent to 1).
 
     **Returns:**
 
@@ -464,6 +467,7 @@ def compute_linear_activity_hessian(
 
     L = len(Ws)
     N = Ws[0].shape[0]
+    output_scale = 1.0 if output_energy_scaling is None else output_energy_scaling
 
     # Get layer dimensions
     non_unit_width = 0 if len(Ws[0].shape) == 1 else 1
@@ -497,19 +501,21 @@ def compute_linear_activity_hessian(
                 else:
                     a_l = 1 / np.sqrt(N) if not use_skips else 1 / np.sqrt(N*L)
 
+            output_coupling = output_scale if i + 1 == L else 1.0
+
             if not use_skips:
                 if activity_decay:
-                    diagonal_block = 2*I + a_l**2 * WT_W
+                    diagonal_block = 2*I + output_coupling * a_l**2 * WT_W
                 else:
-                    diagonal_block = I + a_l**2 * WT_W
+                    diagonal_block = I + output_coupling * a_l**2 * WT_W
 
             elif use_skips:
                 W = Ws[i]
                 if i+1 == L:
                     if activity_decay:
-                        diagonal_block = 2*I + a_l**2 * WT_W
+                        diagonal_block = 2*I + output_coupling * a_l**2 * WT_W
                     else:
-                        diagonal_block = I + a_l**2 * WT_W
+                        diagonal_block = I + output_coupling * a_l**2 * WT_W
                 else:
                     if activity_decay:
                         diagonal_block = 3*I + a_l**2 * WT_W + 2*a_l * (W.T + W)
@@ -635,6 +641,7 @@ def compute_linear_activity_solution(
         use_skips=use_skips,
         activity_decay=activity_decay,
         gamma=gamma,
+        output_energy_scaling=output_energy_scaling,
     ) if hessian is None else hessian
 
     if param_type == "sp":
@@ -653,6 +660,8 @@ def compute_linear_activity_solution(
     is_scalar = N == 1
     nonunit_width = 0 if is_scalar else 1
     dims = [Ws[0].shape[nonunit_width]] + [W.shape[0] for W in Ws]
+
+    y_target = y[:, None] if y.ndim == 1 else y
 
     # Add epsilon regularization to improve numerical stability
     A_reg = A + epsilon * jnp.eye(A.shape[0])
@@ -685,4 +694,4 @@ def compute_linear_activity_solution(
         lambda x, y: compute_linear_activity_solution_single(
             x, y, A_inv, Ws, dims, H, a_1, a_L, output_scale
         )
-    )(x, y)
+    )(x, y_target)
