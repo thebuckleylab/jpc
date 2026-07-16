@@ -1,0 +1,405 @@
+"""Coordinate check for μPC / SP MLPs (μP-style width scaling of activations).
+
+Mirrors the mup.coord_check workflow:
+
+    models = {width: jpc_model(width), ...}
+    df = get_coord_data(models, dataloader)
+    plot_coord_data(df, save_to=filename)
+
+but uses JPC (JAX) models and discrete PC training steps instead of PyTorch.
+Plotting reuses ``plot_coord_data`` from ``coord_check.py``.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+from typing import Callable, Dict, Optional, Union
+
+import equinox as eqx
+import jax.numpy as jnp
+import jax.random as jr
+import optax
+import pandas as pd
+
+import jpc
+from experiments.dmft.coord_check import plot_coord_data
+
+
+#: JAX equivalents of mup.coord_check.FDICT (activation coordinate statistics).
+FDICT = {
+    "l1": lambda x: float(jnp.mean(jnp.abs(x))),
+    "l2": lambda x: float(jnp.sqrt(jnp.mean(x**2))),
+    "mean": lambda x: float(jnp.mean(x)),
+    "std": lambda x: float(jnp.std(x)),
+}
+
+
+def convert_fdict(d: Optional[dict]) -> dict:
+    """Convert string values in an fdict to callables via ``FDICT``."""
+    if d is None:
+        return {"l1": FDICT["l1"]}
+    return {k: (FDICT[v] if isinstance(v, str) else v) for k, v in d.items()}
+
+
+def make_dataloader(
+    key: jr.PRNGKey,
+    *,
+    batch_size: int,
+    input_dim: int,
+    output_dim: int,
+    nsteps: int,
+):
+    """Synthetic (x, y) batches for a short coord-check training run."""
+    batches = []
+    for _ in range(nsteps):
+        key, x_key, y_key = jr.split(key, 3)
+        x = jr.normal(x_key, (batch_size, input_dim))
+        y = jr.normal(y_key, (batch_size, output_dim))
+        batches.append((x, y))
+    return batches
+
+
+def jpc_model(
+    width: int,
+    *,
+    key: jr.PRNGKey,
+    input_dim: int,
+    depth: int,
+    output_dim: int,
+    act_fn: str,
+    param_type: str,
+    use_skips: bool,
+) -> Callable:
+    """Return a zero-arg factory that builds a ``(model, skip_model)`` pair."""
+
+    def factory():
+        model = jpc.make_mlp(
+            key=key,
+            input_dim=input_dim,
+            width=width,
+            depth=depth,
+            output_dim=output_dim,
+            act_fn=act_fn,
+            use_bias=False,
+            param_type=param_type,
+        )
+        skip_model = jpc.make_skip_model(depth) if use_skips else None
+        return model, skip_model
+
+    return factory
+
+
+def _record_activities(
+    records: list,
+    width: int,
+    activities,
+    t: int,
+    output_fdict: dict,
+):
+    """Append per-layer coordinate statistics for ``activities``."""
+    for layer_idx, act in enumerate(activities):
+        row = {
+            "width": width,
+            "module": str(layer_idx),
+            "t": t,
+        }
+        for fname, fn in output_fdict.items():
+            row[fname] = fn(act)
+        records.append(row)
+
+
+def get_coord_data(
+    models: Union[Dict[int, Callable], Callable],
+    dataloader,
+    *,
+    param_type: str = "mupc",
+    gamma: float = 1.0,
+    optimizer: str = "sgd",
+    lr: float = 0.1,
+    activity_lr: float = 0.5,
+    n_infer_iters: int = 50,
+    nsteps: int = 3,
+    nseeds: int = 1,
+    seed: int = 0,
+    fix_data: bool = True,
+    output_fdict: Optional[dict] = None,
+    record: str = "ffwd",
+    show_progress: bool = True,
+) -> pd.DataFrame:
+    """Train JPC models for a few steps and record activation coordinates.
+
+    Args:
+        models: Dict mapping width -> zero-arg factory returning ``(model, skip)``,
+            or a callable ``make_models(key) -> dict`` for independent seeds.
+        dataloader: Iterable of ``(x, y)`` batches.
+        param_type: ``"mupc"``, ``"sp"``, or ``"ntp"``.
+        gamma: Output scaling used by μPC energy / grads.
+        optimizer: Parameter optimiser, ``"sgd"`` or ``"adam"``.
+        lr: Parameter learning rate.
+        activity_lr: Activity (inference) learning rate.
+        n_infer_iters: Discrete inference steps per parameter update.
+        nsteps: Number of parameter updates to record.
+        nseeds: Number of independent runs.
+        seed: Base seed when ``models`` is a callable factory builder.
+        fix_data: If True, reuse the first batch for all steps (mup default).
+        output_fdict: Stats to record (default: ``{"l1": "l1"}``).
+        record: ``"ffwd"`` records feedforward activities (μP-style);
+            ``"equilib"`` records activities after inference.
+        show_progress: Print a simple progress line.
+
+    Returns:
+        DataFrame with columns ``width``, ``module``, ``t``, plus recorded stats.
+    """
+    output_fdict = convert_fdict(output_fdict)
+    if fix_data:
+        batch = next(iter(dataloader))
+        dataloader = [batch] * nsteps
+
+    if optimizer == "sgd":
+        param_optim_fn = lambda: optax.sgd(lr)
+    elif optimizer == "adam":
+        param_optim_fn = lambda: optax.adam(lr)
+    else:
+        raise ValueError("optimizer must be 'sgd' or 'adam'")
+
+    make_models = models if callable(models) else (lambda _key: models)
+
+    records = []
+    done = 0
+    probe_models = make_models(jr.PRNGKey(seed))
+    total = nseeds * len(probe_models)
+
+    for seed_i in range(nseeds):
+        models_i = make_models(jr.PRNGKey(seed + seed_i))
+        for width, model_fn in models_i.items():
+            model, skip_model = model_fn()
+            params = (model, skip_model)
+            param_optim = param_optim_fn()
+            param_opt_state = param_optim.init(params)
+
+            output_energy_scaling = (
+                gamma**2 * width * len(model) if param_type == "mupc" else 1.0
+            )
+
+            for t, (x, y) in enumerate(dataloader, start=1):
+                batch_size = int(x.shape[0])
+                act_optim = optax.sgd(activity_lr * batch_size)
+
+                ffwd_activities = jpc.init_activities_with_ffwd(
+                    model=model,
+                    input=x,
+                    skip_model=skip_model,
+                    param_type=param_type,
+                    gamma=gamma,
+                )
+
+                if record == "ffwd":
+                    _record_activities(
+                        records, width, ffwd_activities, t, output_fdict
+                    )
+
+                activities = ffwd_activities
+                activity_opt_state = act_optim.init(activities)
+                for _ in range(n_infer_iters):
+                    result = jpc.update_pc_activities(
+                        params=params,
+                        activities=activities,
+                        optim=act_optim,
+                        opt_state=activity_opt_state,
+                        output=y,
+                        input=x,
+                        param_type=param_type,
+                        gamma=gamma,
+                        output_energy_scaling=output_energy_scaling,
+                    )
+                    activities = result["activities"]
+                    activity_opt_state = result["opt_state"]
+
+                if record == "equilib":
+                    _record_activities(
+                        records, width, activities, t, output_fdict
+                    )
+
+                param_result = jpc.update_pc_params(
+                    params=params,
+                    activities=activities,
+                    optim=param_optim,
+                    opt_state=param_opt_state,
+                    output=y,
+                    input=x,
+                    param_type=param_type,
+                    gamma=gamma,
+                    output_energy_scaling=output_energy_scaling,
+                )
+                model = param_result["model"]
+                skip_model = param_result["skip_model"]
+                params = (model, skip_model)
+                param_opt_state = param_result["opt_state"]
+
+                if t == nsteps:
+                    break
+
+            done += 1
+            if show_progress:
+                print(f"coord check: {done}/{total} (width={width}, seed={seed_i})")
+
+    df = pd.DataFrame(records)
+    df["optimizer"] = optimizer
+    df["lr"] = lr
+    df["param_type"] = param_type
+    df["gamma"] = gamma
+    return df
+
+
+def run_coord_check(args) -> pd.DataFrame:
+    """Run a coord check with the same model setup as the original energy test:
+
+    ``jpc.make_mlp(..., output_dim=1, act_fn="linear", use_bias=False)``
+    and ``params = (model, None)`` unless ``--use_skips 1``.
+    """
+    key = jr.PRNGKey(args.seed)
+    _, data_key = jr.split(key)
+    use_skips = bool(args.use_skips)
+
+    def make_models(model_key):
+        width_keys = jr.split(model_key, len(args.widths))
+        return {
+            width: jpc_model(
+                width,
+                key=wkey,
+                input_dim=args.input_dim,
+                depth=args.depth,
+                output_dim=args.output_dim,
+                act_fn=args.act_fn,
+                param_type=args.param_type,
+                use_skips=use_skips,
+            )
+            for width, wkey in zip(args.widths, width_keys)
+        }
+
+    dataloader = make_dataloader(
+        data_key,
+        batch_size=args.batch_size,
+        input_dim=args.input_dim,
+        output_dim=args.output_dim,
+        nsteps=args.nsteps,
+    )
+
+    df = get_coord_data(
+        make_models,
+        dataloader,
+        param_type=args.param_type,
+        gamma=args.gamma,
+        optimizer=args.optimizer,
+        lr=args.lr,
+        activity_lr=args.activity_lr,
+        n_infer_iters=args.n_infer_iters,
+        nsteps=args.nsteps,
+        nseeds=args.nseeds,
+        seed=args.seed,
+        record=args.record,
+        show_progress=True,
+    )
+
+    os.makedirs(args.plotdir, exist_ok=True)
+    prm = "μPC" if args.param_type == "mupc" else args.param_type.upper()
+    filename = os.path.join(
+        args.plotdir,
+        f"{args.param_type}_{args.optimizer}_lr{args.lr}"
+        f"_actlr{args.activity_lr}_gamma{args.gamma}"
+        f"_nseeds{args.nseeds}_{args.record}_coord.png",
+    )
+    plot_coord_data(
+        df,
+        y=args.stat,
+        save_to=filename,
+        suptitle=(
+            f"{prm} MLP {args.optimizer} lr={args.lr} "
+            f"activity_lr={args.activity_lr} gamma={args.gamma} "
+            f"record={args.record} nseeds={args.nseeds}"
+        ),
+        face_color=None if args.param_type == "mupc" else "xkcd:light grey",
+        legend=args.legend,
+    )
+    if args.save_csv:
+        csv_path = filename.replace(".png", ".csv")
+        df.to_csv(csv_path, index=False)
+        print(f"coord check data saved to {csv_path}")
+    return df
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="μP-style coordinate check for JPC μPC / SP MLPs."
+    )
+
+    # Model parameters (matched to original test_coord_check.py)
+    parser.add_argument("--input_dim", type=int, default=16)
+    parser.add_argument("--output_dim", type=int, default=1)
+    parser.add_argument("--depth", type=int, default=2)
+    parser.add_argument("--act_fn", type=str, default="linear")
+    parser.add_argument(
+        "--param_types",
+        type=str,
+        nargs="+",
+        default=["mupc"],
+        choices=["mupc", "sp", "ntp"],
+    )
+    parser.add_argument(
+        "--use_skips",
+        type=int,
+        default=0,
+        help="1 to use jpc.make_skip_model; 0 matches original params=(model, None).",
+    )
+    # Multiple widths needed for a coord-check plot (original used a single 1024).
+    parser.add_argument(
+        "--widths",
+        type=int,
+        nargs="+",
+        default=[128, 256, 512, 1024, 2048, 4096, 8192],
+    )
+
+    # Data parameters
+    parser.add_argument("--batch_size", type=int, default=1)
+    parser.add_argument("--seed", type=int, default=0)
+
+    # Inference / training parameters
+    parser.add_argument("--gammas", type=float, nargs="+", default=[1])
+    parser.add_argument("--activity_lrs", type=float, nargs="+", default=[5e-1])
+    parser.add_argument("--n_infer_iters", type=int, default=50)
+    parser.add_argument("--nsteps", type=int, default=3)
+    parser.add_argument("--nseeds", type=int, default=3)
+    parser.add_argument(
+        "--optimizer", type=str, default="sgd", choices=["sgd", "adam"]
+    )
+    parser.add_argument("--lr", type=float, default=0.1)
+
+    # Recording / plotting
+    parser.add_argument(
+        "--record",
+        type=str,
+        default="ffwd",
+        choices=["ffwd", "equilib"],
+        help="Record feedforward (μP-style) or equilibrated activities.",
+    )
+    parser.add_argument(
+        "--stat", type=str, default="l1", choices=list(FDICT.keys())
+    )
+    parser.add_argument("--plotdir", type=str, default="coord_checks")
+    parser.add_argument("--legend", type=str, default="full")
+    parser.add_argument("--save_csv", action="store_true")
+
+    args = parser.parse_args()
+
+    for gamma in args.gammas:
+        for param_type in args.param_types:
+            for activity_lr in args.activity_lrs:
+                run_args = argparse.Namespace(**vars(args))
+                run_args.gamma = gamma
+                run_args.param_type = param_type
+                run_args.activity_lr = activity_lr
+                run_coord_check(run_args)
+
+# Parameters used for simulation
+# python test_coord_check.py --gammas 10.0 --depth 5 --nsteps 5 --activity_lrs 0.05 --n_infer_iters 1000 --lr 0.05 --record ffwd
