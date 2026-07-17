@@ -50,12 +50,30 @@ def make_dataloader(
     output_dim: int,
     nsteps: int,
 ):
-    """Synthetic (x, y) batches for a short coord-check training run."""
+    """Synthetic binary classification batches for a short coord-check training run.
+
+    Draws ``x ~ N(0, I)`` in ``input_dim`` dimensions (default 40) and labels
+    ``y ∈ {-1, +1}`` from a fixed random linear teacher:
+
+        y = sign(x · w),   w ~ N(0, I)
+
+    ``output_dim`` must be 1 (scalar ±1 targets reshaped to ``(batch, 1)``).
+    """
+    if output_dim != 1:
+        raise ValueError(
+            f"Binary classification requires output_dim=1, got {output_dim}"
+        )
+
+    key, teacher_key = jr.split(key)
+    # Fixed decision boundary shared across batches.
+    w = jr.normal(teacher_key, (input_dim,))
+
     batches = []
     for _ in range(nsteps):
-        key, x_key, y_key = jr.split(key, 3)
+        key, x_key = jr.split(key)
         x = jr.normal(x_key, (batch_size, input_dim))
-        y = jr.normal(y_key, (batch_size, output_dim))
+        logits = x @ w
+        y = jnp.where(logits >= 0, 1.0, -1.0).reshape(batch_size, 1)
         batches.append((x, y))
     return batches
 
@@ -310,6 +328,10 @@ def run_coord_check(args) -> pd.DataFrame:
         f"_actlr{args.activity_lr}_gamma{args.gamma}"
         f"_nseeds{args.nseeds}_{args.record}_coord.png",
     )
+    if args.save_csv:
+        csv_path = filename.replace(".png", ".csv")
+        df.to_csv(csv_path, index=False)
+        print(f"coord check data saved to {csv_path}")
     plot_coord_data(
         df,
         y=args.stat,
@@ -322,10 +344,6 @@ def run_coord_check(args) -> pd.DataFrame:
         face_color=None if args.param_type == "mupc" else "xkcd:light grey",
         legend=args.legend,
     )
-    if args.save_csv:
-        csv_path = filename.replace(".png", ".csv")
-        df.to_csv(csv_path, index=False)
-        print(f"coord check data saved to {csv_path}")
     return df
 
 
@@ -334,8 +352,8 @@ if __name__ == "__main__":
         description="μP-style coordinate check for JPC μPC / SP MLPs."
     )
 
-    # Model parameters (matched to original test_coord_check.py)
-    parser.add_argument("--input_dim", type=int, default=16)
+    # Model parameters (binary ±1 classification with 40-D Gaussian inputs)
+    parser.add_argument("--input_dim", type=int, default=40)
     parser.add_argument("--output_dim", type=int, default=1)
     parser.add_argument("--depth", type=int, default=2)
     parser.add_argument("--act_fn", type=str, default="linear")
@@ -361,7 +379,7 @@ if __name__ == "__main__":
     )
 
     # Data parameters
-    parser.add_argument("--batch_size", type=int, default=1)
+    parser.add_argument("--batch_size", type=int, default=20)
     parser.add_argument("--seed", type=int, default=0)
 
     # Inference / training parameters
@@ -402,4 +420,4 @@ if __name__ == "__main__":
                 run_coord_check(run_args)
 
 # Parameters used for simulation
-# python test_coord_check.py --gammas 10.0 --depth 5 --nsteps 5 --activity_lrs 0.05 --n_infer_iters 1000 --lr 0.05 --record ffwd
+# python test_coord_check.py --batch_size 20 --gammas 1.0 --depth 5 --nsteps 5 --activity_lrs 0.05 --n_infer_iters 1000 --lr 0.05 --record ffwd --save_csv
