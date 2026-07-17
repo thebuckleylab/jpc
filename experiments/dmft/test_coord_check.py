@@ -143,6 +143,7 @@ def get_coord_data(
     fix_data: bool = True,
     output_fdict: Optional[dict] = None,
     record: str = "ffwd",
+    update_mode: str = "infer",
     show_progress: bool = True,
 ) -> pd.DataFrame:
     """Train JPC models for a few steps and record activation coordinates.
@@ -156,19 +157,33 @@ def get_coord_data(
         optimizer: Parameter optimiser, ``"sgd"`` or ``"adam"``.
         lr: Parameter learning rate.
         activity_lr: Activity (inference) learning rate.
-        n_infer_iters: Discrete inference steps per parameter update.
+        n_infer_iters: Discrete inference steps per parameter update
+            (ignored when ``update_mode="theory"``).
         nsteps: Number of parameter updates to record.
         nseeds: Number of independent runs.
         seed: Base seed when ``models`` is a callable factory builder.
         fix_data: If True, reuse the first batch for all steps (mup default).
         output_fdict: Stats to record (default: ``{"l1": "l1"}``).
         record: ``"ffwd"`` records feedforward activities (μP-style);
-            ``"equilib"`` records activities after inference.
+            ``"equilib"`` records activities after inference (requires
+            ``update_mode="infer"``).
+        update_mode: ``"infer"`` runs discrete PC inference then
+            ``update_pc_params``; ``"theory"`` skips inference and updates
+            via ``update_linear_equilib_energy_params`` (closed-form
+            equilibrated energy gradients).
         show_progress: Print a simple progress line.
 
     Returns:
         DataFrame with columns ``width``, ``module``, ``t``, plus recorded stats.
     """
+    if update_mode not in ("infer", "theory"):
+        raise ValueError("update_mode must be 'infer' or 'theory'")
+    if update_mode == "theory" and record == "equilib":
+        raise ValueError(
+            "record='equilib' requires update_mode='infer' "
+            "(theory mode has no inferred activities to record)."
+        )
+
     output_fdict = convert_fdict(output_fdict)
     if fix_data:
         batch = next(iter(dataloader))
@@ -201,9 +216,6 @@ def get_coord_data(
             )
 
             for t, (x, y) in enumerate(dataloader, start=1):
-                batch_size = int(x.shape[0])
-                act_optim = optax.sgd(activity_lr * batch_size)
-
                 ffwd_activities = jpc.init_activities_with_ffwd(
                     model=model,
                     input=x,
@@ -217,39 +229,54 @@ def get_coord_data(
                         records, width, ffwd_activities, t, output_fdict
                     )
 
-                activities = ffwd_activities
-                activity_opt_state = act_optim.init(activities)
-                for _ in range(n_infer_iters):
-                    result = jpc.update_pc_activities(
+                if update_mode == "theory":
+                    param_result = jpc.update_linear_equilib_energy_params(
+                        params=params,
+                        optim=param_optim,
+                        opt_state=param_opt_state,
+                        x=x,
+                        y=y,
+                        param_type=param_type,
+                        gamma=gamma,
+                        output_energy_scaling=output_energy_scaling,
+                    )
+                else:
+                    batch_size = int(x.shape[0])
+                    act_optim = optax.sgd(activity_lr * batch_size)
+                    activities = ffwd_activities
+                    activity_opt_state = act_optim.init(activities)
+                    for _ in range(n_infer_iters):
+                        result = jpc.update_pc_activities(
+                            params=params,
+                            activities=activities,
+                            optim=act_optim,
+                            opt_state=activity_opt_state,
+                            output=y,
+                            input=x,
+                            param_type=param_type,
+                            gamma=gamma,
+                            output_energy_scaling=output_energy_scaling,
+                        )
+                        activities = result["activities"]
+                        activity_opt_state = result["opt_state"]
+
+                    if record == "equilib":
+                        _record_activities(
+                            records, width, activities, t, output_fdict
+                        )
+
+                    param_result = jpc.update_pc_params(
                         params=params,
                         activities=activities,
-                        optim=act_optim,
-                        opt_state=activity_opt_state,
+                        optim=param_optim,
+                        opt_state=param_opt_state,
                         output=y,
                         input=x,
                         param_type=param_type,
                         gamma=gamma,
                         output_energy_scaling=output_energy_scaling,
                     )
-                    activities = result["activities"]
-                    activity_opt_state = result["opt_state"]
 
-                if record == "equilib":
-                    _record_activities(
-                        records, width, activities, t, output_fdict
-                    )
-
-                param_result = jpc.update_pc_params(
-                    params=params,
-                    activities=activities,
-                    optim=param_optim,
-                    opt_state=param_opt_state,
-                    output=y,
-                    input=x,
-                    param_type=param_type,
-                    gamma=gamma,
-                    output_energy_scaling=output_energy_scaling,
-                )
                 model = param_result["model"]
                 skip_model = param_result["skip_model"]
                 params = (model, skip_model)
@@ -267,6 +294,7 @@ def get_coord_data(
     df["lr"] = lr
     df["param_type"] = param_type
     df["gamma"] = gamma
+    df["update_mode"] = update_mode
     return df
 
 
@@ -317,6 +345,7 @@ def run_coord_check(args) -> pd.DataFrame:
         nseeds=args.nseeds,
         seed=args.seed,
         record=args.record,
+        update_mode=args.update_mode,
         show_progress=True,
     )
 
@@ -326,7 +355,7 @@ def run_coord_check(args) -> pd.DataFrame:
         args.plotdir,
         f"{args.param_type}_{args.optimizer}_lr{args.lr}"
         f"_actlr{args.activity_lr}_gamma{args.gamma}"
-        f"_nseeds{args.nseeds}_{args.record}_coord.png",
+        f"_nseeds{args.nseeds}_{args.record}_{args.update_mode}_coord.png",
     )
     if args.save_csv:
         csv_path = filename.replace(".png", ".csv")
@@ -339,7 +368,8 @@ def run_coord_check(args) -> pd.DataFrame:
         suptitle=(
             f"{prm} MLP {args.optimizer} lr={args.lr} "
             f"activity_lr={args.activity_lr} gamma={args.gamma} "
-            f"record={args.record} nseeds={args.nseeds}"
+            f"record={args.record} update={args.update_mode} "
+            f"nseeds={args.nseeds}"
         ),
         face_color=None if args.param_type == "mupc" else "xkcd:light grey",
         legend=args.legend,
@@ -392,6 +422,17 @@ if __name__ == "__main__":
         "--optimizer", type=str, default="sgd", choices=["sgd", "adam"]
     )
     parser.add_argument("--lr", type=float, default=0.1)
+    parser.add_argument(
+        "--update_mode",
+        type=str,
+        default="infer",
+        choices=["infer", "theory"],
+        help=(
+            "'infer': discrete PC inference then update_pc_params; "
+            "'theory': skip inference, update via closed-form "
+            "linear equilibrium energy gradients."
+        ),
+    )
 
     # Recording / plotting
     parser.add_argument(
@@ -399,7 +440,10 @@ if __name__ == "__main__":
         type=str,
         default="ffwd",
         choices=["ffwd", "equilib"],
-        help="Record feedforward (μP-style) or equilibrated activities.",
+        help=(
+            "Record feedforward (μP-style) or equilibrated activities. "
+            "'equilib' requires --update_mode infer."
+        ),
     )
     parser.add_argument(
         "--stat", type=str, default="l1", choices=list(FDICT.keys())
@@ -421,3 +465,5 @@ if __name__ == "__main__":
 
 # Parameters used for simulation
 # python test_coord_check.py --batch_size 20 --gammas 1.0 --depth 5 --nsteps 5 --activity_lrs 0.05 --n_infer_iters 1000 --lr 0.05 --record ffwd --save_csv
+# Theory (closed-form equilib grads, no inference):
+# python test_coord_check.py --batch_size 20 --gammas 1.0 --depth 5 --nsteps 5 --lr 0.05 --record ffwd --update_mode theory --save_csv
