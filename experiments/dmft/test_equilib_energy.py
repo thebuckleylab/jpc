@@ -108,6 +108,19 @@ def main(args):
             output_energy_scaling=output_energy_scaling,
         )[0, 0]
     )
+
+    S = jpc.compute_linear_equilib_rescaling(
+        params,
+        x,
+        param_type=args.param_type,
+        gamma=args.gamma,
+        output_energy_scaling=output_energy_scaling,
+    )
+    # print(f"S[0,0]:                   {float(S[0, 0]):.8e}")
+    # print(f"1/output_energy_scaling: {1.0 / (output_energy_scaling/2):.8e}")
+    # print(f"ratio S/(1/lambda):       {float(S[0, 0] * (output_energy_scaling/2)):.8f}")
+    # theory_energy_from_loss = bp_loss / S[0, 0]
+
     rel_err = jnp.abs(theory_energy - numerical_energy) / (
         jnp.abs(theory_energy) + 1e-8
     )
@@ -134,12 +147,14 @@ def main(args):
         output_energy_scaling=output_energy_scaling,
     )
     _, bp_grads = eqx.filter_value_and_grad(bp_loss_fn)(bp_model, x, y_target)
-    bp_grads = tree_map(lambda g: g * output_energy_scaling, bp_grads)
+    # bp_grads = tree_map(lambda g: g * (output_energy_scaling/2), bp_grads)
+    bp_grads = tree_map(lambda g: g / S[0, 0], bp_grads)
     pc_theory_flat = flatten_grads(pc_grads_theory[0])
     pc_numerical_flat = flatten_grads(pc_grads_numerical[0])
     bp_flat = flatten_grads(bp_grads)
     cos_sim_theory = compute_cosine_similarity(pc_theory_flat, bp_flat)
     cos_sim_numerical = compute_cosine_similarity(pc_numerical_flat, bp_flat)
+    cos_sim_pc_theory_numerical = compute_cosine_similarity(pc_theory_flat, pc_numerical_flat)
 
     print(f"width={args.width}, gamma={args.gamma}, param_type={args.param_type}, "
           f"activity_lr={args.activity_lr}, output_energy_scaling={output_energy_scaling}")
@@ -147,9 +162,12 @@ def main(args):
     print(f"numerical energy: {float(numerical_energy):.8f}")
     print(f"relative error:   {float(rel_err):.2e}")
     print(f"theory energy from loss: {float(theory_energy_from_loss):.8f}")
-    print(f"bp loss:          {float(bp_loss):.8f}")
+    # print(f"bp loss:          {float(bp_loss*output_energy_scaling/2):.8f}")
+    print(f"bp loss:          {float(bp_loss/S[0, 0]):.8f}")
     print(f"cos sim (theory PC grad, BP grad):    {cos_sim_theory:.6f}")
     print(f"cos sim (numerical PC grad, BP grad): {cos_sim_numerical:.6f}")
+    print(f"cos sim (theory PC grad, numerical PC grad): {cos_sim_pc_theory_numerical:.6f}")
+
 
     if not jnp.allclose(
         theory_energy, numerical_energy, rtol=args.rtol, atol=args.atol

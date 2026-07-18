@@ -34,6 +34,11 @@ FDICT = {
     "std": lambda x: float(jnp.std(x)),
 }
 
+#: Stats that are activation coordinates (per-layer) vs network-level.
+ACTIVITY_STATS = set(FDICT.keys())
+RESCALING_STAT = "rescaling"
+ALL_STATS = sorted(ACTIVITY_STATS | {RESCALING_STAT})
+
 
 def convert_fdict(d: Optional[dict]) -> dict:
     """Convert string values in an fdict to callables via ``FDICT``."""
@@ -127,6 +132,35 @@ def _record_activities(
         records.append(row)
 
 
+def _record_rescaling(
+    records: list,
+    width: int,
+    params,
+    x,
+    t: int,
+    *,
+    param_type: str,
+    gamma: float,
+    output_energy_scaling: float,
+):
+    """Append the scalar equilibrated-energy rescaling ``S[0, 0]``."""
+    S = jpc.compute_linear_equilib_rescaling(
+        params,
+        x,
+        param_type=param_type,
+        gamma=gamma,
+        output_energy_scaling=output_energy_scaling,
+    )
+    records.append(
+        {
+            "width": width,
+            "module": "S",
+            "t": t,
+            RESCALING_STAT: float(S[0, 0]),
+        }
+    )
+
+
 def get_coord_data(
     models: Union[Dict[int, Callable], Callable],
     dataloader,
@@ -144,9 +178,10 @@ def get_coord_data(
     output_fdict: Optional[dict] = None,
     record: str = "ffwd",
     update_mode: str = "infer",
+    stats: Optional[list] = None,
     show_progress: bool = True,
 ) -> pd.DataFrame:
-    """Train JPC models for a few steps and record activation coordinates.
+    """Train JPC models for a few steps and record activation / rescaling stats.
 
     Args:
         models: Dict mapping width -> zero-arg factory returning ``(model, skip)``,
@@ -163,7 +198,8 @@ def get_coord_data(
         nseeds: Number of independent runs.
         seed: Base seed when ``models`` is a callable factory builder.
         fix_data: If True, reuse the first batch for all steps (mup default).
-        output_fdict: Stats to record (default: ``{"l1": "l1"}``).
+        output_fdict: Activity stats to record (default: from ``stats``, or
+            ``{"l1": "l1"}``). Ignored when only ``rescaling`` is requested.
         record: ``"ffwd"`` records feedforward activities (μP-style);
             ``"equilib"`` records activities after inference (requires
             ``update_mode="infer"``).
@@ -171,6 +207,9 @@ def get_coord_data(
             ``update_pc_params``; ``"theory"`` skips inference and updates
             via ``update_linear_equilib_energy_params`` (closed-form
             equilibrated energy gradients).
+        stats: Which quantities to record. Activity stats (``l1``, ``l2``,
+            ``mean``, ``std``) and/or ``rescaling`` (``S[0,0]`` from
+            ``compute_linear_equilib_rescaling``). Default: ``["l1"]``.
         show_progress: Print a simple progress line.
 
     Returns:
@@ -184,7 +223,21 @@ def get_coord_data(
             "(theory mode has no inferred activities to record)."
         )
 
+    if stats is None:
+        stats = ["l1"]
+    unknown = set(stats) - set(ALL_STATS)
+    if unknown:
+        raise ValueError(f"Unknown stats {unknown}; choose from {ALL_STATS}")
+    record_activities = bool(set(stats) & ACTIVITY_STATS)
+    record_rescaling = RESCALING_STAT in stats
+
+    if output_fdict is None:
+        activity_keys = [s for s in stats if s in ACTIVITY_STATS]
+        output_fdict = (
+            {k: k for k in activity_keys} if activity_keys else {"l1": "l1"}
+        )
     output_fdict = convert_fdict(output_fdict)
+
     if fix_data:
         batch = next(iter(dataloader))
         dataloader = [batch] * nsteps
@@ -216,17 +269,33 @@ def get_coord_data(
             )
 
             for t, (x, y) in enumerate(dataloader, start=1):
-                ffwd_activities = jpc.init_activities_with_ffwd(
-                    model=model,
-                    input=x,
-                    skip_model=skip_model,
-                    param_type=param_type,
-                    gamma=gamma,
-                )
+                need_ffwd = record_activities or update_mode == "infer"
+                if need_ffwd:
+                    ffwd_activities = jpc.init_activities_with_ffwd(
+                        model=model,
+                        input=x,
+                        skip_model=skip_model,
+                        param_type=param_type,
+                        gamma=gamma,
+                    )
+                else:
+                    ffwd_activities = None
 
-                if record == "ffwd":
+                if record_activities and record == "ffwd":
                     _record_activities(
                         records, width, ffwd_activities, t, output_fdict
+                    )
+
+                if record_rescaling:
+                    _record_rescaling(
+                        records,
+                        width,
+                        params,
+                        x,
+                        t,
+                        param_type=param_type,
+                        gamma=gamma,
+                        output_energy_scaling=output_energy_scaling,
                     )
 
                 if update_mode == "theory":
@@ -260,7 +329,7 @@ def get_coord_data(
                         activities = result["activities"]
                         activity_opt_state = result["opt_state"]
 
-                    if record == "equilib":
+                    if record_activities and record == "equilib":
                         _record_activities(
                             records, width, activities, t, output_fdict
                         )
@@ -346,34 +415,38 @@ def run_coord_check(args) -> pd.DataFrame:
         seed=args.seed,
         record=args.record,
         update_mode=args.update_mode,
+        stats=args.stats,
         show_progress=True,
     )
 
     os.makedirs(args.plotdir, exist_ok=True)
     prm = "μPC" if args.param_type == "mupc" else args.param_type.upper()
-    filename = os.path.join(
-        args.plotdir,
+    base = (
         f"{args.param_type}_{args.optimizer}_lr{args.lr}"
         f"_actlr{args.activity_lr}_gamma{args.gamma}"
-        f"_nseeds{args.nseeds}_{args.record}_{args.update_mode}_coord.png",
+        f"_nseeds{args.nseeds}_{args.record}_{args.update_mode}"
     )
     if args.save_csv:
-        csv_path = filename.replace(".png", ".csv")
+        csv_path = os.path.join(args.plotdir, f"{base}_coord.csv")
         df.to_csv(csv_path, index=False)
         print(f"coord check data saved to {csv_path}")
-    plot_coord_data(
-        df,
-        y=args.stat,
-        save_to=filename,
-        suptitle=(
-            f"{prm} MLP {args.optimizer} lr={args.lr} "
-            f"activity_lr={args.activity_lr} gamma={args.gamma} "
-            f"record={args.record} update={args.update_mode} "
-            f"nseeds={args.nseeds}"
-        ),
-        face_color=None if args.param_type == "mupc" else "xkcd:light grey",
-        legend=args.legend,
-    )
+
+    for stat in args.stats:
+        plot_df = df[df[stat].notna()].copy()
+        filename = os.path.join(args.plotdir, f"{base}_{stat}_coord.png")
+        plot_coord_data(
+            plot_df,
+            y=stat,
+            save_to=filename,
+            suptitle=(
+                f"{prm} MLP {args.optimizer} lr={args.lr} "
+                f"activity_lr={args.activity_lr} gamma={args.gamma} "
+                f"record={args.record} update={args.update_mode} "
+                f"stat={stat} nseeds={args.nseeds}"
+            ),
+            face_color=None if args.param_type == "mupc" else "xkcd:light grey",
+            legend=args.legend,
+        )
     return df
 
 
@@ -446,7 +519,16 @@ if __name__ == "__main__":
         ),
     )
     parser.add_argument(
-        "--stat", type=str, default="l1", choices=list(FDICT.keys())
+        "--stats",
+        type=str,
+        nargs="+",
+        default=["l1"],
+        choices=ALL_STATS,
+        help=(
+            "Quantities to record/plot. Activity coords (l1/l2/mean/std) "
+            "and/or 'rescaling' (S[0,0] from compute_linear_equilib_rescaling). "
+            "One plot is written per requested stat."
+        ),
     )
     parser.add_argument("--plotdir", type=str, default="coord_checks")
     parser.add_argument("--legend", type=str, default="full")
@@ -467,3 +549,5 @@ if __name__ == "__main__":
 # python test_coord_check.py --batch_size 20 --gammas 1.0 --depth 5 --nsteps 5 --activity_lrs 0.05 --n_infer_iters 1000 --lr 0.05 --record ffwd --save_csv
 # Theory (closed-form equilib grads, no inference):
 # python test_coord_check.py --batch_size 20 --gammas 1.0 --depth 5 --nsteps 5 --lr 0.05 --record ffwd --update_mode theory --save_csv
+# Plot L1 and equilibrated-energy rescaling S[0,0]:
+# python test_coord_check.py --batch_size 20 --gammas 1.0 --depth 5 --nsteps 5 --lr 0.05 --record ffwd --update_mode theory --stats l1 rescaling --save_csv
