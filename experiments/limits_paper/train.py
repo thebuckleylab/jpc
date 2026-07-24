@@ -191,7 +191,7 @@ def train_bpn(
     
     # Optimiser
     optim = configure_param_optim(
-        optim_id, param_type, use_skips, param_lr, gamma_0, width, model.L
+        optim_id, param_type, use_skips, param_lr, width, model.L, gamma_0
     )
     opt_state = optim.init(eqx.filter(model, eqx.is_array))
 
