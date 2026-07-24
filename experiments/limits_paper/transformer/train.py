@@ -324,7 +324,7 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=64)
 
     # model parameters
-    parser.add_argument("--d_models", type=int, nargs="+", default=[2, 4, 8, 16, 32, 64, 128, 256])
+    parser.add_argument("--d_models", type=int, nargs="+", default=[8, 16, 32, 64, 128, 256, 512])
     parser.add_argument("--n_blocks", type=int, default=12)
     parser.add_argument("--n_heads", type=int, default=8)
     parser.add_argument("--param_type", type=str, default="mupc", choices=["sp", "mupc"])
