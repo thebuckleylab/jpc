@@ -37,7 +37,8 @@ FDICT = {
 #: Stats that are activation coordinates (per-layer) vs network-level.
 ACTIVITY_STATS = set(FDICT.keys())
 RESCALING_STAT = "rescaling"
-ALL_STATS = sorted(ACTIVITY_STATS | {RESCALING_STAT})
+LOSS_STAT = "loss"
+ALL_STATS = sorted(ACTIVITY_STATS | {RESCALING_STAT, LOSS_STAT})
 
 
 def convert_fdict(d: Optional[dict]) -> dict:
@@ -161,6 +162,24 @@ def _record_rescaling(
     )
 
 
+def _record_loss(
+    records: list,
+    width: int,
+    preds,
+    y,
+    t: int,
+):
+    """Append the supervised MSE training loss for the current batch."""
+    records.append(
+        {
+            "width": width,
+            "module": "loss",
+            "t": t,
+            LOSS_STAT: float(jpc.mse_loss(preds, y)),
+        }
+    )
+
+
 def get_coord_data(
     models: Union[Dict[int, Callable], Callable],
     dataloader,
@@ -199,7 +218,8 @@ def get_coord_data(
         seed: Base seed when ``models`` is a callable factory builder.
         fix_data: If True, reuse the first batch for all steps (mup default).
         output_fdict: Activity stats to record (default: from ``stats``, or
-            ``{"l1": "l1"}``). Ignored when only ``rescaling`` is requested.
+            ``{"l1": "l1"}``). Ignored when only ``rescaling`` / ``loss``
+            are requested.
         record: ``"ffwd"`` records feedforward activities (μP-style);
             ``"equilib"`` records activities after inference (requires
             ``update_mode="infer"``).
@@ -208,8 +228,9 @@ def get_coord_data(
             via ``update_linear_equilib_energy_params`` (closed-form
             equilibrated energy gradients).
         stats: Which quantities to record. Activity stats (``l1``, ``l2``,
-            ``mean``, ``std``) and/or ``rescaling`` (``S[0,0]`` from
-            ``compute_linear_equilib_rescaling``). Default: ``["l1"]``.
+            ``mean``, ``std``), ``rescaling`` (``S[0,0]`` from
+            ``compute_linear_equilib_rescaling``), and/or ``loss``
+            (supervised MSE of feedforward predictions). Default: ``["l1"]``.
         show_progress: Print a simple progress line.
 
     Returns:
@@ -230,6 +251,7 @@ def get_coord_data(
         raise ValueError(f"Unknown stats {unknown}; choose from {ALL_STATS}")
     record_activities = bool(set(stats) & ACTIVITY_STATS)
     record_rescaling = RESCALING_STAT in stats
+    record_loss = LOSS_STAT in stats
 
     if output_fdict is None:
         activity_keys = [s for s in stats if s in ACTIVITY_STATS]
@@ -269,7 +291,11 @@ def get_coord_data(
             )
 
             for t, (x, y) in enumerate(dataloader, start=1):
-                need_ffwd = record_activities or update_mode == "infer"
+                need_ffwd = (
+                    record_activities
+                    or record_loss
+                    or update_mode == "infer"
+                )
                 if need_ffwd:
                     ffwd_activities = jpc.init_activities_with_ffwd(
                         model=model,
@@ -296,6 +322,11 @@ def get_coord_data(
                         param_type=param_type,
                         gamma=gamma,
                         output_energy_scaling=output_energy_scaling,
+                    )
+
+                if record_loss:
+                    _record_loss(
+                        records, width, ffwd_activities[-1], y, t
                     )
 
                 if update_mode == "theory":
@@ -434,8 +465,7 @@ def run_coord_check(args) -> pd.DataFrame:
     for stat in args.stats:
         plot_df = df[df[stat].notna()].copy()
         filename = os.path.join(args.plotdir, f"{base}_{stat}_coord.png")
-        plot_coord_data(
-            plot_df,
+        plot_kwargs = dict(
             y=stat,
             save_to=filename,
             suptitle=(
@@ -447,7 +477,52 @@ def run_coord_check(args) -> pd.DataFrame:
             face_color=None if args.param_type == "mupc" else "xkcd:light grey",
             legend=args.legend,
         )
+        # Loss is a single network-level curve; also plot loss vs step by width.
+        if stat == LOSS_STAT:
+            plot_kwargs["legend"] = False
+            # plot_coord_data(plot_df, **plot_kwargs)
+            _plot_loss_by_width(
+                plot_df,
+                save_to=os.path.join(args.plotdir, f"{base}_loss_vs_t.png"),
+                suptitle=plot_kwargs["suptitle"],
+                face_color=plot_kwargs["face_color"],
+            )
+        else:
+            plot_coord_data(plot_df, **plot_kwargs)
     return df
+
+
+def _plot_loss_by_width(
+    df: pd.DataFrame,
+    *,
+    save_to: str,
+    suptitle: Optional[str] = None,
+    face_color: Optional[str] = None,
+):
+    """Plot training MSE vs step with one curve per width."""
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+
+    sns.set()
+    fig = plt.figure(figsize=(7, 4.5))
+    if face_color is not None:
+        fig.patch.set_facecolor(face_color)
+    sns.lineplot(
+        data=df,
+        x="t",
+        y=LOSS_STAT,
+        hue="width",
+        marker="o",
+        legend="full",
+    )
+    plt.xlabel("training step")
+    plt.ylabel("MSE loss")
+    if suptitle:
+        plt.suptitle(suptitle)
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.savefig(save_to)
+    print(f"loss-vs-step plot saved to {save_to}")
+    plt.close(fig)
 
 
 if __name__ == "__main__":
@@ -525,9 +600,11 @@ if __name__ == "__main__":
         default=["l1"],
         choices=ALL_STATS,
         help=(
-            "Quantities to record/plot. Activity coords (l1/l2/mean/std) "
-            "and/or 'rescaling' (S[0,0] from compute_linear_equilib_rescaling). "
-            "One plot is written per requested stat."
+            "Quantities to record/plot. Activity coords (l1/l2/mean/std), "
+            "'rescaling' (S[0,0] from compute_linear_equilib_rescaling), "
+            "and/or 'loss' (supervised MSE of feedforward preds vs targets). "
+            "One plot is written per requested stat; 'loss' also writes a "
+            "loss-vs-step curve colored by width."
         ),
     )
     parser.add_argument("--plotdir", type=str, default="coord_checks")
@@ -551,3 +628,12 @@ if __name__ == "__main__":
 # python test_coord_check.py --batch_size 20 --gammas 1.0 --depth 5 --nsteps 5 --lr 0.05 --record ffwd --update_mode theory --save_csv
 # Plot L1 and equilibrated-energy rescaling S[0,0]:
 # python test_coord_check.py --batch_size 20 --gammas 1.0 --depth 5 --nsteps 5 --lr 0.05 --record ffwd --update_mode theory --stats l1 rescaling --save_csv
+# Plot training MSE loss across widths:
+# python test_coord_check.py --batch_size 20 --gammas 1.0 --depth 5 --nsteps 5 --lr 0.05 --record ffwd --update_mode theory --stats loss --save_csv
+
+# Testing
+# python test_coord_check.py --batch_size 10 --gammas 1.0 --depth 5 --nsteps 5 --lr 0.5 --record ffwd --update_mode theory --stats l1 --save_csv --widths 128 512 2048 8192 --nseeds 1 --seed 10
+
+# python test_coord_check.py --batch_size 10 --gammas 1.0 --depth 5 --nsteps 5 --activity_lrs 0.05 --n_infer_iters 1000 --lr 0.5 --record ffwd --update_mode infer --stats l1 --save_csv --widths 128 512 2048 8192 --nseeds 1 --seed 10
+
+# python test_coord_check.py --batch_size 10 --gammas 1.0 --depth 5 --nsteps 50 --activity_lrs 0.05 --n_infer_iters 1000 --lr 0.5 --record ffwd --update_mode infer --stats loss --save_csv --widths 128 512 2048 8192 --nseeds 1 --seed 10

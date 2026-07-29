@@ -62,9 +62,10 @@ def _compute_linear_equilib_rescaling(
             cumulative_scaling = 1.0
             for j in range(i, L):
                 cumulative_scaling *= scalings[j]
-            S += 0.5 * (cumulative_scaling ** 2) * (
+            S += (cumulative_scaling ** 2) * (
                 cumulative_prod @ cumulative_prod.T
             )
+            # Remember to add multiplier for depth for output energy and hidden energies
 
     return S
 
