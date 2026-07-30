@@ -110,6 +110,113 @@ def plot_dmft_kernels_and_loss(
     plot_G_kernels(all_G, plots_dir, gamma_0=gamma_0)
 
 
+def _endpoint_sample_kernel(cov, num_inference_steps, num_training_steps, num_samples):
+    """
+    Extract the sample-sample block at the last inference step and
+    last training time from a flattened (K*T*P, K*T*P) covariance.
+    """
+    K = num_inference_steps
+    T = num_training_steps
+    P = num_samples
+    tensor = np.asarray(cov).reshape(K, T, P, K, T, P)
+    return tensor[-1, -1, :, -1, -1, :]
+
+
+def plot_pc_layer_kernels(
+    kernels,
+    plots_dir,
+    filename,
+    num_inference_steps,
+    num_training_steps,
+    num_samples,
+    gamma_0=None,
+    ylabel="Theory",
+):
+    """Plot endpoint sample-sample kernels for each PC layer."""
+    kernels = _to_numpy(kernels)
+    n_layers = len(kernels)
+    _warn_if_nonfinite(
+        filename,
+        np.stack([np.asarray(k) for k in kernels]),
+    )
+
+    fig, axes = plt.subplots(
+        n_layers, 1, figsize=(6, 2 * n_layers), squeeze=False
+    )
+    for l, cov_l in enumerate(kernels):
+        ax = axes[l, 0]
+        kernel = _endpoint_sample_kernel(
+            cov_l,
+            num_inference_steps=num_inference_steps,
+            num_training_steps=num_training_steps,
+            num_samples=num_samples,
+        )
+        ax.imshow(kernel, cmap="coolwarm")
+        if l == 0:
+            ax.set_ylabel(ylabel)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_title(f"Layer {l + 1}")
+
+    if gamma_0 is not None:
+        fig.suptitle(f"$\\gamma_0 = {gamma_0}$", y=1.01)
+    fig.tight_layout()
+    fig.savefig(os.path.join(plots_dir, filename), bbox_inches="tight")
+    plt.close(fig)
+
+
+def plot_pc_dmft_kernels_and_loss(
+    all_Ch,
+    all_Cdelta,
+    pc_dmft_loss,
+    plots_dir,
+    num_inference_steps,
+    num_training_steps,
+    num_samples,
+    gamma_0=None,
+    n_hidden=None,
+    activity_lr=None,
+):
+    """Plot PC DMFT loss and endpoint Ch / Cdelta kernels."""
+    if n_hidden is not None:
+        plots_dir = os.path.join(plots_dir, f"{n_hidden}_n_hidden")
+    if gamma_0 is not None:
+        plots_dir = os.path.join(plots_dir, f"gamma_{gamma_0}")
+    if activity_lr is not None:
+        plots_dir = os.path.join(plots_dir, f"activity_lr_{activity_lr}")
+    plots_dir = os.path.join(plots_dir, "pc")
+    os.makedirs(plots_dir, exist_ok=True)
+
+    plot_dmft_loss(pc_dmft_loss, plots_dir, gamma_0=gamma_0)
+    # Rename the generic loss file for clarity.
+    generic_loss = os.path.join(plots_dir, "dmft_loss.png")
+    pc_loss = os.path.join(plots_dir, "pc_dmft_loss.png")
+    if os.path.exists(generic_loss):
+        os.replace(generic_loss, pc_loss)
+
+    plot_pc_layer_kernels(
+        kernels=all_Ch,
+        plots_dir=plots_dir,
+        filename="all_Ch_kernels.png",
+        num_inference_steps=num_inference_steps,
+        num_training_steps=num_training_steps,
+        num_samples=num_samples,
+        gamma_0=gamma_0,
+        ylabel=r"$C^h$",
+    )
+    plot_pc_layer_kernels(
+        kernels=all_Cdelta,
+        plots_dir=plots_dir,
+        filename="all_Cdelta_kernels.png",
+        num_inference_steps=num_inference_steps,
+        num_training_steps=num_training_steps,
+        num_samples=num_samples,
+        gamma_0=gamma_0,
+        ylabel=r"$C^\Delta$",
+    )
+    return plots_dir
+
+
 def load_and_plot(results_dir, gamma_0, plots_dir=None, n_hidden=None):
     """Load saved DMFT results from results_dir and generate plots."""
     suffix = f"{gamma_0}_gamma_0"

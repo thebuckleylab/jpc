@@ -20,7 +20,11 @@ from utils import (
     compute_grad_cosine_similarities
 )
 from theory_utils import solve_kernels, get_Delta
-from plot_dmft_results import plot_dmft_kernels_and_loss
+from theory_pc_utils import solve_pc_kernels
+from plot_dmft_results import (
+    plot_dmft_kernels_and_loss,
+    plot_pc_dmft_kernels_and_loss,
+)
 
 
 def train_pcn(
@@ -245,7 +249,7 @@ if __name__ == "__main__":
     # Dataset parameters
     parser.add_argument("--dataset", type=str, default="toy", choices=["toy", "Fashion-MNIST", "CIFAR10"])
     parser.add_argument("--input_dim", type=int, default=40)
-    parser.add_argument("--n_samples", type=int, default=10) # 20)
+    parser.add_argument("--n_samples", type=int, default=5) # 20)
     
     # Model parameters
     parser.add_argument("--act_fn", type=str, default="linear", choices=["linear", "tanh", "relu"])
@@ -256,13 +260,15 @@ if __name__ == "__main__":
     parser.add_argument("--param_optim", type=str, default="gd")
     parser.add_argument("--param_lr", type=float, default=0.05)
     parser.add_argument("--gamma_0s", type=float, nargs='+', default=[1])
-    parser.add_argument("--n_train_iters", type=int, default=100) # 0)
+    parser.add_argument("--n_train_iters", type=int, default=20) # 100)
     parser.add_argument("--loss_id", type=str, default="mse", choices=["mse", "ce"])
+    parser.add_argument("--n_fixed_point_steps", type=int, default=50)
     
     # Inference parameters
+    parser.add_argument("--param_lr_pc", type=float, default=0.5)
     parser.add_argument("--infer_mode", type=str, default="closed_form", choices=["optim", "closed_form"])
-    parser.add_argument("--n_infer_iters", type=int, default=20)
-    parser.add_argument("--activity_lrs", type=float, nargs='+', default=[5e-1])
+    parser.add_argument("--n_infer_iters", type=int, default=5)
+    parser.add_argument("--activity_lrs", type=float, nargs='+', default=[0.05])
     
     # Loop parameters
     parser.add_argument("--n_seeds", type=int, default=1)
@@ -271,13 +277,26 @@ if __name__ == "__main__":
         default=[8, 16, 32, 64, 128]  #256, 512, 1024, 2048 
     )
     
+    # PC DMFT parameters
+    parser.add_argument("--pc_damping", type=float, default=1.0)
+    parser.add_argument("--pc_tolerance", type=float, default=1e-5)
+    parser.add_argument(
+        "--skip_pc_theory",
+        action="store_true",
+        default=False,
+        help="Skip PC DMFT (matrices are K*T*P dimensional and can be costly).",
+    )
+
     # Other parameters
     parser.add_argument("--compute_cos_sims", action="store_true", default=False)
     args = parser.parse_args()
 
-    if len(args.n_hiddens) > 1 and len(args.widths) > 1:
-        # NOTE: need higher precision for large width & depth computation of s(theta)
-        import jax
+    # PC DMFT inverts (K*T*P) matrices; float64 helps stability.
+    # Also needed for large width & depth computation of s(theta).
+    if (
+        not args.skip_pc_theory
+        or (len(args.n_hiddens) > 1 and len(args.widths) > 1)
+    ):
         jax.config.update("jax_enable_x64", True)
     
     os.makedirs(args.results_dir, exist_ok=True)
@@ -324,16 +343,17 @@ if __name__ == "__main__":
                         for activity_lr in args.activity_lrs:
                             print(f"\n\t\t\t\t\tactivity_lr = {activity_lr}")
 
-                            # --- Calculate theory ---
+                            # --- Calculate theory (BP) ---
                             # if args.param_optim == "gd" and param_type != "sp" and args.n_train_iters <= 100 and n_hidden <= 8 and not use_skips:
-                            print("\t\t\t\t\tCalculating Theory...\n")
+                            print("\t\t\t\t\tCalculating BP Theory...\n")
                             all_H, all_G, _, _ = solve_kernels(
                                 Kx=Kx, 
                                 y=y, 
                                 depth=n_hidden, 
                                 eta=args.param_lr, 
                                 gamma=gamma_0, 
-                                T=args.n_train_iters
+                                T=args.n_train_iters,
+                                num_steps=args.n_fixed_point_steps
                             )
                             Delta_theory = get_Delta(
                                 all_H=all_H, 
@@ -357,6 +377,74 @@ if __name__ == "__main__":
                                 gamma_0=gamma_0,
                                 n_hidden=n_hidden,
                             )
+
+                            # --- Calculate theory (PC) ---
+                            if not args.skip_pc_theory:
+                                K_inf = args.n_infer_iters
+                                T_train = args.n_train_iters
+                                P = args.n_samples
+                                n_pc = K_inf * T_train * P
+                                print(
+                                    "\t\t\t\t\tCalculating PC Theory "
+                                    f"(matrix size n = K*T*P = {n_pc})...\n"
+                                )
+                                (
+                                    all_Ch,
+                                    all_Cdelta,
+                                    _all_Rh,
+                                    _all_Rdelta,
+                                    _C_delta_top,
+                                    pc_dmft_loss,
+                                    _mean_delta_top,
+                                    pc_diagnostics,
+                                ) = solve_pc_kernels(
+                                    Kx=jnp.asarray(Kx, dtype=jnp.float64),
+                                    y=y,
+                                    depth=n_hidden,
+                                    eta=args.param_lr_pc,
+                                    gamma=gamma_0,
+                                    beta_h=activity_lr,
+                                    num_training_steps=T_train,
+                                    num_inference_steps=K_inf,
+                                    num_fixed_point_steps=args.n_fixed_point_steps,
+                                    damping=args.pc_damping,
+                                    tolerance=args.pc_tolerance,
+                                )
+                                print(
+                                    "\t\t\t\t\tPC fixed-point residual = "
+                                    f"{float(pc_diagnostics['fixed_point_residual']):.3e} "
+                                    f"after {pc_diagnostics['iterations']} iters\n"
+                                )
+                                suffix = (
+                                    f"{gamma_0}_gamma_0_"
+                                    f"{activity_lr}_activity_lr"
+                                )
+                                np.save(
+                                    f"{args.results_dir}/all_Ch_{suffix}.npy",
+                                    np.array(all_Ch, dtype=object),
+                                )
+                                np.save(
+                                    f"{args.results_dir}/all_Cdelta_{suffix}.npy",
+                                    np.array(all_Cdelta, dtype=object),
+                                )
+                                np.save(
+                                    f"{args.results_dir}/pc_dmft_loss_{suffix}.npy",
+                                    np.asarray(pc_dmft_loss),
+                                )
+                                plot_pc_dmft_kernels_and_loss(
+                                    all_Ch=all_Ch,
+                                    all_Cdelta=all_Cdelta,
+                                    pc_dmft_loss=pc_dmft_loss,
+                                    plots_dir=os.path.join(
+                                        args.results_dir, "plots"
+                                    ),
+                                    num_inference_steps=K_inf,
+                                    num_training_steps=T_train,
+                                    num_samples=P,
+                                    gamma_0=gamma_0,
+                                    n_hidden=n_hidden,
+                                    activity_lr=activity_lr,
+                                )
 
                             # # In this dataset, we treat the whole P samples as one batch
                             # X_input = X.T # Shape (P, D)
