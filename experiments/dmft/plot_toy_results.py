@@ -1137,3 +1137,5 @@ if __name__ == "__main__":
         print(f"\nCompleted processing for dataset: {dataset}")
     
     print("\nDone!")
+
+# python plot_toy_results.py --plot losses --plot_dir "toy_plots_losses"

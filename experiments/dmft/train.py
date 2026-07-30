@@ -20,6 +20,7 @@ from utils import (
     compute_grad_cosine_similarities
 )
 from theory_utils import solve_kernels, get_Delta
+from plot_dmft_results import plot_dmft_kernels_and_loss
 
 
 def train_pcn(
@@ -244,7 +245,7 @@ if __name__ == "__main__":
     # Dataset parameters
     parser.add_argument("--dataset", type=str, default="toy", choices=["toy", "Fashion-MNIST", "CIFAR10"])
     parser.add_argument("--input_dim", type=int, default=40)
-    parser.add_argument("--n_samples", type=int, default=20)
+    parser.add_argument("--n_samples", type=int, default=10) # 20)
     
     # Model parameters
     parser.add_argument("--act_fn", type=str, default="linear", choices=["linear", "tanh", "relu"])
@@ -253,10 +254,10 @@ if __name__ == "__main__":
 
     # Training parameters
     parser.add_argument("--param_optim", type=str, default="gd")
-    parser.add_argument("--param_lr", type=float, default=0.5)
+    parser.add_argument("--param_lr", type=float, default=0.05)
     parser.add_argument("--gamma_0s", type=float, nargs='+', default=[1])
-    parser.add_argument("--n_train_iters", type=int, default=1000)
-    parser.add_argument("--loss_id", type=str, default="ce", choices=["mse", "ce"])
+    parser.add_argument("--n_train_iters", type=int, default=100) # 0)
+    parser.add_argument("--loss_id", type=str, default="mse", choices=["mse", "ce"])
     
     # Inference parameters
     parser.add_argument("--infer_mode", type=str, default="closed_form", choices=["optim", "closed_form"])
@@ -265,7 +266,7 @@ if __name__ == "__main__":
     
     # Loop parameters
     parser.add_argument("--n_seeds", type=int, default=1)
-    parser.add_argument("--n_hiddens", type=int, nargs='+', default=[15])
+    parser.add_argument("--n_hiddens", type=int, nargs='+', default=[5])
     parser.add_argument("--widths", type=int, nargs='+', 
         default=[8, 16, 32, 64, 128]  #256, 512, 1024, 2048 
     )
@@ -324,163 +325,175 @@ if __name__ == "__main__":
                             print(f"\n\t\t\t\t\tactivity_lr = {activity_lr}")
 
                             # --- Calculate theory ---
-                            if args.param_optim == "gd" and param_type != "sp" and args.n_train_iters <= 100 and n_hidden <= 8 and not use_skips:
-                                print("\t\t\t\t\tCalculating Theory...\n")
-                                all_H, all_G, _, _ = solve_kernels(
-                                    Kx=Kx, 
-                                    y=y, 
-                                    depth=n_hidden, 
-                                    eta=args.param_lr, 
-                                    gamma=gamma_0, 
-                                    T=args.n_train_iters
-                                )
-                                Delta_theory = get_Delta(
-                                    all_H=all_H, 
-                                    all_G=all_G, 
-                                    Kx=Kx, 
-                                    y=y, 
-                                    eta=args.param_lr
-                                )
-                                dmft_loss = 0.5 * jnp.mean(jnp.sum(Delta_theory**2, axis=2), axis=1) 
-                                np.save(
-                                    f"{args.results_dir}/dmft_loss_{gamma_0}_gamma_0_seed_{seed}.npy", 
-                                    dmft_loss
-                                )
+                            # if args.param_optim == "gd" and param_type != "sp" and args.n_train_iters <= 100 and n_hidden <= 8 and not use_skips:
+                            print("\t\t\t\t\tCalculating Theory...\n")
+                            all_H, all_G, _, _ = solve_kernels(
+                                Kx=Kx, 
+                                y=y, 
+                                depth=n_hidden, 
+                                eta=args.param_lr, 
+                                gamma=gamma_0, 
+                                T=args.n_train_iters
+                            )
+                            Delta_theory = get_Delta(
+                                all_H=all_H, 
+                                all_G=all_G, 
+                                Kx=Kx, 
+                                y=y, 
+                                eta=args.param_lr
+                            )
+                            dmft_loss = 0.5 * jnp.mean(jnp.sum(Delta_theory**2, axis=2), axis=1) 
+                            np.save(f"{args.results_dir}/all_H_{gamma_0}_gamma_0.npy", all_H)
+                            np.save(f"{args.results_dir}/all_G_{gamma_0}_gamma_0.npy", all_G)
+                            np.save(
+                                f"{args.results_dir}/dmft_loss_{gamma_0}_gamma_0.npy", 
+                                dmft_loss
+                            )
+                            plot_dmft_kernels_and_loss(
+                                all_H=all_H,
+                                all_G=all_G,
+                                dmft_loss=dmft_loss,
+                                plots_dir=os.path.join(args.results_dir, "plots"),
+                                gamma_0=gamma_0,
+                                n_hidden=n_hidden,
+                            )
 
-                            # In this dataset, we treat the whole P samples as one batch
-                            X_input = X.T # Shape (P, D)
-                            Y_target = y[:, None] if y.ndim == 1 else y
+                            # # In this dataset, we treat the whole P samples as one batch
+                            # X_input = X.T # Shape (P, D)
+                            # Y_target = y[:, None] if y.ndim == 1 else y
 
-                            # Loss: toy always MSE
-                            loss_id = "mse" if args.dataset == "toy" else args.loss_id
+                            # # Loss: toy always MSE
+                            # loss_id = "mse" if args.dataset == "toy" else args.loss_id
 
-                            # --- Run Numerical Experiment ---
-                            for width in args.widths:
-                                print(f"\t\t\t\t\tNumerical simulation for width N = {width}")
+                            # # --- Run Numerical Experiment ---
+                            # for width in args.widths:
+                            #     print(f"\t\t\t\t\tNumerical simulation for width N = {width}")
 
-                                n_infer_iters = args.n_infer_iters if (
-                                    args.infer_mode == "closed_form"
-                                ) else n_hidden * 100
+                            #     n_infer_iters = args.n_infer_iters if (
+                            #         args.infer_mode == "closed_form"
+                            #     ) else n_hidden * 100
 
-                                # --- PC ---
-                                pc_save_dir = setup_pc_experiment(
-                                    results_dir=args.results_dir,
-                                    input_dim=input_dim,
-                                    n_samples=args.n_samples,
-                                    n_hidden=n_hidden,
-                                    use_skips=use_skips,
-                                    act_fn=args.act_fn,
-                                    param_type=param_type,
-                                    param_lr=args.param_lr,
-                                    gamma_0=gamma_0,
-                                    param_optim_id=args.param_optim,
-                                    n_train_iters=args.n_train_iters,
-                                    infer_mode=args.infer_mode,
-                                    n_infer_iters=n_infer_iters,
-                                    activity_lr=activity_lr,
-                                    width=width,
-                                    loss_id=loss_id,
-                                    seed=seed
-                                )
-                                pc_model = jpc.make_mlp(
-                                    model_key, 
-                                    input_dim=input_dim,
-                                    width=width,
-                                    depth=n_hidden + 1,
-                                    output_dim=output_dim,
-                                    act_fn=args.act_fn,
-                                    use_bias=False,
-                                    param_type=param_type
-                                )
-                                pc_grads = train_pcn(
-                                    model=pc_model,
-                                    use_skips=use_skips,
-                                    X_input=X_input,
-                                    Y_target=Y_target,
-                                    width=width,
-                                    gamma_0=gamma_0,
-                                    param_type=param_type,
-                                    infer_mode=args.infer_mode,
-                                    n_infer_iters=n_infer_iters,
-                                    activity_lr=activity_lr,
-                                    param_optim_id=args.param_optim,
-                                    param_lr=args.param_lr,
-                                    n_train_iters=args.n_train_iters,
-                                    save_dir=pc_save_dir,
-                                    store_grads=args.compute_cos_sims,
-                                    loss_id=loss_id
-                                )
+                            #     # --- PC ---
+                            #     pc_save_dir = setup_pc_experiment(
+                            #         results_dir=args.results_dir,
+                            #         input_dim=input_dim,
+                            #         n_samples=args.n_samples,
+                            #         n_hidden=n_hidden,
+                            #         use_skips=use_skips,
+                            #         act_fn=args.act_fn,
+                            #         param_type=param_type,
+                            #         param_lr=args.param_lr,
+                            #         gamma_0=gamma_0,
+                            #         param_optim_id=args.param_optim,
+                            #         n_train_iters=args.n_train_iters,
+                            #         infer_mode=args.infer_mode,
+                            #         n_infer_iters=n_infer_iters,
+                            #         activity_lr=activity_lr,
+                            #         width=width,
+                            #         loss_id=loss_id,
+                            #         seed=seed
+                            #     )
+                            #     pc_model = jpc.make_mlp(
+                            #         model_key, 
+                            #         input_dim=input_dim,
+                            #         width=width,
+                            #         depth=n_hidden + 1,
+                            #         output_dim=output_dim,
+                            #         act_fn=args.act_fn,
+                            #         use_bias=False,
+                            #         param_type=param_type
+                            #     )
+                            #     pc_grads = train_pcn(
+                            #         model=pc_model,
+                            #         use_skips=use_skips,
+                            #         X_input=X_input,
+                            #         Y_target=Y_target,
+                            #         width=width,
+                            #         gamma_0=gamma_0,
+                            #         param_type=param_type,
+                            #         infer_mode=args.infer_mode,
+                            #         n_infer_iters=n_infer_iters,
+                            #         activity_lr=activity_lr,
+                            #         param_optim_id=args.param_optim,
+                            #         param_lr=args.param_lr,
+                            #         n_train_iters=args.n_train_iters,
+                            #         save_dir=pc_save_dir,
+                            #         store_grads=args.compute_cos_sims,
+                            #         loss_id=loss_id
+                            #     )
                     
-                                # --- BP ---
-                                bp_save_dir = setup_bp_experiment(
-                                    results_dir=args.results_dir,
-                                    input_dim=input_dim,
-                                    n_samples=args.n_samples,
-                                    n_hidden=n_hidden,
-                                    use_skips=use_skips,
-                                    act_fn=args.act_fn,
-                                    param_type=param_type,
-                                    optim_id=args.param_optim,
-                                    param_lr=args.param_lr,
-                                    gamma_0=gamma_0,
-                                    n_train_iters=args.n_train_iters,
-                                    width=width,
-                                    loss_id=loss_id,
-                                    seed=seed
-                                )
-                                bp_model = MLP(
-                                    key=model_key,
-                                    d_in=input_dim,
-                                    N=width,
-                                    L=n_hidden + 1,
-                                    d_out=output_dim,
-                                    act_fn=args.act_fn,
-                                    param_type=param_type,
-                                    gamma=gamma_0,
-                                    use_bias=False,
-                                    use_skips=use_skips
-                                )
-                                # Copy weights from PC model to ensure same random initialisation
-                                for i in range(len(pc_model)):
-                                    pc_weight = pc_model[i][1].weight
-                                    bp_model = eqx.tree_at(
-                                        lambda m: m.layers[i][1].weight,
-                                        bp_model,
-                                        pc_weight
-                                    )
+                            #     # --- BP ---
+                            #     bp_save_dir = setup_bp_experiment(
+                            #         results_dir=args.results_dir,
+                            #         input_dim=input_dim,
+                            #         n_samples=args.n_samples,
+                            #         n_hidden=n_hidden,
+                            #         use_skips=use_skips,
+                            #         act_fn=args.act_fn,
+                            #         param_type=param_type,
+                            #         optim_id=args.param_optim,
+                            #         param_lr=args.param_lr,
+                            #         gamma_0=gamma_0,
+                            #         n_train_iters=args.n_train_iters,
+                            #         width=width,
+                            #         loss_id=loss_id,
+                            #         seed=seed
+                            #     )
+                            #     bp_model = MLP(
+                            #         key=model_key,
+                            #         d_in=input_dim,
+                            #         N=width,
+                            #         L=n_hidden + 1,
+                            #         d_out=output_dim,
+                            #         act_fn=args.act_fn,
+                            #         param_type=param_type,
+                            #         gamma=gamma_0,
+                            #         use_bias=False,
+                            #         use_skips=use_skips
+                            #     )
+                            #     # Copy weights from PC model to ensure same random initialisation
+                            #     for i in range(len(pc_model)):
+                            #         pc_weight = pc_model[i][1].weight
+                            #         bp_model = eqx.tree_at(
+                            #             lambda m: m.layers[i][1].weight,
+                            #             bp_model,
+                            #             pc_weight
+                            #         )
 
-                                # Verify all layers at once
-                                all_match = True
-                                for i in range(len(pc_model)):
-                                    pc_weight = pc_model[i][1].weight
-                                    bp_weight = bp_model.layers[i][1].weight
-                                    if not jnp.allclose(pc_weight, bp_weight, atol=1e-10):
-                                        all_match = False
-                                        break
-                                if all_match:
-                                    print(f"\t\t\t\t\t✓ PC and BP models have identical random initialization\n")
-                                else:
-                                    print(f"\n\t\t\t\t✗ WARNING: Some weights don't match!\n")
+                            #     # Verify all layers at once
+                            #     all_match = True
+                            #     for i in range(len(pc_model)):
+                            #         pc_weight = pc_model[i][1].weight
+                            #         bp_weight = bp_model.layers[i][1].weight
+                            #         if not jnp.allclose(pc_weight, bp_weight, atol=1e-10):
+                            #             all_match = False
+                            #             break
+                            #     if all_match:
+                            #         print(f"\t\t\t\t\t✓ PC and BP models have identical random initialization\n")
+                            #     else:
+                            #         print(f"\n\t\t\t\t✗ WARNING: Some weights don't match!\n")
 
-                                bp_grads = train_bpn(
-                                    model=bp_model,
-                                    use_skips=use_skips,
-                                    X_input=X_input,
-                                    Y_target=Y_target,
-                                    width=width,
-                                    gamma_0=gamma_0,
-                                    param_type=param_type,
-                                    optim_id=args.param_optim,
-                                    param_lr=args.param_lr,
-                                    n_train_iters=args.n_train_iters,
-                                    save_dir=bp_save_dir,
-                                    store_grads=args.compute_cos_sims,
-                                    loss_id=loss_id
-                                )
+                            #     bp_grads = train_bpn(
+                            #         model=bp_model,
+                            #         use_skips=use_skips,
+                            #         X_input=X_input,
+                            #         Y_target=Y_target,
+                            #         width=width,
+                            #         gamma_0=gamma_0,
+                            #         param_type=param_type,
+                            #         optim_id=args.param_optim,
+                            #         param_lr=args.param_lr,
+                            #         n_train_iters=args.n_train_iters,
+                            #         save_dir=bp_save_dir,
+                            #         store_grads=args.compute_cos_sims,
+                            #         loss_id=loss_id
+                            #     )
                                 
-                                if args.compute_cos_sims:
-                                    cosine_similarities = compute_grad_cosine_similarities(pc_grads, bp_grads)
-                                    np.save(
-                                        f"{pc_save_dir}/grad_cosine_similarities.npy", 
-                                        cosine_similarities
-                                    )
+                            #     if args.compute_cos_sims:
+                            #         cosine_similarities = compute_grad_cosine_similarities(pc_grads, bp_grads)
+                            #         np.save(
+                            #             f"{pc_save_dir}/grad_cosine_similarities.npy", 
+                            #             cosine_similarities
+                            #         )
+
+# CUDA_VISIBLE_DEVICES=1 python train.py

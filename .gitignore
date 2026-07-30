@@ -4,6 +4,7 @@
 examples/data/
 *.egg-info/
 *.pdf
+*.png
 *.npy
 *.DS_Store
 *.pkl
