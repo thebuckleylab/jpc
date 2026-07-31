@@ -412,7 +412,7 @@ def solve_pc_output_boundary(
 
     loss = (
         0.5
-        * (mean_squared_error + variance_error)
+        * (mean_squared_error) #  + variance_error)
         / P
     )
 
@@ -478,7 +478,7 @@ def solve_pc_kernels(
     R_delta_top: Optional[Array] = None,
     num_training_steps: int = 100,
     num_inference_steps: int = 10,
-    num_fixed_point_steps: int = 50,
+    num_fixed_point_steps: int = 10,
     damping: float = 1.0,
     sigma: float = 1.0,
     tolerance: Optional[float] = None,
@@ -581,7 +581,7 @@ def solve_pc_kernels(
         Mean top residual of shape (K, T, P, output_dim).
 
     diagnostics
-        Final residual and derived operators.
+        Fixed-point residual, equation residual, and derived operators.
     """
     if not (0.0 < damping <= 1.0):
         raise ValueError("damping must lie in (0, 1].")
@@ -600,6 +600,7 @@ def solve_pc_kernels(
     # Match BP DMFT: learning-rate factors carry the empirical 1/P.
     eta_gamma = eta * gamma / P
     final_residual = jnp.inf
+    final_equation_residual = jnp.inf
 
     # Saved only for diagnostics.
     final_A = [None] * depth
@@ -686,6 +687,8 @@ def solve_pc_kernels(
         candidate_J = []
         candidate_M = []
         candidate_N = []
+        neighbour_Ch_minus = []
+        neighbour_Cdelta_plus = []
 
         # Derived top boundary from current kernels — same role as
         # Delta = get_Delta(all_H, all_G, ...) in the BP solver.
@@ -714,6 +717,9 @@ def solve_pc_kernels(
             else:
                 Cdelta_plus = old_Cdelta[l + 1]
                 Rdelta_plus = old_Rdelta[l + 1]
+
+            neighbour_Ch_minus.append(Ch_minus)
+            neighbour_Cdelta_plus.append(Cdelta_plus)
 
             # P^ℓ = (η γ / P) ∑_{t'<t} C^{h,ℓ-1}_{k,K}(t,t')  (linear: φ = h)
             # Q^ℓ = (η γ / P) ∑_{t'<t} C^{Δ,ℓ+1}_{k,K}(t,t')
@@ -827,6 +833,28 @@ def solve_pc_kernels(
 
         final_residual = jnp.max(jnp.stack(residuals))
 
+        # Algebraic residual of the accepted (damped) kernels against
+        # the linear layer equations from this Jacobi step.
+        eq_residuals = []
+        for l in range(depth):
+            layer_eq = equation_residuals(
+                Ch=all_Ch[l],
+                Cdelta=all_Cdelta[l],
+                Rh=all_Rh[l],
+                Rdelta=all_Rdelta[l],
+                Ch_minus=neighbour_Ch_minus[l],
+                Cdelta_plus=neighbour_Cdelta_plus[l],
+                A=candidate_A[l],
+                J=candidate_J[l],
+                M=candidate_M[l],
+                N=candidate_N[l],
+            )
+            eq_residuals.extend(layer_eq.values())
+
+        final_equation_residual = jnp.max(
+            jnp.stack(eq_residuals)
+        )
+
         final_A = candidate_A
         final_B = candidate_B
         final_J = candidate_J
@@ -842,6 +870,7 @@ def solve_pc_kernels(
     diagnostics = {
         "iterations": iteration + 1,
         "fixed_point_residual": final_residual,
+        "equation_residual": final_equation_residual,
         "D": D,
         "A": final_A,
         "B": final_B,

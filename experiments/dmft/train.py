@@ -2,23 +2,25 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-import jpc
-import equinox as eqx
-import optax
+# import jpc
+# import equinox as eqx
+# import optax
 
 import os
 import argparse
 from experiments.datasets import get_dataloaders
 from experiments.mupc_paper.utils import set_seed
-from utils import (
-    setup_pc_experiment, 
-    setup_bp_experiment, 
-    configure_param_optim,
-    create_toy_dataset, 
-    MLP, 
-    flatten_grads,
-    compute_grad_cosine_similarities
-)
+from utils import create_toy_dataset
+
+# from utils import (
+#     setup_pc_experiment, 
+#     setup_bp_experiment, 
+#     configure_param_optim,
+#     create_toy_dataset, 
+#     MLP, 
+#     flatten_grads,
+#     compute_grad_cosine_similarities
+# )
 from theory_utils import solve_kernels, get_Delta
 from theory_pc_utils import solve_pc_kernels
 from plot_dmft_results import (
@@ -26,220 +28,219 @@ from plot_dmft_results import (
     plot_pc_dmft_kernels_and_loss,
 )
 
+# def train_pcn(
+#       model,
+#       use_skips,
+#       X_input,
+#       Y_target,
+#       width,
+#       gamma_0,
+#       param_type,
+#       infer_mode,
+#       n_infer_iters,
+#       activity_lr,
+#       param_optim_id,
+#       param_lr,
+#       n_train_iters,
+#       loss_id,
+#       save_dir,
+#       store_grads=False
+# ):    
+#     os.makedirs(save_dir, exist_ok=True)
 
-def train_pcn(
-      model,
-      use_skips,
-      X_input,
-      Y_target,
-      width,
-      gamma_0,
-      param_type,
-      infer_mode,
-      n_infer_iters,
-      activity_lr,
-      param_optim_id,
-      param_lr,
-      n_train_iters,
-      loss_id,
-      save_dir,
-      store_grads=False
-):    
-    os.makedirs(save_dir, exist_ok=True)
+#     depth = len(model)
+#     skip_model = jpc.make_skip_model(depth) if use_skips else None
 
-    depth = len(model)
-    skip_model = jpc.make_skip_model(depth) if use_skips else None
-
-    # Optimisers
-    batch_size = X_input.shape[0]
-    activity_optim = optax.sgd(activity_lr * batch_size)
-    param_optim = configure_param_optim(
-        param_optim_id, param_type, use_skips, param_lr, width, depth, gamma_0
-    )
-    param_opt_state = param_optim.init(
-        (eqx.filter(model, eqx.is_array), skip_model)
-    )
+#     # Optimisers
+#     batch_size = X_input.shape[0]
+#     activity_optim = optax.sgd(activity_lr * batch_size)
+#     param_optim = configure_param_optim(
+#         param_optim_id, param_type, use_skips, param_lr, width, depth, gamma_0
+#     )
+#     param_opt_state = param_optim.init(
+#         (eqx.filter(model, eqx.is_array), skip_model)
+#     )
     
-    num_energies, theory_energies = [], []
-    train_losses = []
-    loss_rescalings = []
-    pc_grads = [] if store_grads else None 
+#     num_energies, theory_energies = [], []
+#     train_losses = []
+#     loss_rescalings = []
+#     pc_grads = [] if store_grads else None 
     
-    # Initialize activities for the first iteration
-    activities = jpc.init_activities_with_ffwd(
-        model=model,
-        input=X_input,
-        skip_model=skip_model,
-        param_type=param_type,
-        gamma=gamma_0
-    )
+#     # Initialize activities for the first iteration
+#     activities = jpc.init_activities_with_ffwd(
+#         model=model,
+#         input=X_input,
+#         skip_model=skip_model,
+#         param_type=param_type,
+#         gamma=gamma_0
+#     )
     
-    for _ in range(n_train_iters):
+#     for _ in range(n_train_iters):
 
-        if infer_mode == "closed_form":
-            equilib_energy, S = jpc.linear_equilib_energy(
-                params=(model, skip_model), 
-                x=X_input, 
-                y=Y_target,
-                param_type=param_type,
-                gamma=gamma_0,
-                return_rescaling=True
-            )
-            theory_energies.append(equilib_energy)
-            loss_rescaling = jnp.linalg.norm(S, ord=2) if Y_target.ndim > 1 else S
-            loss_rescalings.append(loss_rescaling)
+#         if infer_mode == "closed_form":
+#             equilib_energy, S = jpc.linear_equilib_energy(
+#                 params=(model, skip_model), 
+#                 x=X_input, 
+#                 y=Y_target,
+#                 param_type=param_type,
+#                 gamma=gamma_0,
+#                 return_rescaling=True
+#             )
+#             theory_energies.append(equilib_energy)
+#             loss_rescaling = jnp.linalg.norm(S, ord=2) if Y_target.ndim > 1 else S
+#             loss_rescalings.append(loss_rescaling)
                 
-        # inference
-        if infer_mode == "optim":
-            activities = jpc.init_activities_with_ffwd(
-                model=model,
-                input=X_input,
-                skip_model=skip_model,
-                param_type=param_type,
-                gamma=gamma_0
-            )
-            activity_opt_state = activity_optim.init(activities)
-            for _ in range(n_infer_iters):
-                activity_update_result = jpc.update_pc_activities(
-                    params=(model, skip_model),
-                    activities=activities,
-                    optim=activity_optim,
-                    opt_state=activity_opt_state,
-                    output=Y_target,
-                    input=X_input,
-                    param_type=param_type,
-                    gamma=gamma_0,
-                    loss_id=loss_id
-                )
-                activities = activity_update_result["activities"]
-                activity_opt_state = activity_update_result["opt_state"]
-                energy = activity_update_result["energy"]
+#         # inference
+#         if infer_mode == "optim":
+#             activities = jpc.init_activities_with_ffwd(
+#                 model=model,
+#                 input=X_input,
+#                 skip_model=skip_model,
+#                 param_type=param_type,
+#                 gamma=gamma_0
+#             )
+#             activity_opt_state = activity_optim.init(activities)
+#             for _ in range(n_infer_iters):
+#                 activity_update_result = jpc.update_pc_activities(
+#                     params=(model, skip_model),
+#                     activities=activities,
+#                     optim=activity_optim,
+#                     opt_state=activity_opt_state,
+#                     output=Y_target,
+#                     input=X_input,
+#                     param_type=param_type,
+#                     gamma=gamma_0,
+#                     loss_id=loss_id
+#                 )
+#                 activities = activity_update_result["activities"]
+#                 activity_opt_state = activity_update_result["opt_state"]
+#                 energy = activity_update_result["energy"]
             
-            num_energies.append(energy)
+#             num_energies.append(energy)
 
-            param_update_result = jpc.update_pc_params(
-                params=(model, skip_model),
-                activities=activities,
-                optim=param_optim,
-                opt_state=param_opt_state,
-                output=Y_target,
-                input=X_input,
-                param_type=param_type,
-                gamma=gamma_0,
-                loss_id=loss_id
-            )
+#             param_update_result = jpc.update_pc_params(
+#                 params=(model, skip_model),
+#                 activities=activities,
+#                 optim=param_optim,
+#                 opt_state=param_opt_state,
+#                 output=Y_target,
+#                 input=X_input,
+#                 param_type=param_type,
+#                 gamma=gamma_0,
+#                 loss_id=loss_id
+#             )
 
-        else:
-            # learning with closed form energy
-            param_update_result = jpc.update_linear_equilib_energy_params(
-                params=(model, skip_model),
-                optim=param_optim,
-                opt_state=param_opt_state,
-                y=Y_target,
-                x=X_input,
-                param_type=param_type,
-                gamma=gamma_0
-            )
+#         else:
+#             # learning with closed form energy
+#             param_update_result = jpc.update_linear_equilib_energy_params(
+#                 params=(model, skip_model),
+#                 optim=param_optim,
+#                 opt_state=param_opt_state,
+#                 y=Y_target,
+#                 x=X_input,
+#                 param_type=param_type,
+#                 gamma=gamma_0
+#             )
         
-        model = param_update_result["model"]
-        skip_model = param_update_result["skip_model"]
-        param_opt_state = param_update_result["opt_state"]
-        grads = param_update_result["grads"]
+#         model = param_update_result["model"]
+#         skip_model = param_update_result["skip_model"]
+#         param_opt_state = param_update_result["opt_state"]
+#         grads = param_update_result["grads"]
         
-        if pc_grads is not None:
-            flat_grads = flatten_grads(grads)
-            # Convert JAX array to numpy immediately to free memory
-            pc_grads.append(np.array(flat_grads))
-            del flat_grads, grads
+#         if pc_grads is not None:
+#             flat_grads = flatten_grads(grads)
+#             # Convert JAX array to numpy immediately to free memory
+#             pc_grads.append(np.array(flat_grads))
+#             del flat_grads, grads
 
-        activities = jpc.init_activities_with_ffwd(
-            model=model,
-            input=X_input,
-            skip_model=skip_model,
-            param_type=param_type,
-            gamma=gamma_0
-        )
-        if loss_id == "mse":
-            train_loss = jpc.mse_loss(activities[-1], Y_target)
-        else:
-            train_loss = jpc.cross_entropy_loss(activities[-1], Y_target)
-        train_losses.append(train_loss)
+#         activities = jpc.init_activities_with_ffwd(
+#             model=model,
+#             input=X_input,
+#             skip_model=skip_model,
+#             param_type=param_type,
+#             gamma=gamma_0
+#         )
+#         if loss_id == "mse":
+#             train_loss = jpc.mse_loss(activities[-1], Y_target)
+#         else:
+#             train_loss = jpc.cross_entropy_loss(activities[-1], Y_target)
+#         train_losses.append(train_loss)
 
-    energies = (
-        jnp.array(theory_energies) 
-        if infer_mode == "closed_form" 
-        else jnp.array(num_energies)
-    )
-    np.save(f"{save_dir}/energies.npy", energies)
-    np.save(f"{save_dir}/train_losses.npy", np.array(train_losses))
-    np.save(f"{save_dir}/loss_rescalings.npy", loss_rescalings)
+#     energies = (
+#         jnp.array(theory_energies) 
+#         if infer_mode == "closed_form" 
+#         else jnp.array(num_energies)
+#     )
+#     np.save(f"{save_dir}/energies.npy", energies)
+#     np.save(f"{save_dir}/train_losses.npy", np.array(train_losses))
+#     np.save(f"{save_dir}/loss_rescalings.npy", loss_rescalings)
     
-    return pc_grads
+#     return pc_grads
 
 
-def train_bpn(
-      model,
-      use_skips,
-      X_input,
-      Y_target,
-      width,
-      gamma_0,
-      param_type,
-      optim_id,
-      param_lr,
-      n_train_iters,
-      loss_id,
-      save_dir,
-      store_grads=False
-):
-    os.makedirs(save_dir, exist_ok=True)
+# def train_bpn(
+#       model,
+#       use_skips,
+#       X_input,
+#       Y_target,
+#       width,
+#       gamma_0,
+#       param_type,
+#       optim_id,
+#       param_lr,
+#       n_train_iters,
+#       loss_id,
+#       save_dir,
+#       store_grads=False
+# ):
+#     os.makedirs(save_dir, exist_ok=True)
     
-    # Optimiser
-    optim = configure_param_optim(
-        optim_id, param_type, use_skips, param_lr, gamma_0, width, model.L
-    )
-    opt_state = optim.init(eqx.filter(model, eqx.is_array))
+#     # Optimiser
+#     optim = configure_param_optim(
+#         optim_id, param_type, use_skips, param_lr, gamma_0, width, model.L
+#     )
+#     opt_state = optim.init(eqx.filter(model, eqx.is_array))
 
-    if loss_id == "mse":
-        @eqx.filter_jit
-        def loss_fn(model, x, y):
-            y_pred = jax.vmap(model)(x)
-            return 0.5 * jnp.mean(jnp.sum((y - y_pred) ** 2, axis=1))
-    else:
-        @eqx.filter_jit
-        def loss_fn(model, x, y):
-            y_pred = jax.vmap(model)(x)
-            return jpc.cross_entropy_loss(y_pred, y)
+#     if loss_id == "mse":
+#         @eqx.filter_jit
+#         def loss_fn(model, x, y):
+#             y_pred = jax.vmap(model)(x)
+#             return 0.5 * jnp.mean(jnp.sum((y - y_pred) ** 2, axis=1))
+#     else:
+#         @eqx.filter_jit
+#         def loss_fn(model, x, y):
+#             y_pred = jax.vmap(model)(x)
+#             return jpc.cross_entropy_loss(y_pred, y)
 
-    @eqx.filter_jit
-    def make_step(model, optim, opt_state, x, y):
-        loss, grads = eqx.filter_value_and_grad(loss_fn)(model, x, y)
-        updates, opt_state = optim.update(
-            updates=grads, 
-            state=opt_state, 
-            params=eqx.filter(model, eqx.is_array)
-        )
-        model = eqx.apply_updates(model, updates)
-        return model, opt_state, loss, grads
+#     @eqx.filter_jit
+#     def make_step(model, optim, opt_state, x, y):
+#         loss, grads = eqx.filter_value_and_grad(loss_fn)(model, x, y)
+#         updates, opt_state = optim.update(
+#             updates=grads, 
+#             state=opt_state, 
+#             params=eqx.filter(model, eqx.is_array)
+#         )
+#         model = eqx.apply_updates(model, updates)
+#         return model, opt_state, loss, grads
         
-    losses = []
-    bp_grads = [] if store_grads else None
+#     losses = []
+#     bp_grads = [] if store_grads else None
     
-    for _ in range(n_train_iters):
-        model, opt_state, loss, grads = make_step(
-            model, optim, opt_state, X_input, Y_target
-        )
-        losses.append(float(loss))
+#     for _ in range(n_train_iters):
+#         model, opt_state, loss, grads = make_step(
+#             model, optim, opt_state, X_input, Y_target
+#         )
+#         losses.append(float(loss))
         
-        if bp_grads is not None:
-            flat_grads = flatten_grads(grads)
-            # Convert JAX array to numpy immediately to free memory
-            bp_grads.append(np.array(flat_grads))
-            del flat_grads, grads
+#         if bp_grads is not None:
+#             flat_grads = flatten_grads(grads)
+#             # Convert JAX array to numpy immediately to free memory
+#             bp_grads.append(np.array(flat_grads))
+#             del flat_grads, grads
     
-    np.save(f"{save_dir}/losses.npy", losses)
+#     np.save(f"{save_dir}/losses.npy", losses)
     
-    return bp_grads
+#     return bp_grads
 
 
 if __name__ == "__main__":
@@ -262,7 +263,7 @@ if __name__ == "__main__":
     parser.add_argument("--gamma_0s", type=float, nargs='+', default=[1])
     parser.add_argument("--n_train_iters", type=int, default=20) # 100)
     parser.add_argument("--loss_id", type=str, default="mse", choices=["mse", "ce"])
-    parser.add_argument("--n_fixed_point_steps", type=int, default=50)
+    parser.add_argument("--n_fixed_point_steps", type=int, default=10)
     
     # Inference parameters
     parser.add_argument("--param_lr_pc", type=float, default=0.5)
@@ -363,12 +364,12 @@ if __name__ == "__main__":
                                 eta=args.param_lr
                             )
                             dmft_loss = 0.5 * jnp.mean(jnp.sum(Delta_theory**2, axis=2), axis=1) 
-                            np.save(f"{args.results_dir}/all_H_{gamma_0}_gamma_0.npy", all_H)
-                            np.save(f"{args.results_dir}/all_G_{gamma_0}_gamma_0.npy", all_G)
-                            np.save(
-                                f"{args.results_dir}/dmft_loss_{gamma_0}_gamma_0.npy", 
-                                dmft_loss
-                            )
+                            # np.save(f"{args.results_dir}/all_H_{gamma_0}_gamma_0.npy", all_H)
+                            # np.save(f"{args.results_dir}/all_G_{gamma_0}_gamma_0.npy", all_G)
+                            # np.save(
+                            #     f"{args.results_dir}/dmft_loss_{gamma_0}_gamma_0.npy", 
+                            #     dmft_loss
+                            # )
                             plot_dmft_kernels_and_loss(
                                 all_H=all_H,
                                 all_G=all_G,
@@ -412,25 +413,27 @@ if __name__ == "__main__":
                                 )
                                 print(
                                     "\t\t\t\t\tPC fixed-point residual = "
-                                    f"{float(pc_diagnostics['fixed_point_residual']):.3e} "
+                                    f"{float(pc_diagnostics['fixed_point_residual']):.3e}, "
+                                    "equation residual = "
+                                    f"{float(pc_diagnostics['equation_residual']):.3e} "
                                     f"after {pc_diagnostics['iterations']} iters\n"
                                 )
                                 suffix = (
                                     f"{gamma_0}_gamma_0_"
                                     f"{activity_lr}_activity_lr"
                                 )
-                                np.save(
-                                    f"{args.results_dir}/all_Ch_{suffix}.npy",
-                                    np.array(all_Ch, dtype=object),
-                                )
-                                np.save(
-                                    f"{args.results_dir}/all_Cdelta_{suffix}.npy",
-                                    np.array(all_Cdelta, dtype=object),
-                                )
-                                np.save(
-                                    f"{args.results_dir}/pc_dmft_loss_{suffix}.npy",
-                                    np.asarray(pc_dmft_loss),
-                                )
+                                # np.save(
+                                #     f"{args.results_dir}/all_Ch_{suffix}.npy",
+                                #     np.array(all_Ch, dtype=object),
+                                # )
+                                # np.save(
+                                #     f"{args.results_dir}/all_Cdelta_{suffix}.npy",
+                                #     np.array(all_Cdelta, dtype=object),
+                                # )
+                                # np.save(
+                                #     f"{args.results_dir}/pc_dmft_loss_{suffix}.npy",
+                                #     np.asarray(pc_dmft_loss),
+                                # )
                                 plot_pc_dmft_kernels_and_loss(
                                     all_Ch=all_Ch,
                                     all_Cdelta=all_Cdelta,
@@ -584,4 +587,10 @@ if __name__ == "__main__":
                             #             cosine_similarities
                             #         )
 
-# CUDA_VISIBLE_DEVICES=1 python train.py
+### DEFAULT PARAMETERS ###
+# CUDA_VISIBLE_DEVICES=1 python train.py --n_samples 5 --n_fixed_point_steps 10 --n_train_iters 20 --param_lr 0.05 --param_lr_pc 0.5 --activity_lrs 0.05 --n_infer_iters 5 --n_hiddens 5 --pc_damping 1.0 --gamma_0s 1
+
+### TEST PARAMETERS ### 
+# CUDA_VISIBLE_DEVICES=1 python train.py --n_samples 5 --n_fixed_point_steps 10 --n_train_iters 30 --param_lr 0.2 --param_lr_pc 0.5 --activity_lrs 0.05 --n_infer_iters 5 --n_hiddens 5 --pc_damping 1.0 --gamma_0s 1
+
+# CUDA_VISIBLE_DEVICES=1 python train.py --n_samples 2 --n_fixed_point_steps 10 --n_train_iters 10 --param_lr 0.2 --param_lr_pc 0.5 --activity_lrs 0.05 --n_infer_iters 50 --n_hiddens 3 --pc_damping 1.0 --gamma_0s 1

@@ -64,7 +64,7 @@ def main(args):
     bp_loss = jpc.mse_loss(bp_preds, y_target)
 
     output_energy_scaling = (
-        args.gamma ** 2 * args.width * args.depth 
+        args.gamma ** 2 * args.width # * args.depth 
         if args.param_type == "mupc" else 1.0
     )
 
@@ -211,3 +211,5 @@ if __name__ == "__main__":
                     run_args.param_type = param_type
                     run_args.activity_lr = activity_lr
                     main(run_args)
+
+# python test_equilib_energy.py --depth 5 --activity_lrs 0.05 --n_infer_iters 1
