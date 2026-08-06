@@ -110,16 +110,19 @@ def plot_dmft_kernels_and_loss(
     plot_G_kernels(all_G, plots_dir, gamma_0=gamma_0)
 
 
-def _endpoint_sample_kernel(cov, num_inference_steps, num_training_steps, num_samples):
+def _initial_sample_kernel(cov, num_inference_steps, num_training_steps, num_samples):
     """
-    Extract the sample-sample block at the last inference step and
-    last training time from a flattened (K*T*P, K*T*P) covariance.
+    Extract the sample-sample block at the first inference step (k=0) and
+    last training time from a flattened ((K+1)*T*P, (K+1)*T*P) covariance.
+
+    The PC kernels store the full inference trajectory k=0,...,K, so the
+    state dimension per (t, mu) block is K+1, not K.
     """
-    K = num_inference_steps
+    K1 = num_inference_steps + 1
     T = num_training_steps
     P = num_samples
-    tensor = np.asarray(cov).reshape(K, T, P, K, T, P)
-    return tensor[-1, -1, :, -1, -1, :]
+    tensor = np.asarray(cov).reshape(K1, T, P, K1, T, P)
+    return tensor[0, -1, :, 0, -1, :]
 
 
 def plot_pc_layer_kernels(
@@ -132,7 +135,7 @@ def plot_pc_layer_kernels(
     gamma_0=None,
     ylabel="Theory",
 ):
-    """Plot endpoint sample-sample kernels for each PC layer."""
+    """Plot initial sample-sample kernels for each PC layer."""
     kernels = _to_numpy(kernels)
     n_layers = len(kernels)
     _warn_if_nonfinite(
@@ -145,7 +148,7 @@ def plot_pc_layer_kernels(
     )
     for l, cov_l in enumerate(kernels):
         ax = axes[l, 0]
-        kernel = _endpoint_sample_kernel(
+        kernel = _initial_sample_kernel(
             cov_l,
             num_inference_steps=num_inference_steps,
             num_training_steps=num_training_steps,
@@ -177,7 +180,7 @@ def plot_pc_dmft_kernels_and_loss(
     n_hidden=None,
     activity_lr=None,
 ):
-    """Plot PC DMFT loss and endpoint Ch / Cdelta kernels."""
+    """Plot PC DMFT loss and initial sample-sample Ch / Cdelta kernels."""
     if n_hidden is not None:
         plots_dir = os.path.join(plots_dir, f"{n_hidden}_n_hidden")
     if gamma_0 is not None:

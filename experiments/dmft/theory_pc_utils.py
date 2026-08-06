@@ -1,8 +1,28 @@
-"""
-Utilities to compute PC DMFT quantities. 
+"""Utilities for deterministic linear predictive-coding DMFT.
+
+This revision keeps the complete inference trajectory k=0,...,K and
+implements the forward-pass boundary condition through
+
+    Delta_0^ell(t) = 0.
+
+For each hidden layer the linear single-site equations are solved as the
+square block system
+
+    [-I,              A] [h    ]   [-u_chi]
+    [D - S B,         S] [Delta] = [ S u_xi]
+    [ 0,             E0]           [   0   ]
+
+where D is the rectangular forward-difference operator on h_0,...,h_K,
+S selects k=0,...,K-1, and E0 selects the k=0 error components.
+
+Flattening convention throughout:
+    compound index = (k, t, mu)
+with k the slowest block index.
 """
 
-from typing import List, Optional, Tuple
+from __future__ import annotations
+
+from typing import Dict, List, Optional, Tuple
 
 import jax
 import jax.numpy as jnp
@@ -10,72 +30,59 @@ import jax.numpy as jnp
 Array = jax.Array
 
 
-def make_inference_difference(
+def _state_size(K: int, T: int, P: int) -> int:
+    return (K + 1) * T * P
+
+
+def _update_size(K: int, T: int, P: int) -> int:
+    return K * T * P
+
+
+def make_pc_operators(
     num_inference_steps: int,
     beta_h: float,
     num_training_steps: int,
     num_samples: int,
     dtype=jnp.float64,
-) -> Array:
-    """
-    Construct D after eliminating the fixed initial state h_0.
+) -> Tuple[Array, Array, Array]:
+    """Construct D, S and E0 for the full trajectory h_0,...,h_K.
 
-    Flattening convention:
-        compound index = (k, t, mu)
+    D implements
+        (D h)_k = (h_{k+1} - h_k) / beta_h,
+        k=0,...,K-1.
 
-    with free inference states
-        k  = 1, ..., K
-        t  = 0, ..., T-1
-        mu = 0, ..., P-1
+    S selects k=0,...,K-1 from a full state vector.
+    E0 selects k=0 from a full error vector.
 
-    Discrete inference (explicit SGD on activities) is
-
-        h_{k} = h_{k-1} - β_h ∇_h E(h_{k-1}) ,
-
-    which rearranges to the backward difference
-
-        (D h)_k := (h_k - h_{k-1}) / β_h = - ∇_h E(h_{k-1}) .
-
-    On the free block (h_1, ..., h_K) this is the lower-bidiagonal
-
-        D_k = (1/β_h) * [[ 1, 0, ...],
-                         [-1, 1, ...],
-                         [ 0,-1, ...]],
-
-    with the known h_0 term moved into the source (hence eliminated
-    from D itself). D is Kronecker-extended as identity over (t, μ).
-
-    Relation to the schematic forward form
-    ``(h_{k+1} - h_k)/β_h`` in the PC DMFT writeup: that is the same
-    Euler step written one index later. For the free vector
-    (h_1,...,h_K), the backward matrix above is the natural square
-    reduction after fixing h_0; a naive forward matrix on the same
-    free vector is upper-bidiagonal and leaves the last row without an
-    h_{K+1}. With J = B - D, using backward D is consistent with
-    writing the stationarity condition as D h + (force from B) = 0
-    on the updated states. If your derivation defines D as forward
-    on (h_0,...,h_{K-1}) instead, the matrix here would need to change
-    in tandem with how J enters the saddle equations.
-
-    Returns
-    -------
-    D : (K*T*P, K*T*P)
+    Shapes
+    ------
+    D  : (K*T*P, (K+1)*T*P)
+    S  : (K*T*P, (K+1)*T*P)
+    E0 : (T*P,   (K+1)*T*P)
     """
     K = num_inference_steps
     T = num_training_steps
     P = num_samples
+    block = T * P
 
-    Dk = jnp.eye(K, dtype=dtype)
+    Dk = jnp.zeros((K, K + 1), dtype=dtype)
+    rows = jnp.arange(K)
+    Dk = Dk.at[rows, rows].set(-1.0 / beta_h)
+    Dk = Dk.at[rows, rows + 1].set(1.0 / beta_h)
 
-    if K > 1:
-        Dk = Dk - jnp.eye(K, k=-1, dtype=dtype)
+    Sk = jnp.concatenate(
+        [jnp.eye(K, dtype=dtype), jnp.zeros((K, 1), dtype=dtype)], axis=1
+    )
 
-    Dk = Dk / beta_h
+    E0k = jnp.zeros((1, K + 1), dtype=dtype)
+    E0k = E0k.at[0, 0].set(1.0)
 
-    # Flattening is (k, t, mu), so each k block has size T*P.
-    I_tp = jnp.eye(T * P, dtype=dtype)
-
-    return jnp.kron(Dk, I_tp)
+    I_block = jnp.eye(block, dtype=dtype)
+    return (
+        jnp.kron(Dk, I_block),
+        jnp.kron(Sk, I_block),
+        jnp.kron(E0k, I_block),
+    )
 
 
 def make_input_covariance(
@@ -83,389 +90,368 @@ def make_input_covariance(
     num_inference_steps: int,
     num_training_steps: int,
 ) -> Array:
-    """
-    Lift the input Gram matrix Kx[mu, nu] to a covariance over
-    compound indices (k, t, mu).
-
-    The default assumes that the input field is unchanged across
-    inference steps and training times:
-
-        C0[k,t,mu,k',t',nu] = Kx[mu,nu].
-
-    Returns
-    -------
-    C0 : (K*T*P, K*T*P)
-    """
+    """Lift Kx[mu,nu] to the full k=0,...,K state space."""
     P = Kx.shape[0]
-    K = num_inference_steps
+    K1 = num_inference_steps + 1
     T = num_training_steps
-
     C0 = jnp.broadcast_to(
         Kx[None, None, :, None, None, :],
-        (K, T, P, K, T, P),
+        (K1, T, P, K1, T, P),
     )
+    return C0.reshape(K1 * T * P, K1 * T * P)
 
-    return C0.reshape(K * T * P, K * T * P)
 
-
-def lift_targets(y, num_inference_steps, num_training_steps):
-    """
-    Lift y[mu, output] to y[k, t, mu, output].
-
-    Parameters
-    ----------
-    y
-        Shape (P,) or (P, output_dim).
-
-    Returns
-    -------
-    y_flat
-        Shape (K*T*P, output_dim).
-    """
+def lift_targets(y: Array, num_inference_steps: int, num_training_steps: int) -> Array:
+    """Lift y[mu,c] to y[k,t,mu,c] for k=0,...,K."""
     y = jnp.asarray(y)
-
     if y.ndim == 1:
         y = y[:, None]
-
     P, output_dim = y.shape
-    K = num_inference_steps
+    K1 = num_inference_steps + 1
     T = num_training_steps
-
-    y_lifted = jnp.broadcast_to(
-        y[None, None, :, :],
-        (K, T, P, output_dim),
-    )
-
-    return y_lifted.reshape(K * T * P, output_dim)
+    y_lifted = jnp.broadcast_to(y[None, None, :, :], (K1, T, P, output_dim))
+    return y_lifted.reshape(K1 * T * P, output_dim)
 
 
 def make_endpoint_memory_operator(
-    covariance,
-    num_inference_steps,
-    num_training_steps,
-    num_samples,
-    eta_gamma,
-):
-    r"""
-    Construct the endpoint-memory operator
+    covariance: Array,
+    num_inference_steps: int,
+    num_training_steps: int,
+    num_samples: int,
+    eta_gamma: float,
+) -> Array:
+    r"""Construct the strictly training-time-causal endpoint operator.
 
-        T[X]_{(k,t,mu),(k',s,nu)}
-          = 1_{s<t} X_{k,K;mu,nu}(t,s) delta_{k',K}.
+    [T[X] v]_{k,t,mu}
+      = eta_gamma * sum_{s<t,nu} X_{k,K;mu,nu}(t,s) v_{K,s,nu}.
 
-    Parameters
-    ----------
-    covariance
-        Shape:
-            (K*T*P, K*T*P)
-        or:
-            (K, T, P, K, T, P).
-
-    num_inference_steps
-        Number of represented inference states, K.
-
-    num_training_steps
-        Number of physical training times, T.
-
-    num_samples
-        Number of samples, P.
-
-    eta_gamma
-        Prefactor for the memory operator. Callers should pass
-        ``eta * gamma / P`` to match the backpropagation DMFT.
-
-    Returns
-    -------
-    operator
-        Shape (K*T*P, K*T*P).
-
-    Flattening convention
-    ---------------------
-        index = ((k * T) + t) * P + mu
+    Both input and output live on the full k=0,...,K state space.
     """
     K = num_inference_steps
+    K1 = K + 1
     T = num_training_steps
     P = num_samples
 
-    X = jnp.asarray(covariance).reshape(K, T, P, K, T, P)
+    X = jnp.asarray(covariance).reshape(K1, T, P, K1, T, P)
+    endpoint = X[:, :, :, K, :, :]
+    causal_t = jnp.tril(jnp.ones((T, T), dtype=X.dtype), k=-1)
+    endpoint = endpoint * causal_t[None, :, None, :, None]
 
-    # Select only the endpoint on the second inference index:
-    #
-    # endpoint[k,t,mu,s,nu] = X[k,t,mu,K-1,s,nu].
-    endpoint = X[:, :, :, -1, :, :]
-
-    # Strict physical-time causality: include only s < t.
-    causal_mask = jnp.tril(
-        jnp.ones((T, T), dtype=X.dtype),
-        k=-1,
-    )
-
-    endpoint = endpoint * causal_mask[None, :, None, :, None]
-
-    # Construct:
-    #
-    # operator[k,t,mu,k_prime,s,nu]
-    #
-    # with nonzero entries only at k_prime = K-1.
-    operator = jnp.zeros(
-        (K, T, P, K, T, P),
-        dtype=X.dtype,
-    )
-
-    operator = operator.at[:, :, :, -1, :, :].set(
-        eta_gamma * endpoint
-    )
-
-    return operator.reshape(K * T * P, K * T * P)
+    op = jnp.zeros((K1, T, P, K1, T, P), dtype=X.dtype)
+    op = op.at[:, :, :, K, :, :].set(eta_gamma * endpoint)
+    n = K1 * T * P
+    return op.reshape(n, n)
 
 
+def make_response_causality_masks(
+    num_inference_steps: int,
+    num_training_steps: int,
+    num_samples: int,
+    dtype=jnp.float64,
+) -> Tuple[Array, Array]:
+    """Return masks for R^h and R^Delta.
 
-def two_sided_solve(operator: Array, source: Array) -> Array:
+    Causal ordering is training time first, then inference time:
+
+      R^h_{k,t ; k',t'} may be nonzero when
+          t' < t, or t'=t and k' < k.
+
+      R^Delta_{k,t ; k',t'} may be nonzero when
+          t' < t, or t'=t and k' <= k.
+
+    Sample indices are unrestricted by causality.
     """
-    Return operator^{-1} source operator^{-T}
-    without explicitly constructing an inverse.
-    """
-    left_solved = jnp.linalg.solve(operator, source)
+    K1 = num_inference_steps + 1
+    T = num_training_steps
+    P = num_samples
 
-    result = jnp.linalg.solve(
-        operator,
-        left_solved.T,
-    ).T
+    k = jnp.arange(K1)[:, None, None, None]
+    t = jnp.arange(T)[None, :, None, None]
+    kp = jnp.arange(K1)[None, None, :, None]
+    tp = jnp.arange(T)[None, None, None, :]
 
-    return result
+    past_time = tp < t
+    same_time = tp == t
+    mask_h_kt = past_time | (same_time & (kp < k))
+    mask_d_kt = past_time | (same_time & (kp <= k))
+
+    # Expand sample pairs and reorder to (k,t,mu,k',t',nu).
+    mask_h = jnp.broadcast_to(
+        mask_h_kt[:, :, None, :, :, None],
+        (K1, T, P, K1, T, P),
+    )
+    mask_d = jnp.broadcast_to(
+        mask_d_kt[:, :, None, :, :, None],
+        (K1, T, P, K1, T, P),
+    )
+
+    n = K1 * T * P
+    return mask_h.reshape(n, n).astype(dtype), mask_d.reshape(n, n).astype(dtype)
+
+
+def make_delta0_projector(
+    num_inference_steps: int,
+    num_training_steps: int,
+    num_samples: int,
+    dtype=jnp.float64,
+) -> Array:
+    """Diagonal projector onto the allowed Delta subspace k>=1."""
+    K1 = num_inference_steps + 1
+    T = num_training_steps
+    P = num_samples
+    mask = jnp.ones((K1, T, P), dtype=dtype)
+    mask = mask.at[0].set(0.0)
+    return jnp.diag(mask.reshape(-1))
 
 
 def symmetrise(matrix: Array) -> Array:
-    """
-    Symmetrise a matrix.
-    """
     return 0.5 * (matrix + matrix.T)
 
 
 def damp(old: Array, candidate: Array, damping: float) -> Array:
-    """
-    damping = 1 gives the raw fixed-point update.
-    damping < 1 gives under-relaxation.
-    """
     return (1.0 - damping) * old + damping * candidate
 
 
-def solve_pc_output_boundary(
-    Ch_last,
-    Rh_last,
-    y,
-    eta,
-    gamma,
-    num_inference_steps,
-    num_training_steps,
-    num_samples,
-    source_covariance=None,
-    normalise_outputs=False,
-):
-    r"""
-    Solve the top-layer single-site equation
+def relative_change(old: Array, new: Array) -> Array:
+    return jnp.linalg.norm(new - old) / jnp.maximum(1.0, jnp.linalg.norm(old))
 
-        (I + Rh_last + P_top) Delta_top = y - u_chi
 
-    and construct the uncentred second moment C_delta_top.
+def solve_hidden_pc_layer(
+    A: Array,
+    B: Array,
+    Ch_minus: Array,
+    Cdelta_plus: Array,
+    D: Array,
+    S: Array,
+    E0: Array,
+    Rh_mask: Array,
+    Rdelta_mask: Array,
+    delta_projector: Array,
+) -> Dict[str, Array]:
+    """Solve one hidden-layer linear PC saddle point exactly.
 
-    Parameters
-    ----------
-    Ch_last
-        C^{h,L}, shape (K*T*P, K*T*P).
-
-    Rh_last
-        R^{h,L}, shape (K*T*P, K*T*P).
-
-    y
-        Targets, shape (P,) or (P, output_dim).
-
-    eta, gamma
-        DMFT parameters.
-
-    num_inference_steps
-        Number of represented inference states.
-
-    num_training_steps
-        Number of physical training times.
-
-    num_samples
-        Number of samples.
-
-    source_covariance
-        C^{u_chi,L+1}. If None, use Ch_last.
-
-    normalise_outputs
-        If True, average rather than sum over output coordinates.
-
-    Returns
-    -------
-    result
-        Dictionary containing:
-          - mean_delta
-          - centred_covariance
-          - C_delta_top
-          - loss
-          - A_top
-          - P_top
+    u_chi and u_xi are independent with covariances Ch_minus and
+    Cdelta_plus respectively.
     """
-    K = num_inference_steps
+    n = A.shape[0]
+    m = D.shape[0]
+    b = E0.shape[0]
+    dtype = A.dtype
+
+    I_n = jnp.eye(n, dtype=dtype)
+    Z_bn = jnp.zeros((b, n), dtype=dtype)
+
+    system = jnp.block(
+        [
+            [-I_n, A],
+            [D - S @ B, S],
+            [jnp.zeros((b, n), dtype=dtype), E0],
+        ]
+    )
+
+    # Source injection matrices for full u_chi and u_xi vectors.
+    J_chi = jnp.concatenate(
+        [-I_n, jnp.zeros((m, n), dtype=dtype), jnp.zeros((b, n), dtype=dtype)],
+        axis=0,
+    )
+    J_xi = jnp.concatenate(
+        [jnp.zeros((n, n), dtype=dtype), S, jnp.zeros((b, n), dtype=dtype)],
+        axis=0,
+    )
+
+    rhs = jnp.concatenate([J_chi, J_xi], axis=1)
+    transfer = jnp.linalg.solve(system, rhs)
+
+    T_chi = transfer[:, :n]
+    T_xi = transfer[:, n:]
+
+    T_h_chi = T_chi[:n]
+    T_delta_chi = T_chi[n:]
+    T_h_xi = T_xi[:n]
+    T_delta_xi = T_xi[n:]
+
+    Ch = (
+        T_h_chi @ Ch_minus @ T_h_chi.T
+        + T_h_xi @ Cdelta_plus @ T_h_xi.T
+    )
+    Cdelta = (
+        T_delta_chi @ Ch_minus @ T_delta_chi.T
+        + T_delta_xi @ Cdelta_plus @ T_delta_xi.T
+    )
+
+    Rh = T_h_xi * Rh_mask
+    Rdelta = T_delta_chi * Rdelta_mask
+
+    Ch = symmetrise(Ch)
+    Cdelta = delta_projector @ symmetrise(Cdelta) @ delta_projector
+    Rdelta = delta_projector @ Rdelta
+
+    return {
+        "Ch": Ch,
+        "Cdelta": Cdelta,
+        "Rh": Rh,
+        "Rdelta": Rdelta,
+        "system": system,
+        "T_h_chi": T_h_chi,
+        "T_h_xi": T_h_xi,
+        "T_delta_chi": T_delta_chi,
+        "T_delta_xi": T_delta_xi,
+    }
+
+
+def solve_pc_output_boundary(
+    Ch_last: Array,
+    Rh_last: Array,
+    y: Array,
+    eta: float,
+    gamma: float,
+    num_inference_steps: int,
+    num_training_steps: int,
+    num_samples: int,
+    source_covariance: Optional[Array] = None,
+    normalise_outputs: bool = False,
+) -> Dict[str, Array]:
+    """Solve the top residual process on the full k=0,...,K space.
+
+    This retains the original output-boundary convention
+        (I + Rh_last + P_top) Delta_top = y - u_chi.
+    The hidden-layer forward-pass constraint Delta_0=0 is not imposed on
+    the output residual unless the model's output boundary requires it.
+
+    The response of this boundary residual to its own bottom-up drive,
+    R^{Delta,top} = d Delta_top / d u_chi = -A_top^{-1}, is returned so the
+    caller can feed it back self-consistently as R^{Delta,ell+1} for the
+    last hidden layer (see solve_pc_kernels).
+
+    The reported loss is evaluated at k=0, i.e. on the initial forward-pass
+    prediction error, before any inference-step correction.
+    """
+    K1 = num_inference_steps + 1
     T = num_training_steps
     P = num_samples
-    n = K * T * P
+    n = K1 * T * P
 
-    if source_covariance is None:
-        source_covariance = Ch_last
-
-    identity = jnp.eye(n, dtype=Ch_last.dtype)
-
-    # P^{L+1} = (η γ / P) T[C^{h,L}], matching the BP DMFT 1/P factor.
+    I = jnp.eye(n, dtype=Ch_last.dtype)
     P_top = make_endpoint_memory_operator(
-        covariance=Ch_last,
-        num_inference_steps=K,
-        num_training_steps=T,
-        num_samples=P,
-        eta_gamma=eta * gamma / P,
+        Ch_last,
+        num_inference_steps,
+        num_training_steps,
+        num_samples,
+        eta * gamma / P,
     )
+    A_top = I + Rh_last + P_top
 
-    A_top = identity + Rh_last + P_top
-
-    # y[k,t,mu,c].
-    y_flat = lift_targets(
-        y=y,
-        num_inference_steps=K,
-        num_training_steps=T,
-    )
-
+    y_flat = lift_targets(y, num_inference_steps, num_training_steps)
     output_dim = y_flat.shape[1]
 
-    # Mean residual:
-    #
-    #     m_delta = A_top^{-1} y.
-    mean_delta_flat = jnp.linalg.solve(
-        A_top,
-        y_flat,
-    )
+    T_top = jnp.linalg.solve(A_top, I)
+    mean_delta_flat = T_top @ y_flat
+    R_delta_top = -T_top
 
-    # Centred covariance for one output coordinate:
-    #
-    #     Sigma_delta =
-    #       A_top^{-1} C_u A_top^{-T}.
-    centred_covariance = two_sided_solve(
-        A_top,
-        source_covariance,
-    )
-
-    centred_covariance = 0.5 * (
-        centred_covariance + centred_covariance.T
-    )
-
-    # Mean contribution summed over output coordinates:
-    #
-    # mean_second_moment[a,b]
-    #     = sum_c m[a,c] m[b,c].
-    mean_second_moment = (
-        mean_delta_flat @ mean_delta_flat.T
-    )
-
-    # If each output coordinate has an independent effective source
-    # with the same covariance, covariance contributions add.
-    covariance_multiplier = output_dim
-
+    C_delta_top = mean_delta_flat @ mean_delta_flat.T
     if normalise_outputs:
-        mean_second_moment = mean_second_moment / output_dim
-        covariance_multiplier = 1.0
+        C_delta_top = C_delta_top / output_dim
 
-    C_delta_top = (
-        mean_second_moment
-        + covariance_multiplier * centred_covariance
-    )
+    mean_delta = mean_delta_flat.reshape(K1, T, P, output_dim)
 
-    # Reshape the mean to (K, T, P, output_dim).
-    mean_delta = mean_delta_flat.reshape(
-        K, T, P, output_dim
-    )
+    k0_mean = mean_delta[0]
 
-    # Extract endpoint mean.
-    endpoint_mean = mean_delta[-1]  # (T, P, output_dim)
-
-    # Extract endpoint variance:
-    #
-    # Sigma[K,t,mu,K,t,mu].
-    sigma_tensor = centred_covariance.reshape(
-        K, T, P, K, T, P
-    )
-
-    endpoint_variance = jnp.einsum(
-        "tmtm->tm",
-        sigma_tensor[-1, :, :, -1, :, :],
-    )
-
-    mean_squared_error = jnp.sum(
-        endpoint_mean**2,
-        axis=(1, 2),
-    )
-
-    variance_error = (
-        covariance_multiplier
-        * jnp.sum(endpoint_variance, axis=1)
-    )
-
-    loss = (
-        0.5
-        * (mean_squared_error) #  + variance_error)
-        / P
-    )
+    mean_squared_error = jnp.sum(k0_mean**2, axis=(1, 2))
+    loss = 0.5 * (mean_squared_error) / P
 
     return {
         "mean_delta": mean_delta,
         "mean_delta_flat": mean_delta_flat,
-        "centred_covariance": centred_covariance,
-        "C_delta_top": C_delta_top,
+        "C_delta_top": symmetrise(C_delta_top),
+        "R_delta_top": R_delta_top,
         "loss": loss,
         "A_top": A_top,
         "P_top": P_top,
     }
 
 
-# def loss_from_top_correlation(
-#     C_delta_top,
-#     num_inference_steps,
-#     num_training_steps,
-#     num_samples,
-# ):
-#     """
-#     Extract
+# def solve_pc_output_boundary(
+#     Ch_last: Array,
+#     Rh_last: Array,
+#     y: Array,
+#     eta: float,
+#     gamma: float,
+#     num_inference_steps: int,
+#     num_training_steps: int,
+#     num_samples: int,
+#     source_covariance: Optional[Array] = None,
+#     normalise_outputs: bool = False,
+# ) -> Dict[str, Array]:
+#     """Solve the top residual process on the full k=0,...,K space.
+#     NOTE: Old version that assumes 1/sqrt(N) at the output
 
-#         L(t) = (1 / 2P)
-#                sum_mu C_delta_top[K,t,mu,K,t,mu].
+#     This retains the original output-boundary convention
+#         (I + Rh_last + P_top) Delta_top = y - u_chi.
+#     The hidden-layer forward-pass constraint Delta_0=0 is not imposed on
+#     the output residual unless the model's output boundary requires it.
+
+#     The response of this boundary residual to its own bottom-up drive,
+#     R^{Delta,top} = d Delta_top / d u_chi = -A_top^{-1}, is returned so the
+#     caller can feed it back self-consistently as R^{Delta,ell+1} for the
+#     last hidden layer (see solve_pc_kernels).
+
+#     The reported loss is evaluated at k=0, i.e. on the initial forward-pass
+#     prediction error, before any inference-step correction.
 #     """
-#     K = num_inference_steps
+#     K1 = num_inference_steps + 1
 #     T = num_training_steps
 #     P = num_samples
+#     n = K1 * T * P
 
-#     C = C_delta_top.reshape(
-#         K, T, P, K, T, P
+#     if source_covariance is None:
+#         source_covariance = Ch_last
+
+#     I = jnp.eye(n, dtype=Ch_last.dtype)
+#     P_top = make_endpoint_memory_operator(
+#         Ch_last,
+#         num_inference_steps,
+#         num_training_steps,
+#         num_samples,
+#         eta * gamma / P,
 #     )
+#     A_top = I + Rh_last + P_top
 
-#     endpoint_block = C[-1, :, :, -1, :, :]
+#     y_flat = lift_targets(y, num_inference_steps, num_training_steps)
+#     output_dim = y_flat.shape[1]
 
-#     endpoint_diagonal = jnp.diagonal(
-#         endpoint_block.reshape(T * P, T * P)
-#     ).reshape(T, P)
+#     T_top = jnp.linalg.solve(A_top, I)
+#     mean_delta_flat = T_top @ y_flat
+#     R_delta_top = -T_top
+#     centred_covariance = symmetrise(T_top @ source_covariance @ T_top.T)
 
-#     return 0.5 * jnp.sum(endpoint_diagonal, axis=1) / P
+#     mean_second_moment = mean_delta_flat @ mean_delta_flat.T
+#     covariance_multiplier = output_dim
+#     if normalise_outputs:
+#         mean_second_moment = mean_second_moment / output_dim
+#         covariance_multiplier = 1.0
 
-# # Optionally Ch_delta_top can be computed in a separate step.
-# top = solve_pc_output_boundary(...)
+#     C_delta_top = mean_second_moment + covariance_multiplier * centred_covariance
+#     mean_delta = mean_delta_flat.reshape(K1, T, P, output_dim)
 
-# loss_1 = top["loss"]
+#     k0_mean = mean_delta[0]
+#     sigma = centred_covariance.reshape(K1, T, P, K1, T, P)
+#     k0_variance = jnp.einsum("tmtm->tm", sigma[0, :, :, 0, :, :])
 
-# loss_2 = loss_from_top_correlation(
-#     C_delta_top=top["C_delta_top"],
-#     num_inference_steps=K,
-#     num_training_steps=T,
-#     num_samples=P,
-# )
+#     mean_squared_error = jnp.sum(k0_mean**2, axis=(1, 2))
+#     variance_error = covariance_multiplier * jnp.sum(k0_variance, axis=1)
+#     # loss = 0.5 * (mean_squared_error + variance_error) / P
+#     loss = 0.5 * (mean_squared_error) / P
+
+#     return {
+#         "mean_delta": mean_delta,
+#         "mean_delta_flat": mean_delta_flat,
+#         "centred_covariance": centred_covariance,
+#         "C_delta_top": symmetrise(C_delta_top),
+#         "R_delta_top": R_delta_top,
+#         "loss": loss,
+#         "A_top": A_top,
+#         "P_top": P_top,
+#     }
 
 
 def solve_pc_kernels(
@@ -475,201 +461,60 @@ def solve_pc_kernels(
     eta: float,
     gamma: float,
     beta_h: float,
-    R_delta_top: Optional[Array] = None,
     num_training_steps: int = 100,
     num_inference_steps: int = 10,
-    num_fixed_point_steps: int = 10,
-    damping: float = 1.0,
+    num_fixed_point_steps: int = 25,
+    damping: float = 0.1,
     sigma: float = 1.0,
     tolerance: Optional[float] = None,
-) -> Tuple[
-    List[Array],
-    List[Array],
-    List[Array],
-    List[Array],
-    Array,
-    Array,
-    Array,
-    dict,
-]:
-    r"""
-    Solve the linear predictive-coding DMFT fixed-point equations
+) -> Tuple[List[Array], List[Array], List[Array], List[Array], Array, Array, Array, dict]:
+    """Solve the boundary-conditioned linear PC DMFT by fixed-point iteration.
 
-        A_l = I + R_h,l-1 + P_l
-        B_l = R_Delta,l+1 + Q_l
-        J_l = B_l - D
+    Hidden layers use the exact block equations with Delta_0=0. Responses
+    are causally masked after each raw update and before they are used in
+    the next fixed-point iteration.
 
-        M_l = I - A_l J_l
-        N_l = I - J_l A_l
-
-        C_h,l =
-            M_l^{-1}
-            [C_h,l-1 + A_l C_Delta,l+1 A_l^T]
-            M_l^{-T}
-
-        C_Delta,l =
-            N_l^{-1}
-            [C_Delta,l+1 + J_l C_h,l-1 J_l^T]
-            N_l^{-T}
-
-        R_h,l     = M_l^{-1} A_l
-        R_Delta,l = N_l^{-1} J_l.
-
-    The fixed inference initial state h_0 is eliminated from D.
-
-    Memory operators use (η γ / P), matching the 1/P factor in the
-    backpropagation DMFT solver (``theory_utils.solve_kernels``).
-
-    Parameters
-    ----------
-    Kx
-        Input Gram matrix with shape (P, P).
-
-    depth
-        Number of hidden PC layers represented by the DMFT recursion.
-
-    eta, gamma
-        Learning-rate and feature-scale parameters.
-
-    beta_h
-        Inference-step size.
-
-    R_delta_top
-        Top boundary response R^{Delta,L+1}. If None, it is set to zero.
-
-    num_training_steps
-        Number of training-time points T.
-
-    num_inference_steps
-        Number of unknown inference states after eliminating h_0.
-        These correspond to h_1, ..., h_K.
-
-    num_fixed_point_steps
-        Maximum number of outer self-consistency iterations.
-
-    damping
-        Fixed-point damping coefficient in (0,1].
-
-    sigma
-        Scale used only to initialise the layer covariances.
-
-    tolerance
-        Optional relative convergence tolerance. Setting this to None
-        runs exactly num_fixed_point_steps iterations.
-
-    Returns
-    -------
-    all_Ch
-        List [C^{h,1}, ..., C^{h,L}].
-
-    all_Cdelta
-        List [C^{Delta,1}, ..., C^{Delta,L}].
-
-    all_Rh
-        List [R^{h,1}, ..., R^{h,L}].
-
-    all_Rdelta
-        List [R^{Delta,1}, ..., R^{Delta,L}].
-
-    C_delta_top
-        Top-boundary error correlation C^{Delta,L+1}.
-
-    pc_training_loss
-        DMFT training loss of shape (T,).
-
-    mean_delta_top
-        Mean top residual of shape (K, T, P, output_dim).
-
-    diagnostics
-        Fixed-point residual, equation residual, and derived operators.
+    The output boundary's own response R^{Delta,top} = -A_top^{-1} is
+    solved for self-consistently every iteration (via
+    solve_pc_output_boundary) and fed back as R^{Delta,ell+1} for the last
+    hidden layer, rather than being supplied externally.
     """
     if not (0.0 < damping <= 1.0):
-        raise ValueError("damping must lie in (0, 1].")
-
+        raise ValueError("damping must lie in (0,1].")
     if Kx.ndim != 2 or Kx.shape[0] != Kx.shape[1]:
-        raise ValueError("Kx must be a square (P, P) Gram matrix.")
+        raise ValueError("Kx must be a square Gram matrix.")
+    if depth < 1:
+        raise ValueError("depth must be at least one.")
 
     P = Kx.shape[0]
     T = num_training_steps
     K = num_inference_steps
-    n = K * T * P
-
+    n = _state_size(K, T, P)
     dtype = Kx.dtype
-    I = jnp.eye(n, dtype=dtype)
 
-    # Match BP DMFT: learning-rate factors carry the empirical 1/P.
-    eta_gamma = eta * gamma / P
-    final_residual = jnp.inf
-    final_equation_residual = jnp.inf
+    D, S, E0 = make_pc_operators(K, beta_h, T, P, dtype=dtype)
+    Rh_mask, Rdelta_mask = make_response_causality_masks(K, T, P, dtype=dtype)
+    delta_projector = make_delta0_projector(K, T, P, dtype=dtype)
 
-    # Saved only for diagnostics.
-    final_A = [None] * depth
-    final_B = [None] * depth
-    final_J = [None] * depth
-    final_M = [None] * depth
-    final_N = [None] * depth
-
-    # ------------------------------------------------------------
-    # Boundary operators
-    # ------------------------------------------------------------
-    D = make_inference_difference(
-        num_inference_steps=K,
-        beta_h=beta_h,
-        num_training_steps=T,
-        num_samples=P,
-        dtype=dtype,
-    )
-
-    Ch0 = make_input_covariance(
-        Kx=Kx,
-        num_inference_steps=K,
-        num_training_steps=T,
-    )
-
-    # Initial guess for the top correlation (overwritten each outer
-    # iteration by the boundary solve, analogous to get_Delta in BP).
-    y_flat = lift_targets(y, K, T)
-    C_delta_top = y_flat @ y_flat.T
-
-    # Input boundary response.
+    Ch0 = make_input_covariance(Kx, K, T)
     Rh0 = jnp.zeros((n, n), dtype=dtype)
 
-    if R_delta_top is None:
-        R_delta_top = jnp.zeros((n, n), dtype=dtype)
-    else:
-        R_delta_top = jnp.asarray(
-            R_delta_top,
-            dtype=dtype,
-        ).reshape(n, n)
+    y_flat = lift_targets(y, K, T)
+    C_delta_top = symmetrise(y_flat @ y_flat.T)
 
+    all_Ch = [sigma ** (2 * (l + 1)) * Ch0 for l in range(depth)]
+    all_Cdelta = []
+    for l in range(depth):
+        init = sigma ** (2 * (depth - l)) * C_delta_top
+        all_Cdelta.append(delta_projector @ init @ delta_projector)
 
-    # ------------------------------------------------------------
-    # Initial kernel guesses
-    # ------------------------------------------------------------
+    all_Rh = [jnp.zeros((n, n), dtype=dtype) for _ in range(depth)]
+    all_Rdelta = [jnp.zeros((n, n), dtype=dtype) for _ in range(depth)]
 
-    all_Ch = [
-        sigma ** (2 * (l + 1)) * Ch0
-        for l in range(depth)
-    ]
-
-    all_Cdelta = [
-        sigma ** (2 * (depth - l)) * C_delta_top
-        for l in range(depth)
-    ]
-
-    all_Rh = [
-        jnp.zeros((n, n), dtype=dtype)
-        for _ in range(depth)
-    ]
-
-    all_Rdelta = [
-        jnp.zeros((n, n), dtype=dtype)
-        for _ in range(depth)
-    ]
-
-    # ------------------------------------------------------------
-    # Outer self-consistency iteration
-    # ------------------------------------------------------------
+    eta_gamma = eta * gamma / P
+    residual_history = []
+    equation_history = []
+    final_layers: List[Dict[str, Array]] = []
 
     for iteration in range(num_fixed_point_steps):
         old_Ch = all_Ch
@@ -677,24 +522,9 @@ def solve_pc_kernels(
         old_Rh = all_Rh
         old_Rdelta = all_Rdelta
 
-        candidate_Ch = []
-        candidate_Cdelta = []
-        candidate_Rh = []
-        candidate_Rdelta = []
-
-        candidate_A = []
-        candidate_B = []
-        candidate_J = []
-        candidate_M = []
-        candidate_N = []
-        neighbour_Ch_minus = []
-        neighbour_Cdelta_plus = []
-
-        # Derived top boundary from current kernels — same role as
-        # Delta = get_Delta(all_H, all_G, ...) in the BP solver.
         top_result = solve_pc_output_boundary(
-            Ch_last=all_Ch[-1],
-            Rh_last=all_Rh[-1],
+            Ch_last=old_Ch[-1],
+            Rh_last=old_Rh[-1],
             y=y,
             eta=eta,
             gamma=gamma,
@@ -703,10 +533,9 @@ def solve_pc_kernels(
             num_samples=P,
         )
         C_delta_top = top_result["C_delta_top"]
+        R_delta_top = top_result["R_delta_top"] * Rdelta_mask
 
-        # Jacobi in the layer kernels: neighbours come from the
-        # previous outer iteration. The freshly computed C_delta_top
-        # is used immediately (as BP uses the new Delta).
+        raw_layers: List[Dict[str, Array]] = []
         for l in range(depth):
             Ch_minus = Ch0 if l == 0 else old_Ch[l - 1]
             Rh_minus = Rh0 if l == 0 else old_Rh[l - 1]
@@ -718,166 +547,99 @@ def solve_pc_kernels(
                 Cdelta_plus = old_Cdelta[l + 1]
                 Rdelta_plus = old_Rdelta[l + 1]
 
-            neighbour_Ch_minus.append(Ch_minus)
-            neighbour_Cdelta_plus.append(Cdelta_plus)
-
-            # P^ℓ = (η γ / P) ∑_{t'<t} C^{h,ℓ-1}_{k,K}(t,t')  (linear: φ = h)
-            # Q^ℓ = (η γ / P) ∑_{t'<t} C^{Δ,ℓ+1}_{k,K}(t,t')
             P_op = make_endpoint_memory_operator(
-                covariance=Ch_minus,
-                num_inference_steps=K,
-                num_training_steps=T,
-                num_samples=P,
-                eta_gamma=eta_gamma,
+                Ch_minus, K, T, P, eta_gamma
             )
-
             Q_op = make_endpoint_memory_operator(
-                covariance=Cdelta_plus,
-                num_inference_steps=K,
-                num_training_steps=T,
-                num_samples=P,
-                eta_gamma=eta_gamma,
+                Cdelta_plus, K, T, P, eta_gamma
             )
 
-            A = I + Rh_minus + P_op
+            A = jnp.eye(n, dtype=dtype) + Rh_minus + P_op
             B = Rdelta_plus + Q_op
-            J = B - D
 
-            M = I - A @ J
-            N = I - J @ A
-
-            # Response updates.
-            Rh_raw = jnp.linalg.solve(M, A)
-            Rdelta_raw = jnp.linalg.solve(N, J)
-
-            # Covariance-source terms.
-            source_h = (
-                Ch_minus
-                + A @ Cdelta_plus @ A.T
+            layer = solve_hidden_pc_layer(
+                A=A,
+                B=B,
+                Ch_minus=Ch_minus,
+                Cdelta_plus=Cdelta_plus,
+                D=D,
+                S=S,
+                E0=E0,
+                Rh_mask=Rh_mask,
+                Rdelta_mask=Rdelta_mask,
+                delta_projector=delta_projector,
             )
+            layer.update({"A": A, "B": B, "P": P_op, "Q": Q_op})
+            raw_layers.append(layer)
 
-            source_delta = (
-                Cdelta_plus
-                + J @ Ch_minus @ J.T
-            )
-
-            Ch_raw = two_sided_solve(M, source_h)
-            Cdelta_raw = two_sided_solve(N, source_delta)
-
-            # Covariances should be symmetric.
-            Ch_raw = symmetrise(Ch_raw)
-            Cdelta_raw = symmetrise(Cdelta_raw)
-
-            candidate_Ch.append(Ch_raw)
-            candidate_Cdelta.append(Cdelta_raw)
-            candidate_Rh.append(Rh_raw)
-            candidate_Rdelta.append(Rdelta_raw)
-
-            candidate_A.append(A)
-            candidate_B.append(B)
-            candidate_J.append(J)
-            candidate_M.append(M)
-            candidate_N.append(N)
-
-        # --------------------------------------------------------
-        # Damped simultaneous update of layer kernels
-        # --------------------------------------------------------
         all_Ch = [
-            damp(old_Ch[l], candidate_Ch[l], damping)
+            symmetrise(damp(old_Ch[l], raw_layers[l]["Ch"], damping))
             for l in range(depth)
         ]
-
         all_Cdelta = [
-            damp(
-                old_Cdelta[l],
-                candidate_Cdelta[l],
-                damping,
-            )
+            delta_projector
+            @ symmetrise(damp(old_Cdelta[l], raw_layers[l]["Cdelta"], damping))
+            @ delta_projector
             for l in range(depth)
         ]
-
         all_Rh = [
-            damp(old_Rh[l], candidate_Rh[l], damping)
+            damp(old_Rh[l], raw_layers[l]["Rh"], damping) * Rh_mask
             for l in range(depth)
         ]
-
         all_Rdelta = [
-            damp(
-                old_Rdelta[l],
-                candidate_Rdelta[l],
-                damping,
-            )
+            delta_projector
+            @ (damp(old_Rdelta[l], raw_layers[l]["Rdelta"], damping) * Rdelta_mask)
             for l in range(depth)
         ]
 
-        # --------------------------------------------------------
-        # Relative fixed-point residual
-        # --------------------------------------------------------
-        residuals = []
-
+        changes = []
         for old_list, new_list in (
             (old_Ch, all_Ch),
             (old_Cdelta, all_Cdelta),
             (old_Rh, all_Rh),
             (old_Rdelta, all_Rdelta),
         ):
-            for old, new in zip(old_list, new_list):
-                denominator = jnp.maximum(
-                    1.0,
-                    jnp.linalg.norm(old),
-                )
+            changes.extend(relative_change(o, n_) for o, n_ in zip(old_list, new_list))
+        fp_residual = jnp.max(jnp.stack(changes))
+        residual_history.append(fp_residual)
 
-                residuals.append(
-                    jnp.linalg.norm(new - old) / denominator
-                )
-
-        final_residual = jnp.max(jnp.stack(residuals))
-
-        # Algebraic residual of the accepted (damped) kernels against
-        # the linear layer equations from this Jacobi step.
         eq_residuals = []
-        for l in range(depth):
-            layer_eq = equation_residuals(
-                Ch=all_Ch[l],
-                Cdelta=all_Cdelta[l],
-                Rh=all_Rh[l],
-                Rdelta=all_Rdelta[l],
-                Ch_minus=neighbour_Ch_minus[l],
-                Cdelta_plus=neighbour_Cdelta_plus[l],
-                A=candidate_A[l],
-                J=candidate_J[l],
-                M=candidate_M[l],
-                N=candidate_N[l],
+        for l, layer in enumerate(raw_layers):
+            # Transfer-matrix consistency is the most direct algebraic check.
+            system = layer["system"]
+            n2 = 2 * n
+            J_chi = jnp.concatenate(
+                [
+                    -jnp.eye(n, dtype=dtype),
+                    jnp.zeros((K * T * P, n), dtype=dtype),
+                    jnp.zeros((T * P, n), dtype=dtype),
+                ],
+                axis=0,
             )
-            eq_residuals.extend(layer_eq.values())
+            J_xi = jnp.concatenate(
+                [
+                    jnp.zeros((n, n), dtype=dtype),
+                    S,
+                    jnp.zeros((T * P, n), dtype=dtype),
+                ],
+                axis=0,
+            )
+            Tchi = jnp.concatenate([layer["T_h_chi"], layer["T_delta_chi"]], axis=0)
+            Txi = jnp.concatenate([layer["T_h_xi"], layer["T_delta_xi"]], axis=0)
+            eq_residuals.append(
+                jnp.linalg.norm(system @ Tchi - J_chi)
+                / jnp.maximum(1.0, jnp.linalg.norm(J_chi))
+            )
+            eq_residuals.append(
+                jnp.linalg.norm(system @ Txi - J_xi)
+                / jnp.maximum(1.0, jnp.linalg.norm(J_xi))
+            )
+        equation_residual = jnp.max(jnp.stack(eq_residuals))
+        equation_history.append(equation_residual)
+        final_layers = raw_layers
 
-        final_equation_residual = jnp.max(
-            jnp.stack(eq_residuals)
-        )
-
-        final_A = candidate_A
-        final_B = candidate_B
-        final_J = candidate_J
-        final_M = candidate_M
-        final_N = candidate_N
-
-        # Python-side stopping is convenient for an exploratory solver.
-        # Remove this branch if the complete function will be jitted.
-        if tolerance is not None:
-            if float(final_residual) < tolerance:
-                break
-
-    diagnostics = {
-        "iterations": iteration + 1,
-        "fixed_point_residual": final_residual,
-        "equation_residual": final_equation_residual,
-        "D": D,
-        "A": final_A,
-        "B": final_B,
-        "J": final_J,
-        "M": final_M,
-        "N": final_N,
-    }
+        if tolerance is not None and float(fp_residual) < tolerance:
+            break
 
     top_result = solve_pc_output_boundary(
         Ch_last=all_Ch[-1],
@@ -890,61 +652,29 @@ def solve_pc_kernels(
         num_samples=P,
     )
 
-    C_delta_top = top_result["C_delta_top"]
-    pc_training_loss = top_result["loss"]
-    mean_delta_top = top_result["mean_delta"]
+    diagnostics = {
+        "iterations": iteration + 1,
+        "fixed_point_residual": residual_history[-1],
+        "equation_residual": equation_history[-1],
+        "fixed_point_history": jnp.asarray(residual_history),
+        "equation_history": jnp.asarray(equation_history),
+        "D": D,
+        "S": S,
+        "E0": E0,
+        "Rh_causality_mask": Rh_mask,
+        "Rdelta_causality_mask": Rdelta_mask,
+        "delta0_projector": delta_projector,
+        "R_delta_top": top_result["R_delta_top"] * Rdelta_mask,
+        "layers": final_layers,
+    }
 
     return (
         all_Ch,
         all_Cdelta,
         all_Rh,
         all_Rdelta,
-        C_delta_top,
-        pc_training_loss,
-        mean_delta_top,
+        top_result["C_delta_top"],
+        top_result["loss"],
+        top_result["mean_delta"],
         diagnostics,
     )
-
-
-def equation_residuals(
-    Ch: Array,
-    Cdelta: Array,
-    Rh: Array,
-    Rdelta: Array,
-    Ch_minus: Array,
-    Cdelta_plus: Array,
-    A: Array,
-    J: Array,
-    M: Array,
-    N: Array,
-) -> dict:
-    source_h = Ch_minus + A @ Cdelta_plus @ A.T
-    source_delta = Cdelta_plus + J @ Ch_minus @ J.T
-
-    return {
-        "Rh": (
-            jnp.linalg.norm(M @ Rh - A)
-            / jnp.maximum(1.0, jnp.linalg.norm(A))
-        ),
-        "Rdelta": (
-            jnp.linalg.norm(N @ Rdelta - J)
-            / jnp.maximum(1.0, jnp.linalg.norm(J))
-        ),
-        "Ch": (
-            jnp.linalg.norm(M @ Ch @ M.T - source_h)
-            / jnp.maximum(1.0, jnp.linalg.norm(source_h))
-        ),
-        "Cdelta": (
-            jnp.linalg.norm(
-                N @ Cdelta @ N.T - source_delta
-            )
-            / jnp.maximum(
-                1.0,
-                jnp.linalg.norm(source_delta),
-            )
-        ),
-    }
-
-
-# min_singular_M = jnp.linalg.svd(M, compute_uv=False)[-1]
-# min_singular_N = jnp.linalg.svd(N, compute_uv=False)[-1]
