@@ -287,7 +287,8 @@ def get_coord_data(
             param_opt_state = param_optim.init(params)
 
             output_energy_scaling = (
-                gamma**2 * width * len(model) if param_type == "mupc" else 1.0
+                # gamma**2 * width * len(model) if param_type == "mupc" else 1.0
+                gamma**2 * width if param_type == "mupc" else 1.0
             )
 
             for t, (x, y) in enumerate(dataloader, start=1):

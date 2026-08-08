@@ -26,7 +26,9 @@ from theory_pc_utils import solve_pc_kernels
 from plot_dmft_results import (
     plot_dmft_kernels_and_loss,
     plot_pc_dmft_kernels_and_loss,
+    plot_pc_theory_vs_finite_loss,
 )
+from test_coord_check import jpc_model, get_coord_data
 
 # def train_pcn(
 #       model,
@@ -254,7 +256,7 @@ if __name__ == "__main__":
     
     # Model parameters
     parser.add_argument("--act_fn", type=str, default="linear", choices=["linear", "tanh", "relu"])
-    parser.add_argument("--param_types", type=str, nargs='+', default=["my-mup"], choices=["mupc", "sp", "my-mup"])
+    parser.add_argument("--param_types", type=str, nargs='+', default=["mupc"], choices=["mupc", "sp", "my-mup"])
     parser.add_argument("--use_skips", nargs='+', default=[False])
 
     # Training parameters
@@ -275,7 +277,8 @@ if __name__ == "__main__":
     parser.add_argument("--n_seeds", type=int, default=1)
     parser.add_argument("--n_hiddens", type=int, nargs='+', default=[5])
     parser.add_argument("--widths", type=int, nargs='+', 
-        default=[8, 16, 32, 64, 128]  #256, 512, 1024, 2048 
+        # default=[8, 16, 32, 64, 128]  #256, 512, 1024, 2048 
+        default=[64, 512, 2048, 8192]
     )
     
     # PC DMFT parameters
@@ -328,6 +331,11 @@ if __name__ == "__main__":
             y = label_batch.numpy()
         
         Kx = X.T @ X / input_dim
+
+        # In this dataset, we treat the whole P samples as one batch, matching
+        # the convention assumed by the (whole-batch) DMFT theory.
+        X_input = X.T  # Shape (P, D)
+        Y_target = y[:, None] if y.ndim == 1 else y
 
         for n_hidden in args.n_hiddens:
             print(f"\n\tn hidden H = {n_hidden}")
@@ -444,6 +452,62 @@ if __name__ == "__main__":
                                     num_inference_steps=K_inf,
                                     num_training_steps=T_train,
                                     num_samples=P,
+                                    gamma_0=gamma_0,
+                                    n_hidden=n_hidden,
+                                    activity_lr=activity_lr,
+                                )
+
+                                # --- Finite-size PC simulation (same hyperparameters) ---
+                                print(
+                                    "\t\t\t\t\tRunning finite-size PC simulation "
+                                    f"for widths {args.widths}...\n"
+                                )
+
+                                def make_finite_pc_models(mkey, _n_hidden=n_hidden):
+                                    width_keys = jax.random.split(
+                                        mkey, len(args.widths)
+                                    )
+                                    return {
+                                        width: jpc_model(
+                                            width,
+                                            key=wkey,
+                                            input_dim=input_dim,
+                                            depth=_n_hidden + 1,
+                                            output_dim=output_dim,
+                                            act_fn=args.act_fn,
+                                            param_type=param_type,
+                                            use_skips=use_skips,
+                                        )
+                                        for width, wkey in zip(
+                                            args.widths, width_keys
+                                        )
+                                    }
+
+                                finite_pc_df = get_coord_data(
+                                    make_finite_pc_models,
+                                    [(X_input, Y_target)],
+                                    param_type=param_type,
+                                    gamma=gamma_0,
+                                    optimizer="sgd",
+                                    lr=args.param_lr_pc,
+                                    activity_lr=activity_lr,
+                                    n_infer_iters=K_inf,
+                                    nsteps=T_train,
+                                    nseeds=1,
+                                    seed=seed,
+                                    fix_data=True,
+                                    record="ffwd",
+                                    update_mode="infer",
+                                    stats=["loss"],
+                                    show_progress=True,
+                                )
+
+                                plot_pc_theory_vs_finite_loss(
+                                    pc_dmft_loss=pc_dmft_loss,
+                                    finite_df=finite_pc_df,
+                                    plots_dir=os.path.join(
+                                        args.results_dir, "plots"
+                                    ),
                                     gamma_0=gamma_0,
                                     n_hidden=n_hidden,
                                     activity_lr=activity_lr,

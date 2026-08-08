@@ -8,12 +8,15 @@ implements the forward-pass boundary condition through
 For each hidden layer the linear single-site equations are solved as the
 square block system
 
-    [-I,              A] [h    ]   [-u_chi]
-    [D - S B,         S] [Delta] = [ S u_xi]
-    [ 0,             E0]           [   0   ]
+    [-I,                         A] [h    ]   [-u_chi]
+    [D_raw - beta_h S B,  beta_h S] [Delta] = [beta_h S u_xi]
+    [ 0,                        E0]           [   0   ]
 
-where D is the rectangular forward-difference operator on h_0,...,h_K,
-S selects k=0,...,K-1, and E0 selects the k=0 error components.
+where D_raw is the rectangular forward-difference operator on h_0,...,h_K
+(entries +/-1), S selects k=0,...,K-1, and E0 selects the k=0 error
+components. Multiplying the inference block by beta_h is equivalent to the
+textbook form with F = D_raw / beta_h, but avoids mixing O(1/beta_h) and O(1)
+scales in the same matrix.
 
 Flattening convention throughout:
     compound index = (k, t, mu)
@@ -40,25 +43,33 @@ def _update_size(K: int, T: int, P: int) -> int:
 
 def make_pc_operators(
     num_inference_steps: int,
-    beta_h: float,
     num_training_steps: int,
     num_samples: int,
     dtype=jnp.float64,
 ) -> Tuple[Array, Array, Array]:
-    """Construct D, S and E0 for the full trajectory h_0,...,h_K.
+    """Construct unscaled D_raw, S and E0 for the full trajectory h_0,...,h_K.
 
-    D implements
-        (D h)_k = (h_{k+1} - h_k) / beta_h,
+    D_raw implements the forward difference
+        (D_raw h)_k = h_{k+1} - h_k,
         k=0,...,K-1.
+
+    The inference learning rate beta_h is applied when assembling the block
+    system in solve_hidden_pc_layer, as the equivalent row-scaled form
+
+        (D_raw - beta_h S B) h + beta_h S Delta = beta_h S u_xi,
+
+    which is algebraically identical to (F - S B) h + S Delta = S u_xi with
+    F = D_raw / beta_h, but keeps matrix entries O(1) instead of mixing
+    O(1/beta_h) difference terms with O(1) feedback.
 
     S selects k=0,...,K-1 from a full state vector.
     E0 selects k=0 from a full error vector.
 
     Shapes
     ------
-    D  : (K*T*P, (K+1)*T*P)
-    S  : (K*T*P, (K+1)*T*P)
-    E0 : (T*P,   (K+1)*T*P)
+    D_raw : (K*T*P, (K+1)*T*P)
+    S     : (K*T*P, (K+1)*T*P)
+    E0    : (T*P,   (K+1)*T*P)
     """
     K = num_inference_steps
     T = num_training_steps
@@ -67,8 +78,8 @@ def make_pc_operators(
 
     Dk = jnp.zeros((K, K + 1), dtype=dtype)
     rows = jnp.arange(K)
-    Dk = Dk.at[rows, rows].set(-1.0 / beta_h)
-    Dk = Dk.at[rows, rows + 1].set(1.0 / beta_h)
+    Dk = Dk.at[rows, rows].set(-1.0)
+    Dk = Dk.at[rows, rows + 1].set(1.0)
 
     Sk = jnp.concatenate(
         [jnp.eye(K, dtype=dtype), jnp.zeros((K, 1), dtype=dtype)], axis=1
@@ -221,30 +232,43 @@ def solve_hidden_pc_layer(
     B: Array,
     Ch_minus: Array,
     Cdelta_plus: Array,
-    D: Array,
+    D_raw: Array,
     S: Array,
     E0: Array,
+    beta_h: float,
     Rh_mask: Array,
     Rdelta_mask: Array,
     delta_projector: Array,
 ) -> Dict[str, Array]:
     """Solve one hidden-layer linear PC saddle point exactly.
 
+    Implements the explicit-Euler PC step
+
+        (h_{k+1} - h_k) = beta_h (g_k - Delta_k),
+        g = u_xi + B h,
+
+    together with A Delta = h - u_chi and Delta_0 = 0, using the
+    beta_h-row-scaled block system (equivalent to F = D_raw / beta_h):
+
+        [-I,                         A] [h    ]   [-u_chi]
+        [D_raw - beta_h S B,  beta_h S] [Delta] = [beta_h S u_xi]
+        [0,                         E0]           [0]
+
     u_chi and u_xi are independent with covariances Ch_minus and
     Cdelta_plus respectively.
     """
     n = A.shape[0]
-    m = D.shape[0]
+    m = D_raw.shape[0]
     b = E0.shape[0]
     dtype = A.dtype
+    beta = jnp.asarray(beta_h, dtype=dtype)
 
     I_n = jnp.eye(n, dtype=dtype)
-    Z_bn = jnp.zeros((b, n), dtype=dtype)
 
     system = jnp.block(
         [
             [-I_n, A],
-            [D - S @ B, S],
+            [D_raw - beta * (S @ B), beta * S],
             [jnp.zeros((b, n), dtype=dtype), E0],
         ]
     )
@@ -255,7 +279,11 @@ def solve_hidden_pc_layer(
         axis=0,
     )
     J_xi = jnp.concatenate(
-        [jnp.zeros((n, n), dtype=dtype), S, jnp.zeros((b, n), dtype=dtype)],
+        [
+            jnp.zeros((n, n), dtype=dtype),
+            beta * S,
+            jnp.zeros((b, n), dtype=dtype),
+        ],
         axis=0,
     )
 
@@ -292,6 +320,8 @@ def solve_hidden_pc_layer(
         "Rh": Rh,
         "Rdelta": Rdelta,
         "system": system,
+        "J_chi": J_chi,
+        "J_xi": J_xi,
         "T_h_chi": T_h_chi,
         "T_h_xi": T_h_xi,
         "T_delta_chi": T_delta_chi,
@@ -467,6 +497,7 @@ def solve_pc_kernels(
     damping: float = 0.1,
     sigma: float = 1.0,
     tolerance: Optional[float] = None,
+    cdelta_init_eps: float = 1e-2,
 ) -> Tuple[List[Array], List[Array], List[Array], List[Array], Array, Array, Array, dict]:
     """Solve the boundary-conditioned linear PC DMFT by fixed-point iteration.
 
@@ -478,6 +509,11 @@ def solve_pc_kernels(
     solved for self-consistently every iteration (via
     solve_pc_output_boundary) and fed back as R^{Delta,ell+1} for the last
     hidden layer, rather than being supplied externally.
+
+    Error kernels are initialised to eps * I (projected to Delta_0=0), matching
+    the algorithm text. Initialising from a replicated output Gram matrix
+    makes the first-iterate memory operator Q spuriously large and drives
+    the explicit-Euler block resolvent unstable at moderate beta_h / K.
     """
     if not (0.0 < damping <= 1.0):
         raise ValueError("damping must lie in (0,1].")
@@ -485,6 +521,8 @@ def solve_pc_kernels(
         raise ValueError("Kx must be a square Gram matrix.")
     if depth < 1:
         raise ValueError("depth must be at least one.")
+    if cdelta_init_eps < 0.0:
+        raise ValueError("cdelta_init_eps must be non-negative.")
 
     P = Kx.shape[0]
     T = num_training_steps
@@ -492,21 +530,19 @@ def solve_pc_kernels(
     n = _state_size(K, T, P)
     dtype = Kx.dtype
 
-    D, S, E0 = make_pc_operators(K, beta_h, T, P, dtype=dtype)
+    D_raw, S, E0 = make_pc_operators(K, T, P, dtype=dtype)
     Rh_mask, Rdelta_mask = make_response_causality_masks(K, T, P, dtype=dtype)
     delta_projector = make_delta0_projector(K, T, P, dtype=dtype)
 
     Ch0 = make_input_covariance(Kx, K, T)
     Rh0 = jnp.zeros((n, n), dtype=dtype)
 
-    y_flat = lift_targets(y, K, T)
-    C_delta_top = symmetrise(y_flat @ y_flat.T)
-
     all_Ch = [sigma ** (2 * (l + 1)) * Ch0 for l in range(depth)]
-    all_Cdelta = []
-    for l in range(depth):
-        init = sigma ** (2 * (depth - l)) * C_delta_top
-        all_Cdelta.append(delta_projector @ init @ delta_projector)
+    # Section 12: C^Delta_(0) = eps I (not a replicated output Gram).
+    eps_eye = cdelta_init_eps * jnp.eye(n, dtype=dtype)
+    all_Cdelta = [
+        delta_projector @ eps_eye @ delta_projector for _ in range(depth)
+    ]
 
     all_Rh = [jnp.zeros((n, n), dtype=dtype) for _ in range(depth)]
     all_Rdelta = [jnp.zeros((n, n), dtype=dtype) for _ in range(depth)]
@@ -562,9 +598,10 @@ def solve_pc_kernels(
                 B=B,
                 Ch_minus=Ch_minus,
                 Cdelta_plus=Cdelta_plus,
-                D=D,
+                D_raw=D_raw,
                 S=S,
                 E0=E0,
+                beta_h=beta_h,
                 Rh_mask=Rh_mask,
                 Rdelta_mask=Rdelta_mask,
                 delta_projector=delta_projector,
@@ -604,26 +641,10 @@ def solve_pc_kernels(
         residual_history.append(fp_residual)
 
         eq_residuals = []
-        for l, layer in enumerate(raw_layers):
-            # Transfer-matrix consistency is the most direct algebraic check.
+        for layer in raw_layers:
             system = layer["system"]
-            n2 = 2 * n
-            J_chi = jnp.concatenate(
-                [
-                    -jnp.eye(n, dtype=dtype),
-                    jnp.zeros((K * T * P, n), dtype=dtype),
-                    jnp.zeros((T * P, n), dtype=dtype),
-                ],
-                axis=0,
-            )
-            J_xi = jnp.concatenate(
-                [
-                    jnp.zeros((n, n), dtype=dtype),
-                    S,
-                    jnp.zeros((T * P, n), dtype=dtype),
-                ],
-                axis=0,
-            )
+            J_chi = layer["J_chi"]
+            J_xi = layer["J_xi"]
             Tchi = jnp.concatenate([layer["T_h_chi"], layer["T_delta_chi"]], axis=0)
             Txi = jnp.concatenate([layer["T_h_xi"], layer["T_delta_xi"]], axis=0)
             eq_residuals.append(
@@ -658,9 +679,11 @@ def solve_pc_kernels(
         "equation_residual": equation_history[-1],
         "fixed_point_history": jnp.asarray(residual_history),
         "equation_history": jnp.asarray(equation_history),
-        "D": D,
+        "D_raw": D_raw,
         "S": S,
         "E0": E0,
+        "beta_h": beta_h,
+        "cdelta_init_eps": cdelta_init_eps,
         "Rh_causality_mask": Rh_mask,
         "Rdelta_causality_mask": Rdelta_mask,
         "delta0_projector": delta_projector,

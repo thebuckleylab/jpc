@@ -220,6 +220,76 @@ def plot_pc_dmft_kernels_and_loss(
     return plots_dir
 
 
+def plot_pc_theory_vs_finite_loss(
+    pc_dmft_loss,
+    finite_df,
+    plots_dir,
+    gamma_0=None,
+    n_hidden=None,
+    activity_lr=None,
+):
+    """Overlay the PC DMFT theory loss curve with finite-size empirical losses.
+
+    ``finite_df`` is expected to have columns ``width``, ``t`` and ``loss``,
+    as produced by ``test_coord_check.get_coord_data(..., stats=["loss"])``
+    run with the same hyperparameters used for ``pc_dmft_loss``. This lets us
+    visually check that the finite-size PC networks converge to the DMFT
+    (infinite-width) prediction as width grows.
+    """
+    if n_hidden is not None:
+        plots_dir = os.path.join(plots_dir, f"{n_hidden}_n_hidden")
+    if gamma_0 is not None:
+        plots_dir = os.path.join(plots_dir, f"gamma_{gamma_0}")
+    if activity_lr is not None:
+        plots_dir = os.path.join(plots_dir, f"activity_lr_{activity_lr}")
+    plots_dir = os.path.join(plots_dir, "pc")
+    os.makedirs(plots_dir, exist_ok=True)
+
+    pc_dmft_loss = np.asarray(pc_dmft_loss).flatten()
+    _warn_if_nonfinite("pc_dmft_loss", pc_dmft_loss)
+    theory_t = np.arange(1, len(pc_dmft_loss) + 1)
+
+    widths = sorted(finite_df["width"].unique())
+    cmap = plt.get_cmap("viridis")
+    colors = [cmap(i / max(1, len(widths) - 1)) for i in range(len(widths))]
+
+    plt.figure(figsize=(8, 6))
+    for width, color in zip(widths, colors):
+        sub = finite_df[finite_df["width"] == width].sort_values("t")
+        plt.plot(
+            sub["t"],
+            sub["loss"],
+            marker="o",
+            color=color,
+            alpha=0.8,
+            label=f"width={width}",
+        )
+    plt.plot(
+        theory_t,
+        pc_dmft_loss,
+        color="black",
+        linewidth=2.5,
+        linestyle="--",
+        label="DMFT theory",
+    )
+    plt.xlabel("$t$")
+    plt.ylabel("PC training loss (MSE)")
+    title = "PC theory vs finite-size simulation"
+    if gamma_0 is not None:
+        title += f", $\\gamma_0={gamma_0}$"
+    if activity_lr is not None:
+        title += f", activity lr$={activity_lr}$"
+    plt.title(title)
+    plt.legend()
+    plt.grid(True, alpha=0.4)
+    plt.tight_layout()
+    save_path = os.path.join(plots_dir, "pc_theory_vs_finite_loss.png")
+    plt.savefig(save_path, bbox_inches="tight")
+    plt.close()
+    print(f"PC theory vs finite-size loss plot saved to {save_path}")
+    return save_path
+
+
 def load_and_plot(results_dir, gamma_0, plots_dir=None, n_hidden=None):
     """Load saved DMFT results from results_dir and generate plots."""
     suffix = f"{gamma_0}_gamma_0"
