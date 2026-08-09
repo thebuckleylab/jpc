@@ -308,6 +308,7 @@ if __name__ == "__main__":
     parser.add_argument("--activity_lrs", type=float, nargs='+', default=[0.05])
 
     # Loop parameters
+    parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--n_seeds", type=int, default=1)
     parser.add_argument("--n_hiddens", type=int, nargs='+', default=[5])
     parser.add_argument("--widths", type=int, nargs='+',
@@ -319,10 +320,13 @@ if __name__ == "__main__":
     parser.add_argument("--pc_damping", type=float, default=1.0)
     parser.add_argument("--pc_tolerance", type=float, default=1e-5)
     parser.add_argument(
-        "--skip_pc_theory",
+        "--skip_theory",
         action="store_true",
         default=False,
-        help="Skip PC DMFT (matrices are K*T*P dimensional and can be costly).",
+        help=(
+            "Skip BP and PC DMFT theory (PC matrices are K*T*P dimensional "
+            "and can be costly)."
+        ),
     )
     parser.add_argument(
         "--pc_only",
@@ -341,14 +345,13 @@ if __name__ == "__main__":
     )
 
     # Other parameters
-    parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--compute_cos_sims", action="store_true", default=False)
     args = parser.parse_args()
 
     # PC DMFT inverts (K*T*P) matrices; float64 helps stability.
     # Also needed for large width & depth computation of s(theta).
     if (
-        not args.skip_pc_theory
+        not args.skip_theory
         or (len(args.n_hiddens) > 1 and len(args.widths) > 1)
     ):
         jax.config.update("jax_enable_x64", True)
@@ -408,7 +411,8 @@ if __name__ == "__main__":
                             print(f"\n\t\t\t\t\tactivity_lr = {activity_lr}")
 
                             # --- Calculate theory (BP) ---
-                            if not args.pc_only:
+                            dmft_loss = None
+                            if not args.pc_only and not args.skip_theory:
                                 print("\t\t\t\t\tCalculating BP Theory...\n")
                                 all_H, all_G, _, _ = solve_kernels(
                                     Kx=Kx,
@@ -447,7 +451,8 @@ if __name__ == "__main__":
                                     n_hidden=n_hidden,
                                 )
 
-                                # --- Finite-size BP simulation ---
+                            # --- Finite-size BP simulation ---
+                            if not args.pc_only:
                                 print(
                                     "\t\t\t\t\tRunning finite-size BP simulation "
                                     f"for widths {args.widths}...\n"
@@ -516,21 +521,28 @@ if __name__ == "__main__":
                                         )
 
                                 finite_bp_df = pd.DataFrame(finite_bp_records)
+                                # None / zeros => finite overlays only (see plot helper).
                                 plot_bp_theory_vs_finite_loss(
-                                    dmft_loss=dmft_loss,
+                                    dmft_loss=(
+                                        dmft_loss
+                                        if dmft_loss is not None
+                                        else jnp.zeros(args.n_train_iters)
+                                    ),
                                     finite_df=finite_bp_df,
                                     plots_dir=os.path.join(
                                         args.results_dir, "plots"
                                     ),
                                     gamma_0=gamma_0,
                                     n_hidden=n_hidden,
+                                    skip_theory=args.skip_theory,
                                 )
 
                             # --- Calculate theory (PC) ---
-                            if not args.skip_pc_theory:
-                                K_inf = args.n_infer_iters
-                                T_train = args.n_train_iters
-                                P = args.n_samples
+                            pc_dmft_loss = None
+                            K_inf = args.n_infer_iters
+                            T_train = args.n_train_iters
+                            P = args.n_samples
+                            if not args.skip_theory:
                                 n_pc = K_inf * T_train * P
                                 print(
                                     "\t\t\t\t\tCalculating PC Theory "
@@ -596,194 +608,201 @@ if __name__ == "__main__":
                                     activity_lr=activity_lr,
                                 )
 
-                                # --- Finite-size PC simulation (infer) ---
+                            # --- Finite-size PC simulation (infer) ---
+                            print(
+                                "\t\t\t\t\tRunning finite-size PC simulation "
+                                f"for widths {args.widths}...\n"
+                            )
+                            finite_pc_records = []
+                            cos_sims_by_width = {}
+                            for width, wkey in zip(args.widths, width_keys):
                                 print(
-                                    "\t\t\t\t\tRunning finite-size PC simulation "
-                                    f"for widths {args.widths}...\n"
+                                    "\t\t\t\t\tNumerical PC simulation "
+                                    f"for width N = {width}"
                                 )
-                                finite_pc_records = []
-                                cos_sims_by_width = {}
-                                for width, wkey in zip(args.widths, width_keys):
-                                    print(
-                                        "\t\t\t\t\tNumerical PC simulation "
-                                        f"for width N = {width}"
-                                    )
-                                    pc_save_dir = setup_pc_experiment(
-                                        results_dir=args.results_dir,
-                                        input_dim=input_dim,
-                                        n_samples=args.n_samples,
-                                        n_hidden=n_hidden,
-                                        use_skips=use_skips,
+                                pc_save_dir = setup_pc_experiment(
+                                    results_dir=args.results_dir,
+                                    input_dim=input_dim,
+                                    n_samples=args.n_samples,
+                                    n_hidden=n_hidden,
+                                    use_skips=use_skips,
+                                    act_fn=args.act_fn,
+                                    param_type=param_type,
+                                    param_lr=args.param_lr_pc,
+                                    gamma_0=gamma_0,
+                                    param_optim_id=args.param_optim,
+                                    n_train_iters=T_train,
+                                    infer_mode="optim",
+                                    n_infer_iters=K_inf,
+                                    activity_lr=activity_lr,
+                                    width=width,
+                                    loss_id=loss_id,
+                                    seed=seed,
+                                )
+                                pc_model = jpc.make_mlp(
+                                    wkey,
+                                    input_dim=input_dim,
+                                    width=width,
+                                    depth=n_hidden + 1,
+                                    output_dim=output_dim,
+                                    act_fn=args.act_fn,
+                                    use_bias=False,
+                                    param_type=param_type,
+                                )
+                                # Match BP init to PC before either is trained.
+                                bp_cos_model = None
+                                if args.compute_cos_sims:
+                                    bp_cos_model = MLP(
+                                        key=wkey,
+                                        d_in=input_dim,
+                                        N=width,
+                                        L=n_hidden + 1,
+                                        d_out=output_dim,
                                         act_fn=args.act_fn,
                                         param_type=param_type,
-                                        param_lr=args.param_lr_pc,
-                                        gamma_0=gamma_0,
-                                        param_optim_id=args.param_optim,
-                                        n_train_iters=T_train,
-                                        infer_mode="optim",
-                                        n_infer_iters=K_inf,
-                                        activity_lr=activity_lr,
-                                        width=width,
-                                        loss_id=loss_id,
-                                        seed=seed,
-                                    )
-                                    pc_model = jpc.make_mlp(
-                                        wkey,
-                                        input_dim=input_dim,
-                                        width=width,
-                                        depth=n_hidden + 1,
-                                        output_dim=output_dim,
-                                        act_fn=args.act_fn,
+                                        gamma=gamma_0,
                                         use_bias=False,
-                                        param_type=param_type,
+                                        use_skips=use_skips,
                                     )
-                                    # Match BP init to PC before either is trained.
-                                    bp_cos_model = None
-                                    if args.compute_cos_sims:
-                                        bp_cos_model = MLP(
-                                            key=wkey,
-                                            d_in=input_dim,
-                                            N=width,
-                                            L=n_hidden + 1,
-                                            d_out=output_dim,
+                                    for i in range(len(pc_model)):
+                                        pc_weight = pc_model[i][1].weight
+                                        bp_cos_model = eqx.tree_at(
+                                            lambda m, i=i: m.layers[i][1].weight,
+                                            bp_cos_model,
+                                            pc_weight,
+                                        )
+                                    all_match = all(
+                                        jnp.allclose(
+                                            pc_model[i][1].weight,
+                                            bp_cos_model.layers[i][1].weight,
+                                            atol=1e-10,
+                                        )
+                                        for i in range(len(pc_model))
+                                    )
+                                    if all_match:
+                                        pass
+                                        # print(
+                                        #     "\t\t\t\t\t✓ PC and BP models have "
+                                        #     "identical random initialization\n"
+                                        # )
+                                    else:
+                                        print(
+                                            "\n\t\t\t\t✗ WARNING: Some weights "
+                                            "don't match!\n"
+                                        )
+
+                                pc_grads = train_pcn(
+                                    model=pc_model,
+                                    use_skips=use_skips,
+                                    X_input=X_input,
+                                    Y_target=Y_target,
+                                    width=width,
+                                    gamma_0=gamma_0,
+                                    param_type=param_type,
+                                    infer_mode="optim",
+                                    n_infer_iters=K_inf,
+                                    activity_lr=activity_lr,
+                                    param_optim_id=args.param_optim,
+                                    param_lr=args.param_lr_pc,
+                                    n_train_iters=T_train,
+                                    save_dir=pc_save_dir,
+                                    store_grads=args.compute_cos_sims,
+                                    loss_id=loss_id,
+                                )
+                                losses = np.load(
+                                    f"{pc_save_dir}/train_losses.npy"
+                                )
+                                for t, loss in enumerate(
+                                    np.asarray(losses).flatten(), start=1
+                                ):
+                                    finite_pc_records.append(
+                                        {
+                                            "width": width,
+                                            "t": t,
+                                            "loss": float(loss),
+                                        }
+                                    )
+
+                                if args.compute_cos_sims:
+                                    bp_cos_save_dir = os.path.join(
+                                        setup_bp_experiment(
+                                            results_dir=args.results_dir,
+                                            input_dim=input_dim,
+                                            n_samples=args.n_samples,
+                                            n_hidden=n_hidden,
+                                            use_skips=use_skips,
                                             act_fn=args.act_fn,
                                             param_type=param_type,
-                                            gamma=gamma_0,
-                                            use_bias=False,
-                                            use_skips=use_skips,
-                                        )
-                                        for i in range(len(pc_model)):
-                                            pc_weight = pc_model[i][1].weight
-                                            bp_cos_model = eqx.tree_at(
-                                                lambda m, i=i: m.layers[i][1].weight,
-                                                bp_cos_model,
-                                                pc_weight,
-                                            )
-                                        all_match = all(
-                                            jnp.allclose(
-                                                pc_model[i][1].weight,
-                                                bp_cos_model.layers[i][1].weight,
-                                                atol=1e-10,
-                                            )
-                                            for i in range(len(pc_model))
-                                        )
-                                        if all_match:
-                                            pass
-                                            # print(
-                                            #     "\t\t\t\t\t✓ PC and BP models have "
-                                            #     "identical random initialization\n"
-                                            # )
-                                        else:
-                                            print(
-                                                "\n\t\t\t\t✗ WARNING: Some weights "
-                                                "don't match!\n"
-                                            )
-
-                                    pc_grads = train_pcn(
-                                        model=pc_model,
+                                            optim_id=args.param_optim,
+                                            param_lr=args.param_lr,
+                                            gamma_0=gamma_0,
+                                            n_train_iters=T_train,
+                                            width=width,
+                                            loss_id=loss_id,
+                                            seed=seed,
+                                        ),
+                                        "matched_to_pc_infer",
+                                    )
+                                    bp_grads = train_bpn(
+                                        model=bp_cos_model,
                                         use_skips=use_skips,
                                         X_input=X_input,
                                         Y_target=Y_target,
                                         width=width,
                                         gamma_0=gamma_0,
                                         param_type=param_type,
-                                        infer_mode="optim",
-                                        n_infer_iters=K_inf,
-                                        activity_lr=activity_lr,
-                                        param_optim_id=args.param_optim,
-                                        param_lr=args.param_lr_pc,
+                                        optim_id=args.param_optim,
+                                        param_lr=args.param_lr,
                                         n_train_iters=T_train,
-                                        save_dir=pc_save_dir,
-                                        store_grads=args.compute_cos_sims,
+                                        save_dir=bp_cos_save_dir,
+                                        store_grads=True,
                                         loss_id=loss_id,
                                     )
-                                    losses = np.load(
-                                        f"{pc_save_dir}/train_losses.npy"
+                                    cosine_similarities = (
+                                        compute_grad_cosine_similarities(
+                                            pc_grads, bp_grads
+                                        )
                                     )
-                                    for t, loss in enumerate(
-                                        np.asarray(losses).flatten(), start=1
-                                    ):
-                                        finite_pc_records.append(
-                                            {
-                                                "width": width,
-                                                "t": t,
-                                                "loss": float(loss),
-                                            }
-                                        )
-
-                                    if args.compute_cos_sims:
-                                        bp_cos_save_dir = os.path.join(
-                                            setup_bp_experiment(
-                                                results_dir=args.results_dir,
-                                                input_dim=input_dim,
-                                                n_samples=args.n_samples,
-                                                n_hidden=n_hidden,
-                                                use_skips=use_skips,
-                                                act_fn=args.act_fn,
-                                                param_type=param_type,
-                                                optim_id=args.param_optim,
-                                                param_lr=args.param_lr,
-                                                gamma_0=gamma_0,
-                                                n_train_iters=T_train,
-                                                width=width,
-                                                loss_id=loss_id,
-                                                seed=seed,
-                                            ),
-                                            "matched_to_pc_infer",
-                                        )
-                                        bp_grads = train_bpn(
-                                            model=bp_cos_model,
-                                            use_skips=use_skips,
-                                            X_input=X_input,
-                                            Y_target=Y_target,
-                                            width=width,
-                                            gamma_0=gamma_0,
-                                            param_type=param_type,
-                                            optim_id=args.param_optim,
-                                            param_lr=args.param_lr,
-                                            n_train_iters=T_train,
-                                            save_dir=bp_cos_save_dir,
-                                            store_grads=True,
-                                            loss_id=loss_id,
-                                        )
-                                        cosine_similarities = (
-                                            compute_grad_cosine_similarities(
-                                                pc_grads, bp_grads
-                                            )
-                                        )
-                                        cos_sims_by_width[width] = np.asarray(
-                                            cosine_similarities
-                                        )
-                                        print(
-                                            "\t\t\t\t\tComputed PC–BP grad cosine "
-                                            f"similarities for width={width}\n"
-                                        )
-
-                                if args.compute_cos_sims and cos_sims_by_width:
-                                    plot_grad_cosine_similarities(
-                                        similarities_by_width=cos_sims_by_width,
-                                        plots_dir=os.path.join(
-                                            args.results_dir, "plots"
-                                        ),
-                                        gamma_0=gamma_0,
-                                        n_hidden=n_hidden,
-                                        activity_lr=activity_lr,
+                                    cos_sims_by_width[width] = np.asarray(
+                                        cosine_similarities
+                                    )
+                                    print(
+                                        "\t\t\t\t\tComputed PC–BP grad cosine "
+                                        f"similarities for width={width}\n"
                                     )
 
-                                finite_pc_df = pd.DataFrame(finite_pc_records)
-                                plot_pc_theory_vs_finite_loss(
-                                    pc_dmft_loss=pc_dmft_loss,
-                                    finite_df=finite_pc_df,
+                            if args.compute_cos_sims and cos_sims_by_width:
+                                plot_grad_cosine_similarities(
+                                    similarities_by_width=cos_sims_by_width,
                                     plots_dir=os.path.join(
                                         args.results_dir, "plots"
                                     ),
                                     gamma_0=gamma_0,
                                     n_hidden=n_hidden,
                                     activity_lr=activity_lr,
-                                    update_mode="infer",
                                 )
 
-                                # Theory-mode finite PC (closed-form equilib grads)
+                            finite_pc_df = pd.DataFrame(finite_pc_records)
+                            # None / zeros => finite overlays only (see plot helper).
+                            plot_pc_theory_vs_finite_loss(
+                                pc_dmft_loss=(
+                                    pc_dmft_loss
+                                    if pc_dmft_loss is not None
+                                    else jnp.zeros(T_train)
+                                ),
+                                finite_df=finite_pc_df,
+                                plots_dir=os.path.join(
+                                    args.results_dir, "plots"
+                                ),
+                                gamma_0=gamma_0,
+                                n_hidden=n_hidden,
+                                activity_lr=activity_lr,
+                                update_mode="infer",
+                                skip_theory=args.skip_theory,
+                            )
+
+                            # Theory-mode finite PC (closed-form equilib grads)
+                            if args.act_fn == "linear":
                                 print(
                                     "\t\t\t\t\tRunning finite-size PC simulation "
                                     f"(theory update) for widths {args.widths}...\n"
@@ -859,8 +878,13 @@ if __name__ == "__main__":
                                 finite_pc_theory_df = pd.DataFrame(
                                     finite_pc_theory_records
                                 )
+                                # None / zeros => finite overlays only (see plot helper).
                                 plot_pc_theory_vs_finite_loss(
-                                    pc_dmft_loss=pc_dmft_loss,
+                                    pc_dmft_loss=(
+                                        pc_dmft_loss
+                                        if pc_dmft_loss is not None
+                                        else jnp.zeros(T_train)
+                                    ),
                                     finite_df=finite_pc_theory_df,
                                     plots_dir=os.path.join(
                                         args.results_dir, "plots"
@@ -869,6 +893,7 @@ if __name__ == "__main__":
                                     n_hidden=n_hidden,
                                     activity_lr=activity_lr,
                                     update_mode="theory",
+                                    skip_theory=args.skip_theory,
                                 )
 
     if args.cleanup_npy:
@@ -887,7 +912,7 @@ if __name__ == "__main__":
 # CUDA_VISIBLE_DEVICES=1 python train.py --n_samples 5 --n_fixed_point_steps 10 --n_train_iters 20 --param_lr 0.05 --param_lr_pc 0.5 --activity_lrs 0.05 --n_infer_iters 5 --n_hiddens 5 --pc_damping 1.0 --gamma_0s 1
 
 ### TEST PARAMETERS ###
-# CUDA_VISIBLE_DEVICES=1 python train.py --n_samples 2 --n_fixed_point_steps 10 --n_train_iters 50 --param_lr 0.2 --param_lr_pc 0.5 --activity_lrs 0.05 --n_infer_iters 5 --n_hiddens 3 --pc_damping 1.0 --gamma_0s 1
+# CUDA_VISIBLE_DEVICES=1 python train.py --n_samples 2 --n_fixed_point_steps 10 --n_train_iters 10 --param_lr 0.2 --param_lr_pc 0.5 --activity_lrs 0.05 --n_infer_iters 5 --n_hiddens 3 --pc_damping 1.0 --gamma_0s 1
 
 ### WORKING PARAMETERS (with damping) ###
 # CUDA_VISIBLE_DEVICES=1 python train.py --n_samples 5 --n_fixed_point_steps 60 --n_train_iters 20 --param_lr 0.1 --param_lr_pc 0.5 --activity_lrs 0.05 --n_infer_iters 10 --n_hiddens 5 --pc_damping 0.3 --gamma_0s 1

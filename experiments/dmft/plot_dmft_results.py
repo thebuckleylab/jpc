@@ -230,6 +230,7 @@ def plot_pc_theory_vs_finite_loss(
     n_hidden=None,
     activity_lr=None,
     update_mode=None,
+    skip_theory=False,
 ):
     """Overlay the PC DMFT theory loss curve with finite-size empirical losses.
 
@@ -242,6 +243,9 @@ def plot_pc_theory_vs_finite_loss(
     ``update_mode`` (e.g. ``"infer"`` / ``"theory"``) is optional metadata used
     in the plot title and output filename so multiple finite simulations can be
     compared without overwriting each other.
+
+    If ``skip_theory`` is True (or ``pc_dmft_loss`` is None / all zeros), only
+    finite overlays are drawn and the title/filename use ``pc_finite_loss``.
     """
     if n_hidden is not None:
         plots_dir = os.path.join(plots_dir, f"{n_hidden}_n_hidden")
@@ -252,9 +256,14 @@ def plot_pc_theory_vs_finite_loss(
     plots_dir = os.path.join(plots_dir, "pc")
     os.makedirs(plots_dir, exist_ok=True)
 
-    pc_dmft_loss = np.asarray(pc_dmft_loss).flatten()
-    _warn_if_nonfinite("pc_dmft_loss", pc_dmft_loss)
-    theory_t = np.arange(1, len(pc_dmft_loss) + 1)
+    # None / all-zeros placeholder: plot finite overlays only (e.g. --skip_theory).
+    plot_theory = (not skip_theory) and pc_dmft_loss is not None
+    if plot_theory:
+        pc_dmft_loss = np.asarray(pc_dmft_loss).flatten()
+        if np.allclose(pc_dmft_loss, 0.0):
+            plot_theory = False
+        else:
+            _warn_if_nonfinite("pc_dmft_loss", pc_dmft_loss)
 
     widths = sorted(finite_df["width"].unique())
     cmap = plt.get_cmap("viridis")
@@ -271,19 +280,27 @@ def plot_pc_theory_vs_finite_loss(
             alpha=0.8,
             label=f"width={width}",
         )
-    plt.plot(
-        theory_t,
-        pc_dmft_loss,
-        color="black",
-        linewidth=2.5,
-        linestyle="--",
-        label="DMFT theory",
-    )
+    if plot_theory:
+        theory_t = np.arange(1, len(pc_dmft_loss) + 1)
+        plt.plot(
+            theory_t,
+            pc_dmft_loss,
+            color="black",
+            linewidth=2.5,
+            linestyle="--",
+            label="DMFT theory",
+        )
     plt.xlabel("$t$")
     plt.ylabel("PC training loss (MSE)")
-    title = "PC theory vs finite-size simulation"
+    if skip_theory or not plot_theory:
+        title = "PC finite-size simulation"
+        filename = "pc_finite_loss"
+    else:
+        title = "PC theory vs finite-size simulation"
+        filename = "pc_theory_vs_finite_loss"
     if update_mode is not None:
         title += f" ({update_mode})"
+        filename += f"_{update_mode}"
     if gamma_0 is not None:
         title += f", $\\gamma_0={gamma_0}$"
     if activity_lr is not None:
@@ -292,13 +309,10 @@ def plot_pc_theory_vs_finite_loss(
     plt.legend()
     plt.grid(True, alpha=0.4)
     plt.tight_layout()
-    filename = "pc_theory_vs_finite_loss"
-    if update_mode is not None:
-        filename += f"_{update_mode}"
     save_path = os.path.join(plots_dir, f"{filename}.png")
     plt.savefig(save_path, bbox_inches="tight")
     plt.close()
-    print(f"PC theory vs finite-size loss plot saved to {save_path}")
+    print(f"PC loss plot saved to {save_path}")
     return save_path
 
 
@@ -308,6 +322,7 @@ def plot_bp_theory_vs_finite_loss(
     plots_dir,
     gamma_0=None,
     n_hidden=None,
+    skip_theory=False,
 ):
     """Overlay the BP DMFT theory loss curve with finite-size empirical losses.
 
@@ -315,6 +330,9 @@ def plot_bp_theory_vs_finite_loss(
     as produced by ``train_bpn`` over the same hyperparameters used for
     ``dmft_loss``. This lets us visually check that the finite-size BP
     networks converge to the DMFT (infinite-width) prediction as width grows.
+
+    If ``skip_theory`` is True (or ``dmft_loss`` is None / all zeros), only
+    finite overlays are drawn and the title/filename use ``bp_finite_loss``.
     """
     if n_hidden is not None:
         plots_dir = os.path.join(plots_dir, f"{n_hidden}_n_hidden")
@@ -323,9 +341,14 @@ def plot_bp_theory_vs_finite_loss(
     plots_dir = os.path.join(plots_dir, "bp")
     os.makedirs(plots_dir, exist_ok=True)
 
-    dmft_loss = np.asarray(dmft_loss).flatten()
-    _warn_if_nonfinite("dmft_loss", dmft_loss)
-    theory_t = np.arange(1, len(dmft_loss) + 1)
+    # None / all-zeros placeholder: plot finite overlays only (e.g. --skip_theory).
+    plot_theory = (not skip_theory) and dmft_loss is not None
+    if plot_theory:
+        dmft_loss = np.asarray(dmft_loss).flatten()
+        if np.allclose(dmft_loss, 0.0):
+            plot_theory = False
+        else:
+            _warn_if_nonfinite("dmft_loss", dmft_loss)
 
     widths = sorted(finite_df["width"].unique())
     cmap = plt.get_cmap("viridis")
@@ -342,29 +365,35 @@ def plot_bp_theory_vs_finite_loss(
             alpha=0.8,
             label=f"width={width}",
         )
-    plt.plot(
-        theory_t,
-        dmft_loss,
-        color="black",
-        linewidth=2.5,
-        linestyle="--",
-        label="DMFT theory",
-    )
+    if plot_theory:
+        theory_t = np.arange(1, len(dmft_loss) + 1)
+        plt.plot(
+            theory_t,
+            dmft_loss,
+            color="black",
+            linewidth=2.5,
+            linestyle="--",
+            label="DMFT theory",
+        )
     plt.xlabel("$t$")
     plt.ylabel("BP training loss (MSE)")
-    title = "BP theory vs finite-size simulation"
+    if skip_theory or not plot_theory:
+        title = "BP finite-size simulation"
+        filename = "bp_finite_loss"
+    else:
+        title = "BP theory vs finite-size simulation"
+        filename = "bp_theory_vs_finite_loss"
     if gamma_0 is not None:
         title += f", $\\gamma_0={gamma_0}$"
     plt.title(title)
     plt.legend()
     plt.grid(True, alpha=0.4)
     plt.tight_layout()
-    save_path = os.path.join(plots_dir, "bp_theory_vs_finite_loss.png")
+    save_path = os.path.join(plots_dir, f"{filename}.png")
     plt.savefig(save_path, bbox_inches="tight")
     plt.close()
-    print(f"BP theory vs finite-size loss plot saved to {save_path}")
+    print(f"BP loss plot saved to {save_path}")
     return save_path
-
 
 def plot_grad_cosine_similarities(
     similarities_by_width,
