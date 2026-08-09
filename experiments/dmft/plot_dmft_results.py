@@ -227,6 +227,7 @@ def plot_pc_theory_vs_finite_loss(
     gamma_0=None,
     n_hidden=None,
     activity_lr=None,
+    update_mode=None,
 ):
     """Overlay the PC DMFT theory loss curve with finite-size empirical losses.
 
@@ -235,6 +236,10 @@ def plot_pc_theory_vs_finite_loss(
     run with the same hyperparameters used for ``pc_dmft_loss``. This lets us
     visually check that the finite-size PC networks converge to the DMFT
     (infinite-width) prediction as width grows.
+
+    ``update_mode`` (e.g. ``"infer"`` / ``"theory"``) is optional metadata used
+    in the plot title and output filename so multiple finite simulations can be
+    compared without overwriting each other.
     """
     if n_hidden is not None:
         plots_dir = os.path.join(plots_dir, f"{n_hidden}_n_hidden")
@@ -275,6 +280,8 @@ def plot_pc_theory_vs_finite_loss(
     plt.xlabel("$t$")
     plt.ylabel("PC training loss (MSE)")
     title = "PC theory vs finite-size simulation"
+    if update_mode is not None:
+        title += f" ({update_mode})"
     if gamma_0 is not None:
         title += f", $\\gamma_0={gamma_0}$"
     if activity_lr is not None:
@@ -283,7 +290,10 @@ def plot_pc_theory_vs_finite_loss(
     plt.legend()
     plt.grid(True, alpha=0.4)
     plt.tight_layout()
-    save_path = os.path.join(plots_dir, "pc_theory_vs_finite_loss.png")
+    filename = "pc_theory_vs_finite_loss"
+    if update_mode is not None:
+        filename += f"_{update_mode}"
+    save_path = os.path.join(plots_dir, f"{filename}.png")
     plt.savefig(save_path, bbox_inches="tight")
     plt.close()
     print(f"PC theory vs finite-size loss plot saved to {save_path}")

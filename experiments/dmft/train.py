@@ -278,7 +278,7 @@ if __name__ == "__main__":
     parser.add_argument("--n_hiddens", type=int, nargs='+', default=[5])
     parser.add_argument("--widths", type=int, nargs='+', 
         # default=[8, 16, 32, 64, 128]  #256, 512, 1024, 2048 
-        default=[64, 512, 2048, 8192]
+        default=[64, 512, 2048] # , 8192]
     )
     
     # PC DMFT parameters
@@ -292,6 +292,7 @@ if __name__ == "__main__":
     )
 
     # Other parameters
+    parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--compute_cos_sims", action="store_true", default=False)
     args = parser.parse_args()
 
@@ -304,7 +305,7 @@ if __name__ == "__main__":
         jax.config.update("jax_enable_x64", True)
     
     os.makedirs(args.results_dir, exist_ok=True)
-    for seed in range(args.n_seeds):
+    for seed in range(args.seed, args.seed + args.n_seeds):
         print(f"\nRunning experiment for seed: {seed}")
 
         # --- Set Seed ---
@@ -511,6 +512,45 @@ if __name__ == "__main__":
                                     gamma_0=gamma_0,
                                     n_hidden=n_hidden,
                                     activity_lr=activity_lr,
+                                    update_mode="infer",
+                                )
+
+                                # Theory-mode finite PC (closed-form equilib
+                                # grads) for all widths.
+                                print(
+                                    "\t\t\t\t\tRunning finite-size PC simulation "
+                                    f"(theory update) for widths {args.widths}...\n"
+                                )
+
+                                finite_pc_theory_df = get_coord_data(
+                                    make_finite_pc_models,
+                                    [(X_input, Y_target)],
+                                    param_type=param_type,
+                                    gamma=gamma_0,
+                                    optimizer="sgd",
+                                    lr=args.param_lr_pc,
+                                    activity_lr=activity_lr,
+                                    n_infer_iters=K_inf,
+                                    nsteps=T_train,
+                                    nseeds=1,
+                                    seed=seed,
+                                    fix_data=True,
+                                    record="ffwd",
+                                    update_mode="theory",
+                                    stats=["loss"],
+                                    show_progress=True,
+                                )
+
+                                plot_pc_theory_vs_finite_loss(
+                                    pc_dmft_loss=pc_dmft_loss,
+                                    finite_df=finite_pc_theory_df,
+                                    plots_dir=os.path.join(
+                                        args.results_dir, "plots"
+                                    ),
+                                    gamma_0=gamma_0,
+                                    n_hidden=n_hidden,
+                                    activity_lr=activity_lr,
+                                    update_mode="theory",
                                 )
 
                             # # In this dataset, we treat the whole P samples as one batch
@@ -658,3 +698,9 @@ if __name__ == "__main__":
 # CUDA_VISIBLE_DEVICES=1 python train.py --n_samples 5 --n_fixed_point_steps 10 --n_train_iters 30 --param_lr 0.2 --param_lr_pc 0.5 --activity_lrs 0.05 --n_infer_iters 5 --n_hiddens 5 --pc_damping 1.0 --gamma_0s 1
 
 # CUDA_VISIBLE_DEVICES=1 python train.py --n_samples 2 --n_fixed_point_steps 10 --n_train_iters 10 --param_lr 0.2 --param_lr_pc 0.5 --activity_lrs 0.05 --n_infer_iters 50 --n_hiddens 3 --pc_damping 1.0 --gamma_0s 1
+
+
+### Working parameters with damping ###
+# CUDA_VISIBLE_DEVICES=1 python train.py --n_samples 5 --n_fixed_point_steps 60 --n_train_iters 20 --param_lr 0.1 --param_lr_pc 0.5 --activity_lrs 0.05 --n_infer_iters 10 --n_hiddens 5 --pc_damping 0.3 --gamma_0s 1
+
+# CUDA_VISIBLE_DEVICES=1 python train.py --n_samples 5 --n_fixed_point_steps 100 --n_train_iters 20 --param_lr 0.05 --param_lr_pc 0.5 --activity_lrs 0.05 --n_infer_iters 20 --n_hiddens 5 --pc_damping 0.1 --gamma_0s 1
