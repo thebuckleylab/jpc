@@ -1,7 +1,7 @@
 """Utilities for deterministic linear predictive-coding DMFT.
 
-This revision keeps the complete inference trajectory k=0,...,K and
-implements the forward-pass boundary condition through
+Uses the complete inference trajectory k=0,...,K with the forward-pass
+boundary condition
 
     Delta_0^ell(t) = 0.
 
@@ -15,7 +15,7 @@ square block system
 where D_raw is the rectangular forward-difference operator on h_0,...,h_K
 (entries +/-1), S selects k=0,...,K-1, and E0 selects the k=0 error
 components. Multiplying the inference block by beta_h is equivalent to the
-textbook form with F = D_raw / beta_h, but avoids mixing O(1/beta_h) and O(1)
+textbook form with D = D_raw / beta_h, but avoids mixing O(1/beta_h) and O(1)
 scales in the same matrix.
 
 Flattening convention throughout:
@@ -35,10 +35,6 @@ Array = jax.Array
 
 def _state_size(K: int, T: int, P: int) -> int:
     return (K + 1) * T * P
-
-
-def _update_size(K: int, T: int, P: int) -> int:
-    return K * T * P
 
 
 def make_pc_operators(
@@ -129,12 +125,12 @@ def make_endpoint_memory_operator(
     num_inference_steps: int,
     num_training_steps: int,
     num_samples: int,
-    eta_gamma: float,
+    eta: float,
 ) -> Array:
     r"""Construct the strictly training-time-causal endpoint operator.
 
     [T[X] v]_{k,t,mu}
-      = eta_gamma * sum_{s<t,nu} X_{k,K;mu,nu}(t,s) v_{K,s,nu}.
+      = eta * sum_{s<t,nu} X_{k,K;mu,nu}(t,s) v_{K,s,nu}.
 
     Both input and output live on the full k=0,...,K state space.
     """
@@ -149,7 +145,7 @@ def make_endpoint_memory_operator(
     endpoint = endpoint * causal_t[None, :, None, :, None]
 
     op = jnp.zeros((K1, T, P, K1, T, P), dtype=X.dtype)
-    op = op.at[:, :, :, K, :, :].set(eta_gamma * endpoint)
+    op = op.at[:, :, :, K, :, :].set(eta * endpoint)
     n = K1 * T * P
     return op.reshape(n, n)
 
@@ -334,11 +330,9 @@ def solve_pc_output_boundary(
     Rh_last: Array,
     y: Array,
     eta: float,
-    gamma: float,
     num_inference_steps: int,
     num_training_steps: int,
     num_samples: int,
-    source_covariance: Optional[Array] = None,
     normalise_outputs: bool = False,
 ) -> Dict[str, Array]:
     """Solve the top residual process on the full k=0,...,K space.
@@ -348,10 +342,8 @@ def solve_pc_output_boundary(
     The hidden-layer forward-pass constraint Delta_0=0 is not imposed on
     the output residual unless the model's output boundary requires it.
 
-    The response of this boundary residual to its own bottom-up drive,
-    R^{Delta,top} = d Delta_top / d u_chi = -A_top^{-1}, is returned so the
-    caller can feed it back self-consistently as R^{Delta,ell+1} for the
-    last hidden layer (see solve_pc_kernels).
+    Also returns the boundary residual response
+    R^{Delta,top} = d Delta_top / d u_chi = -A_top^{-1}.
 
     The reported loss is evaluated at k=0, i.e. on the initial forward-pass
     prediction error, before any inference-step correction.
@@ -383,11 +375,8 @@ def solve_pc_output_boundary(
         C_delta_top = C_delta_top / output_dim
 
     mean_delta = mean_delta_flat.reshape(K1, T, P, output_dim)
-
-    k0_mean = mean_delta[0]
-
-    mean_squared_error = jnp.sum(k0_mean**2, axis=(1, 2))
-    loss = 0.5 * (mean_squared_error) / P
+    mean_squared_error = jnp.sum(mean_delta[0] ** 2, axis=(1, 2))
+    loss = 0.5 * mean_squared_error / P
 
     return {
         "mean_delta": mean_delta,
@@ -398,90 +387,6 @@ def solve_pc_output_boundary(
         "A_top": A_top,
         "P_top": P_top,
     }
-
-
-# def solve_pc_output_boundary(
-#     Ch_last: Array,
-#     Rh_last: Array,
-#     y: Array,
-#     eta: float,
-#     gamma: float,
-#     num_inference_steps: int,
-#     num_training_steps: int,
-#     num_samples: int,
-#     source_covariance: Optional[Array] = None,
-#     normalise_outputs: bool = False,
-# ) -> Dict[str, Array]:
-#     """Solve the top residual process on the full k=0,...,K space.
-#     NOTE: Old version that assumes 1/sqrt(N) at the output
-
-#     This retains the original output-boundary convention
-#         (I + Rh_last + P_top) Delta_top = y - u_chi.
-#     The hidden-layer forward-pass constraint Delta_0=0 is not imposed on
-#     the output residual unless the model's output boundary requires it.
-
-#     The response of this boundary residual to its own bottom-up drive,
-#     R^{Delta,top} = d Delta_top / d u_chi = -A_top^{-1}, is returned so the
-#     caller can feed it back self-consistently as R^{Delta,ell+1} for the
-#     last hidden layer (see solve_pc_kernels).
-
-#     The reported loss is evaluated at k=0, i.e. on the initial forward-pass
-#     prediction error, before any inference-step correction.
-#     """
-#     K1 = num_inference_steps + 1
-#     T = num_training_steps
-#     P = num_samples
-#     n = K1 * T * P
-
-#     if source_covariance is None:
-#         source_covariance = Ch_last
-
-#     I = jnp.eye(n, dtype=Ch_last.dtype)
-#     P_top = make_endpoint_memory_operator(
-#         Ch_last,
-#         num_inference_steps,
-#         num_training_steps,
-#         num_samples,
-#         eta * gamma / P,
-#     )
-#     A_top = I + Rh_last + P_top
-
-#     y_flat = lift_targets(y, num_inference_steps, num_training_steps)
-#     output_dim = y_flat.shape[1]
-
-#     T_top = jnp.linalg.solve(A_top, I)
-#     mean_delta_flat = T_top @ y_flat
-#     R_delta_top = -T_top
-#     centred_covariance = symmetrise(T_top @ source_covariance @ T_top.T)
-
-#     mean_second_moment = mean_delta_flat @ mean_delta_flat.T
-#     covariance_multiplier = output_dim
-#     if normalise_outputs:
-#         mean_second_moment = mean_second_moment / output_dim
-#         covariance_multiplier = 1.0
-
-#     C_delta_top = mean_second_moment + covariance_multiplier * centred_covariance
-#     mean_delta = mean_delta_flat.reshape(K1, T, P, output_dim)
-
-#     k0_mean = mean_delta[0]
-#     sigma = centred_covariance.reshape(K1, T, P, K1, T, P)
-#     k0_variance = jnp.einsum("tmtm->tm", sigma[0, :, :, 0, :, :])
-
-#     mean_squared_error = jnp.sum(k0_mean**2, axis=(1, 2))
-#     variance_error = covariance_multiplier * jnp.sum(k0_variance, axis=1)
-#     # loss = 0.5 * (mean_squared_error + variance_error) / P
-#     loss = 0.5 * (mean_squared_error) / P
-
-#     return {
-#         "mean_delta": mean_delta,
-#         "mean_delta_flat": mean_delta_flat,
-#         "centred_covariance": centred_covariance,
-#         "C_delta_top": symmetrise(C_delta_top),
-#         "R_delta_top": R_delta_top,
-#         "loss": loss,
-#         "A_top": A_top,
-#         "P_top": P_top,
-#     }
 
 
 def solve_pc_kernels(
@@ -505,10 +410,10 @@ def solve_pc_kernels(
     are causally masked after each raw update and before they are used in
     the next fixed-point iteration.
 
-    The output boundary's own response R^{Delta,top} = -A_top^{-1} is
-    solved for self-consistently every iteration (via
-    solve_pc_output_boundary) and fed back as R^{Delta,ell+1} for the last
-    hidden layer, rather than being supplied externally.
+    The output residual covariance C^{Delta,top} is refreshed every iteration
+    via solve_pc_output_boundary and enters the last hidden layer as
+    C^{Delta,ell+1} = gamma^2 C^{Delta,top}. The top residual response is
+    not fed back: R^{Delta,ell+1} = 0 for the last hidden layer.
 
     Error kernels are initialised to eps * I (projected to Delta_0=0), matching
     the algorithm text. Initialising from a replicated output Gram matrix
@@ -563,13 +468,11 @@ def solve_pc_kernels(
             Rh_last=old_Rh[-1],
             y=y,
             eta=eta,
-            gamma=gamma,
             num_inference_steps=K,
             num_training_steps=T,
             num_samples=P,
         )
         C_delta_top = top_result["C_delta_top"]
-        R_delta_top = top_result["R_delta_top"] * Rdelta_mask
 
         raw_layers: List[Dict[str, Array]] = []
         for l in range(depth):
@@ -577,18 +480,14 @@ def solve_pc_kernels(
             Rh_minus = Rh0 if l == 0 else old_Rh[l - 1]
 
             if l == depth - 1:
-                Cdelta_plus = (gamma ** 2) * C_delta_top
-                Rdelta_plus = jnp.zeros_like(R_delta_top)
+                Cdelta_plus = gamma**2 * C_delta_top
+                Rdelta_plus = jnp.zeros((n, n), dtype=dtype)
             else:
                 Cdelta_plus = old_Cdelta[l + 1]
                 Rdelta_plus = old_Rdelta[l + 1]
 
-            P_op = make_endpoint_memory_operator(
-                Ch_minus, K, T, P, eta_p
-            )
-            Q_op = make_endpoint_memory_operator(
-                Cdelta_plus, K, T, P, eta_p
-            )
+            P_op = make_endpoint_memory_operator(Ch_minus, K, T, P, eta_p)
+            Q_op = make_endpoint_memory_operator(Cdelta_plus, K, T, P, eta_p)
 
             A = jnp.eye(n, dtype=dtype) + Rh_minus + P_op
             B = Rdelta_plus + Q_op
@@ -667,7 +566,6 @@ def solve_pc_kernels(
         Rh_last=all_Rh[-1],
         y=y,
         eta=eta,
-        gamma=gamma,
         num_inference_steps=K,
         num_training_steps=T,
         num_samples=P,

@@ -116,7 +116,7 @@ class MLP(eqx.Module):
     use_skips: bool
     layers: list
     gamma: float
-    
+
     def __init__(
             self,
             key,
@@ -143,15 +143,22 @@ class MLP(eqx.Module):
             act_fn_l = nn.Identity() if i == 0 else jpc.get_act_fn(act_fn)
             _in = d_in if i == 0 else N
             _out = d_out if (i + 1) == L else N
+            linear = nn.Linear(
+                _in,
+                _out,
+                use_bias=use_bias,
+                key=keys[i]
+            )
+            # µPC applies explicit forward scalings, so weights must be N(0, 1)
+            # (same convention as jpc.make_mlp). Equinox's default 1/sqrt(fan_in)
+            # init would otherwise double-scale and kill learning.
+            if param_type == "mupc":
+                W = jr.normal(keys[i], linear.weight.shape)
+                linear = eqx.tree_at(lambda l: l.weight, linear, W)
             layer = nn.Sequential(
                 [
                     nn.Lambda(act_fn_l),
-                    nn.Linear(
-                        _in,
-                        _out,
-                        use_bias=use_bias,
-                        key=keys[i]
-                    )
+                    linear,
                 ]
             )
             self.layers.append(layer)
