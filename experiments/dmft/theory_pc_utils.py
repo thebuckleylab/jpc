@@ -59,7 +59,7 @@ def make_pc_operators(
         (D_raw - beta_h S B) h + beta_h S Delta = beta_h S u_xi,
 
     which is algebraically identical to (F - S B) h + S Delta = S u_xi with
-    F = D_raw / beta_h, but keeps matrix entries O(1) instead of mixing
+    D = D_raw / beta_h, but keeps matrix entries O(1) instead of mixing
     O(1/beta_h) difference terms with O(1) feedback.
 
     S selects k=0,...,K-1 from a full state vector.
@@ -248,7 +248,7 @@ def solve_hidden_pc_layer(
         g = u_xi + B h,
 
     together with A Delta = h - u_chi and Delta_0 = 0, using the
-    beta_h-row-scaled block system (equivalent to F = D_raw / beta_h):
+    beta_h-row-scaled block system (equivalent to D = D_raw / beta_h):
 
         [-I,                         A] [h    ]   [-u_chi]
         [D_raw - beta_h S B,  beta_h S] [Delta] = [beta_h S u_xi]
@@ -367,7 +367,7 @@ def solve_pc_output_boundary(
         num_inference_steps,
         num_training_steps,
         num_samples,
-        eta * gamma / P,
+        eta / P,
     )
     A_top = I + Rh_last + P_top
 
@@ -547,7 +547,7 @@ def solve_pc_kernels(
     all_Rh = [jnp.zeros((n, n), dtype=dtype) for _ in range(depth)]
     all_Rdelta = [jnp.zeros((n, n), dtype=dtype) for _ in range(depth)]
 
-    eta_gamma = eta * gamma / P
+    eta_p = eta / P
     residual_history = []
     equation_history = []
     final_layers: List[Dict[str, Array]] = []
@@ -577,17 +577,17 @@ def solve_pc_kernels(
             Rh_minus = Rh0 if l == 0 else old_Rh[l - 1]
 
             if l == depth - 1:
-                Cdelta_plus = C_delta_top
-                Rdelta_plus = R_delta_top
+                Cdelta_plus = (gamma ** 2) * C_delta_top
+                Rdelta_plus = jnp.zeros_like(R_delta_top)
             else:
                 Cdelta_plus = old_Cdelta[l + 1]
                 Rdelta_plus = old_Rdelta[l + 1]
 
             P_op = make_endpoint_memory_operator(
-                Ch_minus, K, T, P, eta_gamma
+                Ch_minus, K, T, P, eta_p
             )
             Q_op = make_endpoint_memory_operator(
-                Cdelta_plus, K, T, P, eta_gamma
+                Cdelta_plus, K, T, P, eta_p
             )
 
             A = jnp.eye(n, dtype=dtype) + Rh_minus + P_op
