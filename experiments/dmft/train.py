@@ -312,8 +312,8 @@ if __name__ == "__main__":
     parser.add_argument("--n_seeds", type=int, default=1)
     parser.add_argument("--n_hiddens", type=int, nargs='+', default=[5])
     parser.add_argument("--widths", type=int, nargs='+',
-        # default=[8, 16, 32, 64, 128]  #256, 512, 1024, 2048
-        default=[128, 512, 2048] #, 8192]
+        # default=[8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192]
+        default=[128, 512] #, 2048] #, 8192]
     )
 
     # PC DMFT parameters
@@ -919,3 +919,17 @@ if __name__ == "__main__":
 
 # (To properly optimise for gamma 2 later)
 # CUDA_VISIBLE_DEVICES=1 python train.py --n_samples 5 --n_fixed_point_steps 100 --n_train_iters 20 --param_lr 0.05 --param_lr_pc 0.1 --activity_lrs 0.05 --n_infer_iters 10 --n_hiddens 3 --pc_damping 0.1 --gamma_0s 2
+
+
+############ NONLINEAR BELOW ###################
+################################################
+
+### EMPIRICS ONLY ###
+# CUDA_VISIBLE_DEVICES=1 python train.py --n_samples 2 --n_fixed_point_steps 10 --n_train_iters 10 --param_lr 0.2 --param_lr_pc 0.5 --activity_lrs 0.05 --n_infer_iters 5 --n_hiddens 3 --pc_damping 1.0 --gamma_0s 1 --act_fn tanh --skip_theory
+
+# Optimised
+# CUDA_VISIBLE_DEVICES=1 python train.py --n_samples 20 --n_fixed_point_steps 10 --n_train_iters 50 --param_lr 2.0 --param_lr_pc 20.0 --activity_lrs 0.2 --n_infer_iters 20 --n_hiddens 5 --pc_damping 1.0 --gamma_0s 1 --act_fn tanh --skip_theory
+
+# For comparing with DMFT (Use 1 for main expt, use 2 to test)
+# CUDA_VISIBLE_DEVICES=1 python train.py --n_samples 5 --n_fixed_point_steps 10 --n_train_iters 10 --param_lr 0.5 --param_lr_pc 5.0 --activity_lrs 0.2 --n_infer_iters 10 --n_hiddens 5 --pc_damping 1.0 --gamma_0s 1 --act_fn tanh --skip_theory
+# CUDA_VISIBLE_DEVICES=1 python train.py --n_samples 3 --n_fixed_point_steps 10 --n_train_iters 10 --param_lr 0.5 --param_lr_pc 2.0 --activity_lrs 0.2 --n_infer_iters 5 --n_hiddens 3 --pc_damping 1.0 --gamma_0s 1 --act_fn tanh --skip_theory
