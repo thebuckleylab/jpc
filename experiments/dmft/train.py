@@ -320,6 +320,17 @@ if __name__ == "__main__":
     parser.add_argument("--pc_damping", type=float, default=1.0)
     parser.add_argument("--pc_tolerance", type=float, default=1e-5)
     parser.add_argument(
+        "--pc_backend",
+        type=str,
+        default="optimised",
+        choices=["optimised", "reference"],
+        help=(
+            "PC DMFT linear solver: 'optimised' (default, reduced Delta "
+            "system + jitted Jacobi sweep) or 'reference' (full 2n x 2n "
+            "block system; slower, for debugging)."
+        ),
+    )
+    parser.add_argument(
         "--skip_theory",
         action="store_true",
         default=False,
@@ -569,6 +580,7 @@ if __name__ == "__main__":
                                     num_fixed_point_steps=args.n_fixed_point_steps,
                                     damping=args.pc_damping,
                                     tolerance=args.pc_tolerance,
+                                    backend=args.pc_backend,
                                 )
                                 print(
                                     "\t\t\t\t\tPC fixed-point residual = "
