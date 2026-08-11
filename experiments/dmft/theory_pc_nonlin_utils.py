@@ -383,7 +383,7 @@ def make_hidden_pc_nonlin_layer_solver(
     return layer_solver
 
 
-def solve_pc_nonlin_kernels(
+def solve_pc_kernels_nonlin(
     Kx: Array,
     y: Array,
     depth: int,

@@ -66,7 +66,11 @@ def plot_H_kernels(all_H, plots_dir, gamma_0=None):
 
 
 def plot_G_kernels(all_G, plots_dir, gamma_0=None):
-    """Plot G kernels for each layer."""
+    """Plot G kernels for each layer.
+
+    Linear DMFT stores ``G`` as ``(T, T)``; nonlinear DMFT stores
+    ``(T, P, T, P)``, in which case the final-time sample-sample block is shown.
+    """
     all_G = _to_numpy(all_G)
     n_layers = len(all_G)
     _warn_if_nonfinite("all_G", np.stack([np.asarray(G) for G in all_G]))
@@ -76,7 +80,10 @@ def plot_G_kernels(all_G, plots_dir, gamma_0=None):
     )
     for l, G_l in enumerate(all_G):
         ax = axes[l, 0]
-        ax.imshow(np.asarray(G_l), cmap="coolwarm")
+        G_arr = np.asarray(G_l)
+        if G_arr.ndim == 4:
+            G_arr = G_arr[-1, :, -1, :]
+        ax.imshow(G_arr, cmap="coolwarm")
         if l == 0:
             ax.set_ylabel("Theory")
         ax.set_xticks([])

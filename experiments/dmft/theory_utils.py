@@ -12,6 +12,9 @@ import numpy as np
 import sys
 
 
+########## Code for linear DMFT ##########
+##########################################
+
 
 def get_Delta(all_H, all_G, Kx, y, eta):
     T, P = all_H[0].shape[0], all_H[0].shape[1]
@@ -111,6 +114,11 @@ def solve_kernels(Kx, y, depth, eta, gamma, sigma=1.0, T=100, num_steps=10):
     return all_H, all_G, all_A, all_B
 
 
+
+########## Code for nonlinear DMFT ##########
+#############################################
+
+
 def solve_Delta(Kx, y, all_Phi, all_G, eta):
     T = all_Phi[0].shape[0]
     P = all_Phi[0].shape[1]
@@ -137,8 +145,10 @@ def draw_nonlin_samples_init(H, func, key, samples):
     phi = func(h)
     return phi @ phi.T / samples
 
+
 # computes kernels at init
 def initialize_kernels_sampling(Kx, depth, T, nonlin_fn, dnonlin_fn, samples = 1000):
+    P = Kx.shape[0]
     H = Kx * 1.0
     all_Phi = []
     key = random.PRNGKey(0)
@@ -180,7 +190,7 @@ def initialize_kernels_sampling(Kx, depth, T, nonlin_fn, dnonlin_fn, samples = 1
 def solve_self_consistent_four_vars(Phi_minus, G_plus, A, B, Delta, t, r, nonlin_fn, dnonlin_fn, eta_gam, num_step = 500):
     h = t * 1.0
     z = r * 1.0
-    P = Phi_minus.shape[1]
+    T, P = Phi_minus.shape[0], Phi_minus.shape[1]
     
     causal_tt = jnp.tril( jnp.ones((T,T)), k=-1 )
     Phi_tril = jnp.einsum('ijkl,ik->ijkl', Phi_minus, causal_tt)
@@ -218,7 +228,7 @@ def solve_self_consistent_four_vars(Phi_minus, G_plus, A, B, Delta, t, r, nonlin
 # takes in h, z which solve fixed point equations above 
 # and calculates < dphi / dr > and < dg / du > for A, B 
 def solve_jacobians_batched(Phi_minus, G_plus, A, B, Delta, h, z, nonlin_fn, dnonlin_fn, ddnonlin_fn, eta_gam, num_step = 30):
-    P = Phi_minus.shape[1]
+    T, P = Phi_minus.shape[0], Phi_minus.shape[1]
     causal_tt = jnp.tril( jnp.ones((T,T)), k=-1 )
     Phi_tril = jnp.einsum('ijkl,ik->ijkl', Phi_minus, causal_tt)
     C = eta_gam / P * jnp.einsum('ijkl,kl->ijkl', Phi_tril, Delta) + A 
@@ -286,7 +296,7 @@ def solve_jacobians_batched(Phi_minus, G_plus, A, B, Delta, h, z, nonlin_fn, dno
 # need MCMC for layer 1, layers 1< l < L and layer L
 # for layer 1, chi does not need to be resampled. For layer L, xi does not need to be resample
 
-def DMFT_Theory_Cross_Term(Kx, y, depth=3, T=100, eta = 0.01, gamma=1.0, num_iter=15, samples = 1000, alpha = 0.8, nonlin = 'softplus', beta = 1.0):
+def solve_kernels_nonlin(Kx, y, depth=3, T=100, eta = 0.01, gamma=1.0, num_iter=15, samples = 1000, damping = 0.8, nonlin = 'softplus', beta = 1.0):
     P = Kx.shape[0]
     # initialize kernels
     #if nonlin == 'tanh':
@@ -414,11 +424,10 @@ def DMFT_Theory_Cross_Term(Kx, y, depth=3, T=100, eta = 0.01, gamma=1.0, num_ite
         #for l, V1l in enumerate(new_V1):
         #    print(jnp.mean((V1l - new_V2[l])**2))
         
-        all_Phi = [alpha*new_Phi[l] + (1-alpha) * all_Phi[l] for l in range(depth)]
-        all_G  = [alpha*new_G[l] + (1-alpha) * all_G[l] for l in range(depth)]
-        alpha_AB = alpha
-        all_A = [alpha_AB * all_A[l] + (1-alpha_AB) * A for l, A in enumerate(new_A)]
-        all_B = [alpha_AB * all_B[l] + (1-alpha_AB)* B for l,B in enumerate(new_B)] 
+        all_Phi = [damping*new_Phi[l] + (1-damping) * all_Phi[l] for l in range(depth)]
+        all_G  = [damping*new_G[l] + (1-damping) * all_G[l] for l in range(depth)]
+        all_A = [damping * all_A[l] + (1-damping) * A for l, A in enumerate(new_A)]
+        all_B = [damping * all_B[l] + (1-damping)* B for l,B in enumerate(new_B)] 
 
         
     return all_Phi, all_G, all_A, all_B
