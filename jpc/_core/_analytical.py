@@ -65,6 +65,7 @@ def _compute_linear_equilib_rescaling(
             S += (cumulative_scaling ** 2) * (
                 cumulative_prod @ cumulative_prod.T
             )
+            # Remember to add multiplier for depth for output energy and hidden energies
 
     return S
 
