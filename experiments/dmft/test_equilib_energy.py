@@ -12,7 +12,7 @@ import jpc
 import optax
 from experiments.limits_paper.utils import MLP, flatten_grads
 
-  
+
 def compute_cosine_similarity(a, b):
     a = jnp.asarray(a).reshape(-1)
     b = jnp.asarray(b).reshape(-1)
@@ -99,16 +99,6 @@ def main(args):
         activity_opt_state = activity_update_result["opt_state"]
         numerical_energy = activity_update_result["energy"]
 
-    theory_energy_from_loss = bp_loss / float(
-        jpc.compute_linear_equilib_rescaling(
-            params,
-            x,
-            param_type=args.param_type,
-            gamma=args.gamma,
-            output_energy_scaling=output_energy_scaling,
-        )[0, 0]
-    )
-
     S = jpc.compute_linear_equilib_rescaling(
         params,
         x,
@@ -116,11 +106,11 @@ def main(args):
         gamma=args.gamma,
         output_energy_scaling=output_energy_scaling,
     )
+    rescaling = float(S[0, 0])
     # print(f"S[0,0]:                   {float(S[0, 0]):.8e}")
     # print(f"1/output_energy_scaling: {1.0 / (output_energy_scaling/2):.8e}")
     # print(f"ratio S/(1/lambda):       {float(S[0, 0] * (output_energy_scaling/2)):.8f}")
-    # theory_energy_from_loss = bp_loss / S[0, 0]
-
+    theory_energy_from_loss = bp_loss / rescaling
     rel_err = jnp.abs(theory_energy - numerical_energy) / (
         jnp.abs(theory_energy) + 1e-8
     )
@@ -174,6 +164,8 @@ def main(args):
     ):
         raise SystemExit("Theory and numerical energies do not match.")
 
+    return rescaling
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -193,7 +185,7 @@ if __name__ == "__main__":
     parser.add_argument("--n_infer_iters", type=int, default=50)
 
     # Loop parameters
-    parser.add_argument("--widths", type=int, nargs="+", default=[1024])
+    parser.add_argument("--widths", type=int, nargs="+", default=[32, 64, 128, 256, 512, 1024])
 
     # Tolerance parameters
     parser.add_argument("--rtol", type=float, default=1e-2)
