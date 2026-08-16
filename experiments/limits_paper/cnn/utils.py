@@ -11,7 +11,6 @@ import torch
 import equinox as eqx
 
 from experiments.datasets import get_dataloaders, get_tinyimagenet_loaders
-from experiments.limits_paper.cnn.model import ScaledConv2d
 
 
 def flatten_grads_per_layer_cnn(model, grads):
@@ -275,6 +274,38 @@ def setup_theory_experiment(args):
     )
 
 
+def _import_hf_load_dataset():
+    """Import Hugging Face ``load_dataset``, skipping a local ``datasets/`` data dir.
+
+    This repo keeps downloaded files in ``<root>/datasets`` (e.g. MNIST). Because
+    the project root is on ``sys.path``, that folder becomes a namespace package
+    named ``datasets`` and shadows ``pip install datasets``.
+    """
+    import sys
+
+    stale = sys.modules.get("datasets")
+    if stale is not None and not hasattr(stale, "load_dataset"):
+        del sys.modules["datasets"]
+        for name in list(sys.modules):
+            if name.startswith("datasets."):
+                del sys.modules[name]
+
+    def _is_local_data_dir(path_entry: str) -> bool:
+        root = path_entry if path_entry else os.getcwd()
+        datasets_dir = os.path.join(root, "datasets")
+        return os.path.isdir(datasets_dir) and not os.path.isfile(
+            os.path.join(datasets_dir, "__init__.py")
+        )
+
+    old_path = sys.path[:]
+    try:
+        sys.path = [p for p in sys.path if not _is_local_data_dir(p)]
+        from datasets import load_dataset
+        return load_dataset
+    finally:
+        sys.path[:] = old_path
+
+
 def load_imagenet_batch(batch_size: int, seed: int | None = None, n_examples: int = 1000):
     """
     Load a single fixed ImageNet batch via Hugging Face streaming.
@@ -284,11 +315,12 @@ def load_imagenet_batch(batch_size: int, seed: int | None = None, n_examples: in
     `batch_size` is selected (seeded).
     """
     try:
-        from datasets import load_dataset
+        load_dataset = _import_hf_load_dataset()
     except Exception as e:  # pragma: no cover
         raise ImportError(
             "Failed to import `datasets.load_dataset`. "
-            "Make sure Hugging Face `datasets` is installed and not shadowed."
+            "Make sure Hugging Face `datasets` is installed and not shadowed "
+            "by the repo-local `datasets/` data directory."
         ) from e
 
     try:
