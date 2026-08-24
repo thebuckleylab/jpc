@@ -1,14 +1,14 @@
 """High-level API to train neural networks with predictive coding."""
 
+from typing import Callable, Dict, Optional, Tuple
+
 import equinox as eqx
+from diffrax import AbstractSolver, AbstractStepSizeController, Heun, PIDController
+from jax.numpy import array, mean
 from jax.tree_util import tree_map
-from jax.numpy import mean, array
-from diffrax import (
-    AbstractSolver,
-    AbstractStepSizeController,
-    Heun,
-    PIDController
-)
+from jaxtyping import ArrayLike, PRNGKeyArray, PyTree, Scalar
+from optax import GradientTransformation, GradientTransformationExtraArgs, OptState
+
 from ._core import (
     _check_param_type,
     compute_hpc_param_grads,
@@ -29,42 +29,39 @@ from ._utils import (
     get_t_max,
     mse_loss,
 )
-from optax import GradientTransformation, GradientTransformationExtraArgs, OptState
-from jaxtyping import PyTree, ArrayLike, Scalar, PRNGKeyArray
-from typing import Callable, Optional, Tuple, Dict
 
 
 @eqx.filter_jit
 def make_pc_step(
-      model: PyTree[Callable],
-      optim: GradientTransformation | GradientTransformationExtraArgs,
-      opt_state: OptState,
-      output: ArrayLike,
-      *,
-      input: Optional[ArrayLike] = None,
-      loss_id: str = "mse",
-      param_type: str = "sp",
-      ode_solver: AbstractSolver = Heun(),
-      max_t1: int = 20,
-      dt: Scalar | int = None,
-      stepsize_controller: AbstractStepSizeController = PIDController(
-          rtol=1e-3, atol=1e-3
-      ),
-      skip_model: Optional[PyTree[Callable]] = None,
-      weight_decay: Scalar = 0.,
-      spectral_penalty: Scalar = 0.,
-      activity_decay: Scalar = 0.,
-      key: Optional[PRNGKeyArray] = None,
-      layer_sizes: Optional[PyTree[int]] = None,
-      batch_size: Optional[int] = None,
-      sigma: Scalar = 0.05,
-      record_activities: bool = False,
-      record_energies: bool = False,
-      record_every: int = None,
-      activity_norms: bool = False,
-      param_norms: bool = False,
-      grad_norms: bool = False,
-      calculate_accuracy: bool = False
+    model: PyTree[Callable],
+    optim: GradientTransformation | GradientTransformationExtraArgs,
+    opt_state: OptState,
+    output: ArrayLike,
+    *,
+    input: Optional[ArrayLike] = None,
+    loss_id: str = "mse",
+    param_type: str = "sp",
+    ode_solver: AbstractSolver = Heun(),
+    max_t1: int = 20,
+    dt: Scalar | int = None,
+    stepsize_controller: AbstractStepSizeController = PIDController(
+        rtol=1e-3, atol=1e-3
+    ),
+    skip_model: Optional[PyTree[Callable]] = None,
+    weight_decay: Scalar = 0.0,
+    spectral_penalty: Scalar = 0.0,
+    activity_decay: Scalar = 0.0,
+    key: Optional[PRNGKeyArray] = None,
+    layer_sizes: Optional[PyTree[int]] = None,
+    batch_size: Optional[int] = None,
+    sigma: Scalar = 0.05,
+    record_activities: bool = False,
+    record_energies: bool = False,
+    record_every: int = None,
+    activity_norms: bool = False,
+    param_norms: bool = False,
+    grad_norms: bool = False,
+    calculate_accuracy: bool = False,
 ) -> Dict:
     """Performs one model parameter update with predictive coding.
 
@@ -77,34 +74,34 @@ def make_pc_step(
 
     !!! note
 
-        `key`, `layer_sizes` and `batch_size` must be passed if `input = None`, 
-        since unsupervised training will be assumed and activities need to be 
+        `key`, `layer_sizes` and `batch_size` must be passed if `input = None`,
+        since unsupervised training will be assumed and activities need to be
         initialised randomly.
 
     **Other arguments:**
 
     - `input`: Optional prior of the generative model.
-    - `loss_id`: Loss function to use at the output layer. Options are mean squared 
+    - `loss_id`: Loss function to use at the output layer. Options are mean squared
         error `"mse"` (default) or cross-entropy `"ce"`.
-    - `param_type`: Determines the parameterisation. Options are `"sp"` 
-        (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
-        or `"ntp"` (neural tangent parameterisation). 
-        See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
+    - `param_type`: Determines the parameterisation. Options are `"sp"`
+        (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))),
+        or `"ntp"` (neural tangent parameterisation).
+        See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings)
         for the specific scalings of these different parameterisations. Defaults
         to `"sp"`.
-    - `ode_solver`: [diffrax ODE solver](https://docs.kidger.site/diffrax/api/solvers/ode_solvers/) 
-        to be used. Default is [`Heun`](https://docs.kidger.site/diffrax/api/solvers/ode_solvers/#diffrax.Heun), 
+    - `ode_solver`: [diffrax ODE solver](https://docs.kidger.site/diffrax/api/solvers/ode_solvers/)
+        to be used. Default is [`Heun`](https://docs.kidger.site/diffrax/api/solvers/ode_solvers/#diffrax.Heun),
         a 2nd order explicit Runge--Kutta method.
     - `max_t1`: Maximum end of integration region (20 by default).
     - `dt`: Integration step size. Defaults to `None` since the default
         `stepsize_controller` will automatically determine it.
-    - `stepsize_controller`: [diffrax controller](https://docs.kidger.site/diffrax/api/stepsize_controller/) 
-        for step size integration. Defaults to [`PIDController`](https://docs.kidger.site/diffrax/api/stepsize_controller/#diffrax.PIDController). 
-        Note that the relative and absolute tolerances of the controller will 
+    - `stepsize_controller`: [diffrax controller](https://docs.kidger.site/diffrax/api/stepsize_controller/)
+        for step size integration. Defaults to [`PIDController`](https://docs.kidger.site/diffrax/api/stepsize_controller/#diffrax.PIDController).
+        Note that the relative and absolute tolerances of the controller will
         also determine the steady state to terminate the solver.
     - `skip_model`: Optional list of callable skip connection functions.
     - `weight_decay`: Weight decay for the weights (0 by default).
-    - `spectral_penalty`: Weight spectral penalty of the form 
+    - `spectral_penalty`: Weight spectral penalty of the form
         $||\mathbf{I} - \mathbf{W}_\ell^T \mathbf{W}_\ell||^2$ (0 by default).
     - `activity_decay`: Activity decay for the activities (0 by default).
     - `key`: `jax.random.PRNGKey` for random initialisation of activities.
@@ -125,8 +122,8 @@ def make_pc_step(
 
     **Returns:**
 
-    Dict including model (and optional skip model) with updated parameters, 
-    updated optimiser state, loss, energies, activities, and optionally other 
+    Dict including model (and optional skip model) with updated parameters,
+    updated optimiser state, loss, energies, activities, and optionally other
     metrics (see other args above).
 
     **Raises:**
@@ -145,17 +142,18 @@ def make_pc_step(
     if record_energies:
         record_activities = True
 
-    activities = init_activities_from_normal(
-        key=key,
-        layer_sizes=layer_sizes,
-        mode="unsupervised",
-        batch_size=batch_size,
-        sigma=sigma
-    ) if input is None else init_activities_with_ffwd(
-        model=model,
-        input=input,
-        skip_model=skip_model,
-        param_type=param_type
+    activities = (
+        init_activities_from_normal(
+            key=key,
+            layer_sizes=layer_sizes,
+            mode="unsupervised",
+            batch_size=batch_size,
+            sigma=sigma,
+        )
+        if input is None
+        else init_activities_with_ffwd(
+            model=model, input=input, skip_model=skip_model, param_type=param_type
+        )
     )
 
     if loss_id == "mse":
@@ -180,49 +178,55 @@ def make_pc_step(
         spectral_penalty=spectral_penalty,
         activity_decay=activity_decay,
         record_iters=record_activities,
-        record_every=record_every
+        record_every=record_every,
     )
     t_max = get_t_max(equilib_activities) if record_activities else 0
-    activity_norms = (compute_activity_norms(
-        activities=tree_map(
-            lambda act: act[t_max], equilib_activities
+    activity_norms = (
+        compute_activity_norms(
+            activities=tree_map(lambda act: act[t_max], equilib_activities)
         )
-    ) if activity_norms else None)
-    energies = compute_infer_energies(
-        params=(model, skip_model),
-        activities_iters=equilib_activities,
-        t_max=t_max,
-        y=output,
-        x=input,
-        loss=loss_id,
-        param_type=param_type,
-        weight_decay=weight_decay,
-        spectral_penalty=spectral_penalty,
-        activity_decay=activity_decay
-    ) if record_energies else pc_energy_fn(
-        params=(model, skip_model),
-        activities=tree_map(
-            lambda act: act[t_max if record_activities else array(0)],
-            equilib_activities
-        ),
-        y=output,
-        x=input,
-        loss=loss_id,
-        param_type=param_type,
-        weight_decay=weight_decay,
-        spectral_penalty=spectral_penalty,
-        activity_decay=activity_decay,
-        record_layers=True
+        if activity_norms
+        else None
+    )
+    energies = (
+        compute_infer_energies(
+            params=(model, skip_model),
+            activities_iters=equilib_activities,
+            t_max=t_max,
+            y=output,
+            x=input,
+            loss=loss_id,
+            param_type=param_type,
+            weight_decay=weight_decay,
+            spectral_penalty=spectral_penalty,
+            activity_decay=activity_decay,
+        )
+        if record_energies
+        else pc_energy_fn(
+            params=(model, skip_model),
+            activities=tree_map(
+                lambda act: act[t_max if record_activities else array(0)],
+                equilib_activities,
+            ),
+            y=output,
+            x=input,
+            loss=loss_id,
+            param_type=param_type,
+            weight_decay=weight_decay,
+            spectral_penalty=spectral_penalty,
+            activity_decay=activity_decay,
+            record_layers=True,
+        )
     )
 
-    param_norms = compute_param_norms(
-        (model, skip_model)
-    ) if param_norms else (None, None)
+    param_norms = (
+        compute_param_norms((model, skip_model)) if param_norms else (None, None)
+    )
     param_grads = compute_pc_param_grads(
         params=(model, skip_model),
         activities=tree_map(
             lambda act: act[t_max if record_activities else array(0)],
-            equilib_activities
+            equilib_activities,
         ),
         y=output,
         x=input,
@@ -230,27 +234,23 @@ def make_pc_step(
         param_type=param_type,
         weight_decay=weight_decay,
         spectral_penalty=spectral_penalty,
-        activity_decay=activity_decay
+        activity_decay=activity_decay,
     )
     grad_norms = compute_param_norms(param_grads) if grad_norms else (None, None)
     updates, opt_state = optim.update(
-        updates=param_grads,
-        state=opt_state,
-        params=(model, skip_model)
+        updates=param_grads, state=opt_state, params=(model, skip_model)
     )
-    model, skip_model = eqx.apply_updates(
-        model=(model, skip_model),
-        updates=updates
+    model, skip_model = eqx.apply_updates(model=(model, skip_model), updates=updates)
+    acc = (
+        compute_accuracy(
+            output,
+            init_activities_with_ffwd(
+                model=model, input=input, skip_model=skip_model, param_type=param_type
+            )[-1],
+        )
+        if calculate_accuracy
+        else None
     )
-    acc = compute_accuracy(
-        output,
-        init_activities_with_ffwd(
-            model=model,
-            input=input,
-            skip_model=skip_model,
-            param_type=param_type
-        )[-1]
-    ) if calculate_accuracy else None
 
     return {
         "model": model,
@@ -265,29 +265,29 @@ def make_pc_step(
         "model_param_norms": param_norms[0],
         "skip_model_param_norms": param_norms[1],
         "model_grad_norms": grad_norms[0],
-        "skip_model_grad_norms": grad_norms[1]
+        "skip_model_grad_norms": grad_norms[1],
     }
 
 
 @eqx.filter_jit
 def make_hpc_step(
-      generator: PyTree[Callable],
-      amortiser: PyTree[Callable],
-      optims: Tuple[GradientTransformationExtraArgs],
-      opt_states: Tuple[OptState],
-      output: ArrayLike,
-      *,
-      input: Optional[ArrayLike] = None,
-      ode_solver: AbstractSolver = Heun(),
-      max_t1: int = 300,
-      dt: Scalar | int = None,
-      stepsize_controller: AbstractStepSizeController = PIDController(
-          rtol=1e-3, atol=1e-3
-      ),
-      record_activities: bool = False,
-      record_energies: bool = False
+    generator: PyTree[Callable],
+    amortiser: PyTree[Callable],
+    optims: Tuple[GradientTransformationExtraArgs],
+    opt_states: Tuple[OptState],
+    output: ArrayLike,
+    *,
+    input: Optional[ArrayLike] = None,
+    ode_solver: AbstractSolver = Heun(),
+    max_t1: int = 300,
+    dt: Scalar | int = None,
+    stepsize_controller: AbstractStepSizeController = PIDController(
+        rtol=1e-3, atol=1e-3
+    ),
+    record_activities: bool = False,
+    record_energies: bool = False,
 ) -> Dict:
-    """Performs one update of the parameters of a hybrid predictive coding 
+    """Performs one update of the parameters of a hybrid predictive coding
     network ([Tscshantz et al., 2023](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1011280)).
 
     ??? cite "Reference"
@@ -322,15 +322,15 @@ def make_hpc_step(
 
     **Other arguments:**
 
-    - `ode_solver`: [diffrax ODE solver](https://docs.kidger.site/diffrax/api/solvers/ode_solvers/) 
-        to be used. Default is [`Heun`](https://docs.kidger.site/diffrax/api/solvers/ode_solvers/#diffrax.Heun), 
+    - `ode_solver`: [diffrax ODE solver](https://docs.kidger.site/diffrax/api/solvers/ode_solvers/)
+        to be used. Default is [`Heun`](https://docs.kidger.site/diffrax/api/solvers/ode_solvers/#diffrax.Heun),
         a 2nd order explicit Runge--Kutta method.
     - `max_t1`: Maximum end of integration region (300 by default).
     - `dt`: Integration step size. Defaults to `None` since the default
         `stepsize_controller` will automatically determine it.
-    - `stepsize_controller`: [diffrax controller](https://docs.kidger.site/diffrax/api/stepsize_controller/) 
-        for step size integration. Defaults to [`PIDController`](https://docs.kidger.site/diffrax/api/stepsize_controller/#diffrax.PIDController). 
-        Note that the relative and absolute tolerances of the controller will 
+    - `stepsize_controller`: [diffrax controller](https://docs.kidger.site/diffrax/api/stepsize_controller/)
+        for step size integration. Defaults to [`PIDController`](https://docs.kidger.site/diffrax/api/stepsize_controller/#diffrax.PIDController).
+        Note that the relative and absolute tolerances of the controller will
         also determine the steady state to terminate the solver.
     - `record_activities`: If `True`, returns activities at every inference
         iteration.
@@ -339,7 +339,7 @@ def make_hpc_step(
 
     **Returns:**
 
-    Dict including models with updated parameters, optimiser state for each 
+    Dict including models with updated parameters, optimiser state for each
     model, model activities, last inference step for the generator, MSE losses,
     and energies.
 
@@ -353,18 +353,14 @@ def make_hpc_step(
 
     if input is not None:
         gen_activities = init_activities_with_ffwd(
-            model=generator,
-            input=input,
-            skip_model=None
+            model=generator, input=input, skip_model=None
         )
         gen_loss = mean((output - gen_activities[-1]) ** 2)
     else:
         gen_loss = None
 
     amort_activities = init_activities_with_amort(
-        amortiser=amortiser,
-        generator=generator,
-        input=output
+        amortiser=amortiser, generator=generator, input=output
     )
     equilib_activities = solve_inference(
         params=gen_params,
@@ -375,60 +371,66 @@ def make_hpc_step(
         max_t1=max_t1,
         dt=dt,
         stepsize_controller=stepsize_controller,
-        record_iters=record_activities
+        record_iters=record_activities,
     )
     t_max = get_t_max(equilib_activities) if record_activities else None
 
-    gen_energies = compute_infer_energies(
-        params=gen_params,
-        activities_iters=equilib_activities,
-        t_max=t_max,
-        y=output,
-        x=input
-    ) if record_energies else None
+    gen_energies = (
+        compute_infer_energies(
+            params=gen_params,
+            activities_iters=equilib_activities,
+            t_max=t_max,
+            y=output,
+            x=input,
+        )
+        if record_energies
+        else None
+    )
     # remove dummy target prediction of the generator
     equilib_activities_for_amort = tree_map(
         lambda act: act[t_max if record_activities else array(0)],
-        equilib_activities[::-1][1:]
+        equilib_activities[::-1][1:],
     )
-    amort_loss = mean((input - amort_activities[0]) ** 2) if (
-        input is not None
-    ) else mean((equilib_activities_for_amort[-1] - amort_activities[0]) ** 2)
+    amort_loss = (
+        mean((input - amort_activities[0]) ** 2)
+        if (input is not None)
+        else mean((equilib_activities_for_amort[-1] - amort_activities[0]) ** 2)
+    )
 
-    amort_energies = hpc_energy_fn(
-        model=amortiser,
-        equilib_activities=equilib_activities_for_amort,
-        amort_activities=amort_activities,
-        x=output,
-        y=input
-    ) if record_energies else None
+    amort_energies = (
+        hpc_energy_fn(
+            model=amortiser,
+            equilib_activities=equilib_activities_for_amort,
+            amort_activities=amort_activities,
+            x=output,
+            y=input,
+        )
+        if record_energies
+        else None
+    )
 
     gen_param_grads = compute_pc_param_grads(
         params=gen_params,
         activities=tree_map(
             lambda act: act[t_max if record_activities else array(0)],
-            equilib_activities
+            equilib_activities,
         ),
         x=input,
-        y=output
+        y=output,
     )
     amort_param_grads = compute_hpc_param_grads(
         model=amortiser,
         equilib_activities=equilib_activities_for_amort,
         amort_activities=amort_activities,
         x=output,
-        y=input
+        y=input,
     )
 
     gen_updates, gen_opt_state = gen_optim.update(
-        updates=gen_param_grads,
-        state=gen_opt_state,
-        params=gen_params
+        updates=gen_param_grads, state=gen_opt_state, params=gen_params
     )
     amort_updates, amort_opt_state = amort_optim.update(
-        updates=amort_param_grads,
-        state=amort_opt_state,
-        params=amortiser
+        updates=amort_param_grads, state=amort_opt_state, params=amortiser
     )
     updated_generator = eqx.apply_updates(model=gen_params, updates=gen_updates)
     updated_amortiser = eqx.apply_updates(model=amortiser, updates=amort_updates)
@@ -439,5 +441,5 @@ def make_hpc_step(
         "activities": (amort_activities, equilib_activities),
         "t_max": t_max,
         "losses": (gen_loss, amort_loss),
-        "energies": (gen_energies, amort_energies)
+        "energies": (gen_energies, amort_energies),
     }

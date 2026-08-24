@@ -45,9 +45,7 @@ def plot_H_kernels(all_H, plots_dir, gamma_0=None):
     n_layers = len(all_H)
     _warn_if_nonfinite("all_H", np.stack([np.asarray(H) for H in all_H]))
 
-    fig, axes = plt.subplots(
-        n_layers, 1, figsize=(6, 2 * n_layers), squeeze=False
-    )
+    fig, axes = plt.subplots(n_layers, 1, figsize=(6, 2 * n_layers), squeeze=False)
     for l, H_l in enumerate(all_H):
         ax = axes[l, 0]
         kernel = np.asarray(H_l[-1, :, -1, :])
@@ -75,9 +73,7 @@ def plot_G_kernels(all_G, plots_dir, gamma_0=None):
     n_layers = len(all_G)
     _warn_if_nonfinite("all_G", np.stack([np.asarray(G) for G in all_G]))
 
-    fig, axes = plt.subplots(
-        n_layers, 1, figsize=(6, 2 * n_layers), squeeze=False
-    )
+    fig, axes = plt.subplots(n_layers, 1, figsize=(6, 2 * n_layers), squeeze=False)
     for l, G_l in enumerate(all_G):
         ax = axes[l, 0]
         G_arr = np.asarray(G_l)
@@ -152,9 +148,7 @@ def plot_pc_layer_kernels(
         np.stack([np.asarray(k) for k in kernels]),
     )
 
-    fig, axes = plt.subplots(
-        n_layers, 1, figsize=(6, 2 * n_layers), squeeze=False
-    )
+    fig, axes = plt.subplots(n_layers, 1, figsize=(6, 2 * n_layers), squeeze=False)
     for l, cov_l in enumerate(kernels):
         ax = axes[l, 0]
         kernel = _initial_sample_kernel(
@@ -402,6 +396,7 @@ def plot_bp_theory_vs_finite_loss(
     print(f"BP loss plot saved to {save_path}")
     return save_path
 
+
 def plot_grad_cosine_similarities(
     similarities_by_width,
     plots_dir,
@@ -445,8 +440,10 @@ def plot_grad_cosine_similarities(
             label=f"width={width}",
         )
     plt.xlabel("$t$")
-    plt.ylabel(r"$\cos(\nabla_{\theta}\mathcal{L}_{\mathrm{BP}}, "
-               r"\nabla_{\theta}\mathcal{F}^*_{\mathrm{PC}})$")
+    plt.ylabel(
+        r"$\cos(\nabla_{\theta}\mathcal{L}_{\mathrm{BP}}, "
+        r"\nabla_{\theta}\mathcal{F}^*_{\mathrm{PC}})$"
+    )
     title = "PC–BP gradient cosine similarity"
     if gamma_0 is not None:
         title += f", $\\gamma_0={gamma_0}$"
@@ -467,12 +464,8 @@ def plot_grad_cosine_similarities(
 def load_and_plot(results_dir, gamma_0, plots_dir=None, n_hidden=None):
     """Load saved DMFT results from results_dir and generate plots."""
     suffix = f"{gamma_0}_gamma_0"
-    all_H = np.load(
-        os.path.join(results_dir, f"all_H_{suffix}.npy"), allow_pickle=True
-    )
-    all_G = np.load(
-        os.path.join(results_dir, f"all_G_{suffix}.npy"), allow_pickle=True
-    )
+    all_H = np.load(os.path.join(results_dir, f"all_H_{suffix}.npy"), allow_pickle=True)
+    all_G = np.load(os.path.join(results_dir, f"all_G_{suffix}.npy"), allow_pickle=True)
     dmft_loss = np.load(
         os.path.join(results_dir, f"dmft_loss_{suffix}.npy"), allow_pickle=True
     )

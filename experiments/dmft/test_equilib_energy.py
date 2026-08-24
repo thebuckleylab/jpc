@@ -5,12 +5,11 @@ import argparse
 import equinox as eqx
 import jax.numpy as jnp
 import jax.random as jr
-from jax import vmap
-from jax.tree_util import tree_map
-
 import jpc
 import optax
-from experiments.limits_paper.utils import MLP, flatten_grads
+from experiments.limits_paper.utils import flatten_grads, MLP
+from jax import vmap
+from jax.tree_util import tree_map
 
 
 def compute_cosine_similarity(a, b):
@@ -64,17 +63,18 @@ def main(args):
     bp_loss = jpc.mse_loss(bp_preds, y_target)
 
     output_energy_scaling = (
-        args.gamma ** 2 * args.width # * args.depth 
-        if args.param_type == "mupc" else 1.0
+        args.gamma**2 * args.width  # * args.depth
+        if args.param_type == "mupc"
+        else 1.0
     )
 
     theory_energy = jpc.linear_equilib_energy(
-        params, 
-        x, 
-        y, 
+        params,
+        x,
+        y,
         param_type=args.param_type,
-        gamma=args.gamma, 
-        output_energy_scaling=output_energy_scaling
+        gamma=args.gamma,
+        output_energy_scaling=output_energy_scaling,
     )
     activities = jpc.init_activities_with_ffwd(
         model=model,
@@ -120,12 +120,12 @@ def main(args):
         return 0.5 * jnp.mean(jnp.sum((y_batch - y_pred) ** 2, axis=1))
 
     pc_grads_theory = jpc.compute_linear_equilib_energy_grads(
-        params, 
-        x, 
-        y, 
+        params,
+        x,
+        y,
         param_type=args.param_type,
-        gamma=args.gamma, 
-        output_energy_scaling=output_energy_scaling
+        gamma=args.gamma,
+        output_energy_scaling=output_energy_scaling,
     )
     pc_grads_numerical = jpc.compute_pc_param_grads(
         params=(model, None),
@@ -144,20 +144,25 @@ def main(args):
     bp_flat = flatten_grads(bp_grads)
     cos_sim_theory = compute_cosine_similarity(pc_theory_flat, bp_flat)
     cos_sim_numerical = compute_cosine_similarity(pc_numerical_flat, bp_flat)
-    cos_sim_pc_theory_numerical = compute_cosine_similarity(pc_theory_flat, pc_numerical_flat)
+    cos_sim_pc_theory_numerical = compute_cosine_similarity(
+        pc_theory_flat, pc_numerical_flat
+    )
 
-    print(f"width={args.width}, gamma={args.gamma}, param_type={args.param_type}, "
-          f"activity_lr={args.activity_lr}, output_energy_scaling={output_energy_scaling}")
+    print(
+        f"width={args.width}, gamma={args.gamma}, param_type={args.param_type}, "
+        f"activity_lr={args.activity_lr}, output_energy_scaling={output_energy_scaling}"
+    )
     print(f"theory energy:    {float(theory_energy):.8f}")
     print(f"numerical energy: {float(numerical_energy):.8f}")
     print(f"relative error:   {float(rel_err):.2e}")
     print(f"theory energy from loss: {float(theory_energy_from_loss):.8f}")
     # print(f"bp loss:          {float(bp_loss*output_energy_scaling/2):.8f}")
-    print(f"bp loss:          {float(bp_loss/S[0, 0]):.8f}")
+    print(f"bp loss:          {float(bp_loss / S[0, 0]):.8f}")
     print(f"cos sim (theory PC grad, BP grad):    {cos_sim_theory:.6f}")
     print(f"cos sim (numerical PC grad, BP grad): {cos_sim_numerical:.6f}")
-    print(f"cos sim (theory PC grad, numerical PC grad): {cos_sim_pc_theory_numerical:.6f}")
-
+    print(
+        f"cos sim (theory PC grad, numerical PC grad): {cos_sim_pc_theory_numerical:.6f}"
+    )
 
     if not jnp.allclose(
         theory_energy, numerical_energy, rtol=args.rtol, atol=args.atol
@@ -173,7 +178,9 @@ if __name__ == "__main__":
     # Model parameters
     parser.add_argument("--input_dim", type=int, default=16)
     parser.add_argument("--depth", type=int, default=2)
-    parser.add_argument("--param_types", type=str, nargs="+", default=["mupc"], choices=["mupc", "sp"])
+    parser.add_argument(
+        "--param_types", type=str, nargs="+", default=["mupc"], choices=["mupc", "sp"]
+    )
 
     # Data parameters
     parser.add_argument("--batch_size", type=int, default=1)
@@ -185,7 +192,9 @@ if __name__ == "__main__":
     parser.add_argument("--n_infer_iters", type=int, default=50)
 
     # Loop parameters
-    parser.add_argument("--widths", type=int, nargs="+", default=[32, 64, 128, 256, 512, 1024])
+    parser.add_argument(
+        "--widths", type=int, nargs="+", default=[32, 64, 128, 256, 512, 1024]
+    )
 
     # Tolerance parameters
     parser.add_argument("--rtol", type=float, default=1e-2)

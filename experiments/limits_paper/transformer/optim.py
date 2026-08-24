@@ -1,7 +1,7 @@
+import equinox as eqx
 import jax
 import jax.numpy as jnp
 import jax.tree_util as jtu
-import equinox as eqx
 import optax
 import optax.tree
 from optax import EmptyState, ScaleByAdamState
@@ -116,9 +116,7 @@ def _scale_by_adam_eps_tree(
         mu_hat = optax.tree.bias_correction(mu, b1, count_inc)
         nu_hat = optax.tree.bias_correction(nu, b2, count_inc)
         new_updates = jax.tree.map(
-            lambda m, v, e: None
-            if m is None
-            else m / (jnp.sqrt(v + eps_root) + e),
+            lambda m, v, e: None if m is None else m / (jnp.sqrt(v + eps_root) + e),
             mu_hat,
             nu_hat,
             eps_tree,
@@ -245,7 +243,9 @@ def _build_mupc_lr_tree(model, param_lr, width):
     pieces = []
     pieces.append(jtu.tree_map(map_embed, eqx.filter(model.layers[0], eqx.is_array)))
     for i in range(1, len(model.layers) - 1):
-        pieces.append(jtu.tree_map(map_block, eqx.filter(model.layers[i], eqx.is_array)))
+        pieces.append(
+            jtu.tree_map(map_block, eqx.filter(model.layers[i], eqx.is_array))
+        )
     pieces.append(jtu.tree_map(map_lm_head, eqx.filter(model.layers[-1], eqx.is_array)))
 
     flat = []
@@ -282,7 +282,9 @@ def _build_mupc_wd_tree(model, weight_decay, width):
     pieces = []
     pieces.append(jtu.tree_map(map_embed, eqx.filter(model.layers[0], eqx.is_array)))
     for i in range(1, len(model.layers) - 1):
-        pieces.append(jtu.tree_map(map_block, eqx.filter(model.layers[i], eqx.is_array)))
+        pieces.append(
+            jtu.tree_map(map_block, eqx.filter(model.layers[i], eqx.is_array))
+        )
     pieces.append(jtu.tree_map(map_lm_head, eqx.filter(model.layers[-1], eqx.is_array)))
 
     flat = []
@@ -333,7 +335,7 @@ def configure_transformer_adamw(
         eps_for_chain = (eps_tree_model, None) if params_for_pc else eps_tree_model
         decay = _add_decayed_weights_pytree(wd_for_chain)
         adam = _scale_by_adam_eps_tree(eps_for_chain, b1=b1, b2=b2)
-    
+
     elif param_type == "sp":
         lr_other = param_lr
         lr_blocks = param_lr
@@ -341,7 +343,7 @@ def configure_transformer_adamw(
         lr_tree = (lr_tree_model, None) if params_for_pc else lr_tree_model
         decay = optax.add_decayed_weights(weight_decay)
         adam = optax.scale_by_adam(eps=adam_eps, b1=b1, b2=b2)
-    
+
     else:
         raise ValueError(f"param_type must be 'sp' or 'mupc', got {param_type!r}")
 

@@ -1,8 +1,9 @@
 import os
 import random
+
 import numpy as np
+from diffrax import Bosh3, Dopri5, Dopri8, Euler, Heun, Midpoint, Ralston, Tsit5
 from torch import manual_seed
-from diffrax import Euler, Heun, Midpoint, Ralston, Bosh3, Tsit5, Dopri5, Dopri8
 
 
 def set_seed(seed):
@@ -31,16 +32,16 @@ def get_ode_solver(name):
 
 
 def setup_mlp_experiment(
-        results_dir,
-        dataset,
-        width,
-        n_hidden,
-        act_fn,
-        max_t1,
-        activity_lr,
-        param_lr,
-        activity_optim_id,
-        seed
+    results_dir,
+    dataset,
+    width,
+    n_hidden,
+    act_fn,
+    max_t1,
+    activity_lr,
+    param_lr,
+    activity_optim_id,
+    seed,
 ):
     print(
         f"""
@@ -67,7 +68,7 @@ Starting experiment with configuration:
         f"activity_lr_{activity_lr}",
         f"param_lr_{param_lr}",
         activity_optim_id,
-        str(seed)
+        str(seed),
     )
 
 

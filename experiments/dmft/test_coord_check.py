@@ -16,13 +16,11 @@ import argparse
 import os
 from typing import Callable, Dict, Optional, Union
 
-import equinox as eqx
 import jax.numpy as jnp
 import jax.random as jr
+import jpc
 import optax
 import pandas as pd
-
-import jpc
 from experiments.dmft.coord_check import plot_coord_data
 
 
@@ -255,9 +253,7 @@ def get_coord_data(
 
     if output_fdict is None:
         activity_keys = [s for s in stats if s in ACTIVITY_STATS]
-        output_fdict = (
-            {k: k for k in activity_keys} if activity_keys else {"l1": "l1"}
-        )
+        output_fdict = {k: k for k in activity_keys} if activity_keys else {"l1": "l1"}
     output_fdict = convert_fdict(output_fdict)
 
     if fix_data:
@@ -292,11 +288,7 @@ def get_coord_data(
             )
 
             for t, (x, y) in enumerate(dataloader, start=1):
-                need_ffwd = (
-                    record_activities
-                    or record_loss
-                    or update_mode == "infer"
-                )
+                need_ffwd = record_activities or record_loss or update_mode == "infer"
                 if need_ffwd:
                     ffwd_activities = jpc.init_activities_with_ffwd(
                         model=model,
@@ -309,9 +301,7 @@ def get_coord_data(
                     ffwd_activities = None
 
                 if record_activities and record == "ffwd":
-                    _record_activities(
-                        records, width, ffwd_activities, t, output_fdict
-                    )
+                    _record_activities(records, width, ffwd_activities, t, output_fdict)
 
                 if record_rescaling:
                     _record_rescaling(
@@ -326,9 +316,7 @@ def get_coord_data(
                     )
 
                 if record_loss:
-                    _record_loss(
-                        records, width, ffwd_activities[-1], y, t
-                    )
+                    _record_loss(records, width, ffwd_activities[-1], y, t)
 
                 if update_mode == "theory":
                     param_result = jpc.update_linear_equilib_energy_params(
@@ -362,9 +350,7 @@ def get_coord_data(
                         activity_opt_state = result["opt_state"]
 
                     if record_activities and record == "equilib":
-                        _record_activities(
-                            records, width, activities, t, output_fdict
-                        )
+                        _record_activities(records, width, activities, t, output_fdict)
 
                     param_result = jpc.update_pc_params(
                         params=params,
@@ -567,9 +553,7 @@ if __name__ == "__main__":
     parser.add_argument("--n_infer_iters", type=int, default=50)
     parser.add_argument("--nsteps", type=int, default=3)
     parser.add_argument("--nseeds", type=int, default=3)
-    parser.add_argument(
-        "--optimizer", type=str, default="sgd", choices=["sgd", "adam"]
-    )
+    parser.add_argument("--optimizer", type=str, default="sgd", choices=["sgd", "adam"])
     parser.add_argument("--lr", type=float, default=0.1)
     parser.add_argument(
         "--update_mode",

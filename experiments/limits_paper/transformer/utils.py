@@ -2,12 +2,12 @@ import os
 import urllib.request
 from typing import Union
 
-import numpy as np
+import equinox as eqx
+import equinox.nn as nn
 import jax
 import jax.numpy as jnp
 import jax.random as jr
-import equinox as eqx
-import equinox.nn as nn
+import numpy as np
 from jax.flatten_util import ravel_pytree
 
 
@@ -32,9 +32,7 @@ def load_shakespeare(batch_size, seq_len, seed):
         with urllib.request.urlopen(url, timeout=10) as f:
             text = f.read().decode("utf-8")
     except Exception as e:
-        raise RuntimeError(
-            f"Failed to fetch Shakespeare from {url}."
-        ) from e
+        raise RuntimeError(f"Failed to fetch Shakespeare from {url}.") from e
     return _text_to_sequences(text, batch_size, seq_len, seed)
 
 

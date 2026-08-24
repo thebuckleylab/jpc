@@ -1,22 +1,24 @@
 """Functions to initialise the layer activities of PC networks."""
 
-from jax import vmap, random
-import jax.numpy as jnp
-import equinox as eqx
-from ._energies import _get_param_scalings
-from jaxtyping import PyTree, ArrayLike, Array, PRNGKeyArray, Scalar
 from typing import Callable, Optional
+
+import equinox as eqx
+import jax.numpy as jnp
+from jax import random, vmap
+from jaxtyping import Array, ArrayLike, PRNGKeyArray, PyTree, Scalar
+
+from ._energies import _get_param_scalings
 from ._errors import _check_param_type
 
 
 @eqx.filter_jit
 def init_activities_with_ffwd(
-        model: PyTree[Callable],
-        input: ArrayLike,
-        *,
-        skip_model: Optional[PyTree[Callable]] = None,
-        param_type: str = "sp",
-        gamma: Optional[Scalar] = None
+    model: PyTree[Callable],
+    input: ArrayLike,
+    *,
+    skip_model: Optional[PyTree[Callable]] = None,
+    param_type: str = "sp",
+    gamma: Optional[Scalar] = None,
 ) -> PyTree[Array]:
     """Initialises the layers' activity with a feedforward pass
     $\{ f_\ell(\mathbf{z}_{\ell-1}) \}_{\ell=1}^L$ where $f_\ell(\cdot)$ is some
@@ -24,8 +26,8 @@ def init_activities_with_ffwd(
 
     !!! warning
 
-        `param_type = "mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))) assumes 
-        that one is using [`jpc.make_mlp()`](https://thebuckleylab.github.io/jpc/api/Utils/#jpc.make_mlp) 
+        `param_type = "mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))) assumes
+        that one is using [`jpc.make_mlp()`](https://thebuckleylab.github.io/jpc/api/Utils/#jpc.make_mlp)
         to create the model.
 
     **Main arguments:**
@@ -36,10 +38,10 @@ def init_activities_with_ffwd(
     **Other arguments:**
 
     - `skip_model`: Optional skip connection model.
-    - `param_type`: Determines the parameterisation. Options are `"sp"` 
-        (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
-        or `"ntp"` (neural tangent parameterisation). 
-        See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
+    - `param_type`: Determines the parameterisation. Options are `"sp"`
+        (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))),
+        or `"ntp"` (neural tangent parameterisation).
+        See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings)
         for the specific scalings of these different parameterisations. Defaults
         to `"sp"`.
     - `gamma`: Optional scaling factor for the output layer. If provided, the
@@ -56,13 +58,13 @@ def init_activities_with_ffwd(
     L = len(model)
     if skip_model is None:
         skip_model = [None] * len(model)
-        
+
     scalings = _get_param_scalings(
-        model=model, 
-        input=input, 
-        skip_model=skip_model, 
+        model=model,
+        input=input,
+        skip_model=skip_model,
         param_type=param_type,
-        gamma=gamma
+        gamma=gamma,
     )
 
     z1 = scalings[0] * vmap(model[0])(input)
@@ -78,18 +80,18 @@ def init_activities_with_ffwd(
             zl += skip_output
 
         activities.append(zl)
-    
+
     return activities
 
 
 def init_activities_from_normal(
-        key: PRNGKeyArray,
-        layer_sizes: PyTree[int],
-        mode: str,
-        batch_size: int,
-        sigma: Scalar = 0.05
+    key: PRNGKeyArray,
+    layer_sizes: PyTree[int],
+    mode: str,
+    batch_size: int,
+    sigma: Scalar = 0.05,
 ) -> PyTree[Array]:
-    """Initialises network activities from a zero-mean Gaussian 
+    """Initialises network activities from a zero-mean Gaussian
     $z_i \sim \mathcal{N}(0, \sigma^2)$.
 
     **Main arguments:**
@@ -109,24 +111,17 @@ def init_activities_from_normal(
 
     """
     start_l = 0 if mode == "unsupervised" else 1
-    n_layers = len(layer_sizes) if mode == "unsupervised" else len(layer_sizes)-1
+    n_layers = len(layer_sizes) if mode == "unsupervised" else len(layer_sizes) - 1
     activities = []
-    for l, subkey in zip(
-            range(start_l, n_layers+1),
-            random.split(key, num=n_layers)
-    ):
-        activities.append(sigma * random.normal(
-            subkey,
-            shape=(batch_size, layer_sizes[l])
-            )
+    for l, subkey in zip(range(start_l, n_layers + 1), random.split(key, num=n_layers)):
+        activities.append(
+            sigma * random.normal(subkey, shape=(batch_size, layer_sizes[l]))
         )
     return activities
 
 
 def init_activities_with_amort(
-        amortiser: PyTree[Callable],
-        generator: PyTree[Callable],
-        input: ArrayLike
+    amortiser: PyTree[Callable], generator: PyTree[Callable], input: ArrayLike
 ) -> PyTree[Array]:
     """Initialises layers' activity with an amortised network
     $\{ f_{L-\ell+1}(\mathbf{z}_{L-\ell}) \}_{\ell=1}^L$ where $\mathbf{z}_0 = \mathbf{y}$ is
@@ -154,18 +149,14 @@ def init_activities_with_amort(
 
     activities = activities[::-1]
 
-    # NOTE: this dummy activity for the last layer is added in case one is 
+    # NOTE: this dummy activity for the last layer is added in case one is
     # interested in inspecting the generator's target prediction during inference.
-    activities.append(
-        vmap(generator[-1])(activities[-1])
-    )
+    activities.append(vmap(generator[-1])(activities[-1]))
     return activities
 
 
 def init_epc_errors(
-        layer_sizes: PyTree[int],
-        batch_size: int,
-        mode: str = "supervised"
+    layer_sizes: PyTree[int], batch_size: int, mode: str = "supervised"
 ) -> PyTree[Array]:
     """Initialises zero errors for use with ePC $\{ \epsilon_\ell = 0 \}_{l=1}^L$.
 

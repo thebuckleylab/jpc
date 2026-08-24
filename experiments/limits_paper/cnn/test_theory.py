@@ -1,34 +1,32 @@
 import argparse
 import os
 
-import jpc
-import optax
-import numpy as np
 import equinox as eqx
-
 import jax
 import jax.numpy as jnp
 import jax.random as jr
 import jax.tree_util as jtu
-
+import jpc
+import numpy as np
+import optax
+from model import ResNet
+from optim import configure_cnn_param_optim
 from theory_utils import (
+    compute_linear_cnn_equilib_energy_grads,
     linear_cnn_equilib_energy,
-    compute_linear_cnn_equilib_energy_grads
 )
 from utils import (
+    compute_cosine_similarity,
     flatten_grads_per_layer_cnn,
     get_tracked_cnn_param_positions_and_names,
-    compute_cosine_similarity,
-    load_cifar10_batch,
-    load_tinyimagenet_batch,
-    load_imagenet_batch,
-    setup_theory_experiment,
     hessian_vector_product,
-    power_iteration,
     inverse_iteration_cg,
+    load_cifar10_batch,
+    load_imagenet_batch,
+    load_tinyimagenet_batch,
+    power_iteration,
+    setup_theory_experiment,
 )
-from optim import configure_cnn_param_optim
-from model import ResNet
 
 
 def train_bp_cnn(
@@ -84,7 +82,14 @@ def train_bp_cnn(
     def _grad_stats(v: np.ndarray):
         v = np.asarray(v).reshape(-1)
         if v.size == 0:
-            return {"n": 0, "norm": 0.0, "mean": 0.0, "std": 0.0, "min": 0.0, "max": 0.0}
+            return {
+                "n": 0,
+                "norm": 0.0,
+                "mean": 0.0,
+                "std": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+            }
         return {
             "n": int(v.size),
             "norm": float(np.linalg.norm(v)),
@@ -123,9 +128,7 @@ def train_bp_cnn(
 
             pc_layers = pc_grads_per_layer[t]
             if cos_pc_bp_per_layer is None:
-                cos_pc_bp_per_layer = np.zeros(
-                    (n_pc_steps, n_layers), dtype=np.float32
-                )
+                cos_pc_bp_per_layer = np.zeros((n_pc_steps, n_layers), dtype=np.float32)
             for li in range(n_layers):
                 pc_l = np.asarray(pc_layers[li])
                 bp_l = np.asarray(bp_layers[li])
@@ -222,9 +225,7 @@ def train_pcn(args, x, y, model):
         depth=depth,
         params_for_pc=True,
     )
-    param_opt_state = param_optim.init(
-        (eqx.filter(model, eqx.is_array), None)
-    )
+    param_opt_state = param_optim.init((eqx.filter(model, eqx.is_array), None))
 
     use_amortiser = args.use_amortiser
     amortiser = None
@@ -269,11 +270,11 @@ def train_pcn(args, x, y, model):
             pred_acts = acts[:-1]
             assert len(pred_acts) == len(target_acts)
             batch_size = x_batch.shape[0]
-            
+
             layer_energies = []
             for t_act, p_act in zip(target_acts, pred_acts):
                 err = t_act - p_act
-                layer_energies.append(0.5 * jnp.sum(err ** 2))
+                layer_energies.append(0.5 * jnp.sum(err**2))
             total_energy = jnp.sum(jnp.stack(layer_energies)) / batch_size
             return total_energy
 
@@ -283,6 +284,7 @@ def train_pcn(args, x, y, model):
             Train same-direction amortiser (input x) with a layer-local energy
             (HPC assumes inverted amortiser from y; we do not use it here).
             """
+
             def energy_fn(am_):
                 return _same_dir_amort_energy(am_, x_batch, equilib_activities)
 
@@ -296,7 +298,7 @@ def train_pcn(args, x, y, model):
     if args.loss_id == "mse":
         theory_energies = []
         rescalings = []
-    
+
     numerical_energies = []
     pc_grads = []
     pc_grads_per_layer = []
@@ -327,7 +329,7 @@ def train_pcn(args, x, y, model):
                 opt_state=activity_opt_state,
                 output=y,
                 input=x,
-                loss_id=args.loss_id
+                loss_id=args.loss_id,
             )
             activities = result["activities"]
             activity_opt_state = result["opt_state"]
@@ -352,11 +354,7 @@ def train_pcn(args, x, y, model):
         # Numerical PC energy at the inferred activities
         numerical_energy = float(
             jpc.pc_energy_fn(
-                params=params,
-                activities=activities,
-                y=y,
-                x=x,
-                loss=args.loss_id
+                params=params, activities=activities, y=y, x=x, loss=args.loss_id
             )
         )
         if not np.isfinite(numerical_energy):
@@ -381,7 +379,7 @@ def train_pcn(args, x, y, model):
             opt_state=param_opt_state,
             output=y,
             input=x,
-            loss_id=args.loss_id
+            loss_id=args.loss_id,
         )
         model = param_result["model"]
         param_opt_state = param_result["opt_state"]
@@ -415,7 +413,10 @@ def train_pcn(args, x, y, model):
     steps = np.arange(args.n_steps, dtype=np.int64)
     np.save(f"{save_dir}/steps.npy", steps)
     np.save(f"{save_dir}/numerical_energies.npy", np.asarray(numerical_energies))
-    np.save(f"{save_dir}/pc_successful_steps.npy", np.asarray(pc_successful_steps, dtype=np.int64))
+    np.save(
+        f"{save_dir}/pc_successful_steps.npy",
+        np.asarray(pc_successful_steps, dtype=np.int64),
+    )
     np.save(
         f"{save_dir}/infer_iters_used_per_step.npy",
         np.asarray(infer_iters_used_per_step, dtype=np.int64),
@@ -423,8 +424,7 @@ def train_pcn(args, x, y, model):
     if args.loss_id == "mse":
         np.save(f"{save_dir}/theory_energies.npy", np.asarray(theory_energies))
         np.save(
-            f"{save_dir}/rescalings.npy",
-            np.asarray([float(r) for r in rescalings])
+            f"{save_dir}/rescalings.npy", np.asarray([float(r) for r in rescalings])
         )
     if use_amortiser:
         np.save(f"{save_dir}/amortiser_energies.npy", np.array(amort_energies))
@@ -435,11 +435,7 @@ def train_pcn(args, x, y, model):
 
         def energy_fn(acts):
             return jpc.pc_energy_fn(
-                params=params_final,
-                activities=acts,
-                y=y,
-                x=x,
-                loss=args.loss_id
+                params=params_final, activities=acts, y=y, x=x, loss=args.loss_id
             )
 
         @jax.jit
@@ -453,15 +449,23 @@ def train_pcn(args, x, y, model):
         inverse_iters = args.hessian_inverse_iters
         cg_iters = args.hessian_cg_iters
 
-        print(f"  Estimating activity Hessian condition number (n_activities={n_activities})...")
-        max_eigenval, _ = power_iteration(hvp_fn, activities, key_max, n_iters=power_iters)
+        print(
+            f"  Estimating activity Hessian condition number (n_activities={n_activities})..."
+        )
+        max_eigenval, _ = power_iteration(
+            hvp_fn, activities, key_max, n_iters=power_iters
+        )
         min_eigenval = inverse_iteration_cg(
-            hvp_fn, activities, key_min,
+            hvp_fn,
+            activities,
+            key_min,
             n_iters=inverse_iters,
             cg_iters=cg_iters,
         )
         cond = max_eigenval / (float(min_eigenval) + 1e-30)
-        print(f"  max_eigenval≈{max_eigenval:.6e}  min_eigenval≈{min_eigenval:.6e}  cond≈{cond:.6e}")
+        print(
+            f"  max_eigenval≈{max_eigenval:.6e}  min_eigenval≈{min_eigenval:.6e}  cond≈{cond:.6e}"
+        )
 
         np.save(f"{save_dir}/hessian_max_eigenval.npy", np.float64(max_eigenval))
         np.save(f"{save_dir}/hessian_min_eigenval.npy", np.float64(min_eigenval))
@@ -469,7 +473,6 @@ def train_pcn(args, x, y, model):
         np.save(f"{save_dir}/hessian_n_activities.npy", np.int64(n_activities))
 
     return pc_grads, pc_grads_per_layer, pc_successful_steps
-
 
 
 def main(args):
@@ -511,7 +514,9 @@ def main(args):
     pc_grads, pc_grads_per_layer, pc_successful_steps = train_pcn(args, x, y, model)
 
     # Determine which parameter layers are being tracked (same convention for BP).
-    _, tracked_param_positions, tracked_layer_names = get_tracked_cnn_param_positions_and_names(model)
+    _, tracked_param_positions, tracked_layer_names = (
+        get_tracked_cnn_param_positions_and_names(model)
+    )
 
     model_bp = ResNet(
         key=model_key,
@@ -575,12 +580,21 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--results_dir", type=str, default="theory_results")
-    parser.add_argument("--dataset", type=str, default="imagenet", choices=["cifar", "tinyimagenet", "imagenet"])
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        default="imagenet",
+        choices=["cifar", "tinyimagenet", "imagenet"],
+    )
 
     # Model parameters
-    parser.add_argument("--widths", type=int, nargs='+', default=[1, 2, 4, 8, 16, 32, 64])
+    parser.add_argument(
+        "--widths", type=int, nargs="+", default=[1, 2, 4, 8, 16, 32, 64]
+    )
     parser.add_argument("--n_res_blocks", type=int, default=3)
-    parser.add_argument("--param_type", type=str, default="mupc", choices=["sp", "mupc"])
+    parser.add_argument(
+        "--param_type", type=str, default="mupc", choices=["sp", "mupc"]
+    )
     parser.add_argument("--act_fn", type=str, default="linear")
     parser.add_argument("--scale_non_res_layers", action="store_true", default=False)
     parser.add_argument("--additive_depth_factor", type=int, default=4)
@@ -588,23 +602,47 @@ if __name__ == "__main__":
     # Training parameters
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--n_steps", type=int, default=100)
-    parser.add_argument("--param_optim", type=str, default="adam", choices=["gd", "adam"])
+    parser.add_argument(
+        "--param_optim", type=str, default="adam", choices=["gd", "adam"]
+    )
     parser.add_argument("--param_lr", type=float, default=1e-3)
     parser.add_argument("--loss_id", type=str, default="ce", choices=["mse", "ce"])
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--pc_grad_type", type=str, default="numerical", choices=["numerical", "theoretical"])
+    parser.add_argument(
+        "--pc_grad_type",
+        type=str,
+        default="numerical",
+        choices=["numerical", "theoretical"],
+    )
 
     # Inference parameters
-    parser.add_argument("--activity_lrs", type=float, nargs='+', default=[3e-1]) 
-    parser.add_argument("--n_infer_iters", type=int, nargs='+', default=[200])
+    parser.add_argument("--activity_lrs", type=float, nargs="+", default=[3e-1])
+    parser.add_argument("--n_infer_iters", type=int, nargs="+", default=[200])
     parser.add_argument("--infer_energy_thresh", type=float, default=0)
     parser.add_argument("--use_amortiser", action="store_true", default=False)
 
     # Activity Hessian condition number estimation
-    parser.add_argument("--estimate_hessian_cond", action="store_true", default=False)  # ~10^20
-    parser.add_argument("--hessian_power_iters", type=int, default=25, help="Power iteration steps for λ_max.")
-    parser.add_argument("--hessian_inverse_iters", type=int, default=10, help="Inverse iteration steps for λ_min.")
-    parser.add_argument("--hessian_cg_iters", type=int, default=25, help="CG steps per inverse iteration.")
+    parser.add_argument(
+        "--estimate_hessian_cond", action="store_true", default=False
+    )  # ~10^20
+    parser.add_argument(
+        "--hessian_power_iters",
+        type=int,
+        default=25,
+        help="Power iteration steps for λ_max.",
+    )
+    parser.add_argument(
+        "--hessian_inverse_iters",
+        type=int,
+        default=10,
+        help="Inverse iteration steps for λ_min.",
+    )
+    parser.add_argument(
+        "--hessian_cg_iters",
+        type=int,
+        default=25,
+        help="CG steps per inverse iteration.",
+    )
 
     args = parser.parse_args()
 

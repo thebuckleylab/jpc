@@ -1,16 +1,14 @@
 import os
-import numpy as np
 
+import equinox as eqx
 import jax
 import jax.numpy as jnp
 import jax.random as jr
 import jax.tree_util as jtu
-from jax.flatten_util import ravel_pytree
-
+import numpy as np
 import torch
-import equinox as eqx
-
 from experiments.datasets import get_dataloaders, get_tinyimagenet_loaders
+from jax.flatten_util import ravel_pytree
 
 
 def flatten_grads_per_layer_cnn(model, grads):
@@ -164,7 +162,9 @@ def power_iteration(hvp_fn, activities_struct, key, n_iters=50, rtol=1e-4):
         Hv = hvp_fn(v)
         lam = _tree_dot(Hv, v)
         lam_f = float(lam)
-        if max_eigenval is not None and abs(lam_f - max_eigenval) <= rtol * (abs(max_eigenval) + 1e-14):
+        if max_eigenval is not None and abs(lam_f - max_eigenval) <= rtol * (
+            abs(max_eigenval) + 1e-14
+        ):
             break
         max_eigenval = lam_f
         v = _tree_normalize(Hv)
@@ -172,7 +172,9 @@ def power_iteration(hvp_fn, activities_struct, key, n_iters=50, rtol=1e-4):
     return max_eigenval, v
 
 
-def inverse_iteration_cg(hvp_fn, activities_struct, key, n_iters=30, cg_iters=50, cg_rtol=1e-8, rtol=1e-4):
+def inverse_iteration_cg(
+    hvp_fn, activities_struct, key, n_iters=30, cg_iters=50, cg_rtol=1e-8, rtol=1e-4
+):
     """Estimate smallest eigenvalue via inverse iteration: solve H w = v with CG, then v = w/|w|.
     Returns min_eigenval (so condition number = max_eigenval / min_eigenval).
     CG stops when residual norm squared is below cg_rtol * initial; outer loop stops when eigenvalue stabilizes (rtol).
@@ -208,7 +210,9 @@ def inverse_iteration_cg(hvp_fn, activities_struct, key, n_iters=30, cg_iters=50
         Hv = hvp_fn(v)
         lam = _tree_dot(Hv, v)
         lam_f = float(lam)
-        if min_eigenval is not None and abs(lam_f - min_eigenval) <= rtol * (abs(min_eigenval) + 1e-14):
+        if min_eigenval is not None and abs(lam_f - min_eigenval) <= rtol * (
+            abs(min_eigenval) + 1e-14
+        ):
             break
         min_eigenval = lam_f
 
@@ -301,12 +305,15 @@ def _import_hf_load_dataset():
     try:
         sys.path = [p for p in sys.path if not _is_local_data_dir(p)]
         from datasets import load_dataset
+
         return load_dataset
     finally:
         sys.path[:] = old_path
 
 
-def load_imagenet_batch(batch_size: int, seed: int | None = None, n_examples: int = 1000):
+def load_imagenet_batch(
+    batch_size: int, seed: int | None = None, n_examples: int = 1000
+):
     """
     Load a single fixed ImageNet batch via Hugging Face streaming.
 
@@ -373,6 +380,7 @@ def load_imagenet_batch(batch_size: int, seed: int | None = None, n_examples: in
 
         if isinstance(img, (bytes, bytearray)):
             import io
+
             from PIL import Image
 
             img = Image.open(io.BytesIO(img)).convert("RGB")

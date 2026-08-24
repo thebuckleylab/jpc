@@ -1,17 +1,16 @@
-import os
 import logging
+import os
 import random
-import numpy as np
-from torch import manual_seed
 
-import jax
-import jax.random as jr
-import jax.numpy as jnp
-from jax.tree_util import tree_leaves
-from jaxlib.xla_extension import PjitFunction, ArrayImpl
-
-import jpc
 import equinox as eqx
+import jax
+import jax.numpy as jnp
+import jax.random as jr
+import jpc
+import numpy as np
+from jax.tree_util import tree_leaves
+from jaxlib.xla_extension import ArrayImpl, PjitFunction
+from torch import manual_seed
 
 
 def set_seed(seed):
@@ -33,18 +32,18 @@ def setup_logger(save_dir):
 
 
 def setup_hessian_analysis(
-        results_dir,
-        in_out_dims,
-        act_fn,
-        use_biases,
-        mode,
-        use_skips,
-        weight_init,
-        param_type,
-        activity_decay,
-        width,
-        n_hidden,
-        seed
+    results_dir,
+    in_out_dims,
+    act_fn,
+    use_biases,
+    mode,
+    use_skips,
+    weight_init,
+    param_type,
+    activity_decay,
+    width,
+    n_hidden,
+    seed,
 ):
     print(
         f"""
@@ -77,31 +76,31 @@ Starting Hessian analysis with configuration:
         activity_decay,
         f"width_{width}",
         f"{n_hidden}_n_hidden",
-        str(seed)
+        str(seed),
     )
 
 
 def setup_experiment(
-        results_dir,
-        dataset,
-        loss_id,
-        width,
-        n_hidden,
-        act_fn,
-        use_skips,
-        weight_init,
-        param_type,
-        param_optim_id,
-        param_lr,
-        batch_size,
-        max_infer_iters,
-        activity_optim_id,
-        activity_lr,
-        activity_decay,
-        weight_decay,
-        spectral_penalty,
-        max_epochs,
-        seed
+    results_dir,
+    dataset,
+    loss_id,
+    width,
+    n_hidden,
+    act_fn,
+    use_skips,
+    weight_init,
+    param_type,
+    param_optim_id,
+    param_lr,
+    batch_size,
+    max_infer_iters,
+    activity_optim_id,
+    activity_lr,
+    activity_decay,
+    weight_decay,
+    spectral_penalty,
+    max_epochs,
+    seed,
 ):
     print(
         f"""
@@ -148,27 +147,35 @@ Starting training experiment with configuration:
         f"weight_decay_{weight_decay}",
         f"spectral_penalty_{spectral_penalty}",
         f"{max_epochs}_epochs",
-        str(seed)
+        str(seed),
     )
 
 
 def init_weights(key, model, init_fn_id, gain=1.0):
     is_linear_or_conv = lambda x: isinstance(x, (eqx.nn.Linear, eqx.nn.Conv2d))
-    get_weights = lambda m: [x.weight
-                             for x in tree_leaves(m, is_leaf=is_linear_or_conv)
-                             if is_linear_or_conv(x)]
+    get_weights = lambda m: [
+        x.weight
+        for x in tree_leaves(m, is_leaf=is_linear_or_conv)
+        if is_linear_or_conv(x)
+    ]
     weights = get_weights(model)
 
     subkeys = jr.split(key, len(weights))
     if init_fn_id == "one_over_N":
-        new_weights = [one_over_width_init(subkey, weight)
-                       for weight, subkey in zip(weights, subkeys)]
+        new_weights = [
+            one_over_width_init(subkey, weight)
+            for weight, subkey in zip(weights, subkeys)
+        ]
     elif init_fn_id == "standard_gauss":
-        new_weights = [standard_gauss_init(subkey, weight)
-                       for weight, subkey in zip(weights, subkeys)]
+        new_weights = [
+            standard_gauss_init(subkey, weight)
+            for weight, subkey in zip(weights, subkeys)
+        ]
     elif init_fn_id == "orthogonal":
-        new_weights = [orthogonal_init(subkey, weight, gain)
-                       for weight, subkey in zip(weights, subkeys)]
+        new_weights = [
+            orthogonal_init(subkey, weight, gain)
+            for weight, subkey in zip(weights, subkeys)
+        ]
     elif init_fn_id == "zero":
         new_weights = [zero_init(weight) for weight in weights]
 
@@ -237,18 +244,20 @@ def compute_param_l2_norms(model, act_fn, layer_idxs):
         all_params = [p for i, p in enumerate(all_params) if i % 2 == 0]
 
     selected_params = [
-        all_params[idx] if (
-                idx < len(all_params) and all_params[idx] is not None
-        ) else None
+        all_params[idx]
+        if (idx < len(all_params) and all_params[idx] is not None)
+        else None
         for idx in layer_idxs
     ]
 
-    return jnp.array([
-        jnp.linalg.norm(jnp.ravel(p), ord=2) if (
-                p is not None and not isinstance(p, (PjitFunction, ArrayImpl))
-        ) else 0.
-        for p in selected_params
-    ])
+    return jnp.array(
+        [
+            jnp.linalg.norm(jnp.ravel(p), ord=2)
+            if (p is not None and not isinstance(p, (PjitFunction, ArrayImpl)))
+            else 0.0
+            for p in selected_params
+        ]
+    )
 
 
 def spectral_norm(A):
@@ -263,35 +272,33 @@ def compute_param_spectral_norms(model, act_fn, layer_idxs):
         all_params = [p for i, p in enumerate(all_params) if i % 2 == 0]
 
     selected_params = [
-        all_params[idx] if (
-                idx < len(all_params) and all_params[idx] is not None
-        ) else None
+        all_params[idx]
+        if (idx < len(all_params) and all_params[idx] is not None)
+        else None
         for idx in layer_idxs
     ]
 
     def compute_spectral_norm(param):
         if param is None or isinstance(param, (PjitFunction, ArrayImpl)):
-            return 0.
+            return 0.0
         if param.ndim == 1:  # if 1D, treat as a column vector
             param = param.reshape(-1, 1)
 
         return spectral_norm(param)
 
-    return jnp.array([
-        compute_spectral_norm(p) for p in selected_params
-    ])
+    return jnp.array([compute_spectral_norm(p) for p in selected_params])
 
 
 @eqx.filter_jit
 def compute_hessian_eigens(
-        params,
-        activities,
-        y,
-        x,
-        param_type,
-        activity_decay=0,
-        weight_decay=0,
-        spectral_penalty=0,
+    params,
+    activities,
+    y,
+    x,
+    param_type,
+    activity_decay=0,
+    weight_decay=0,
+    spectral_penalty=0,
 ):
     hessian_pytree = jax.hessian(jpc.pc_energy_fn, argnums=1)(
         params,
@@ -344,14 +351,13 @@ def unwrap_hessian_pytree(hessian_pytree, activities):
 
     start_row_idx = 0
     for l, pytree_l in enumerate(hessian_pytree):
-
         start_col_idx = 0
-        for k, pytree_k in enumerate(pytree_l[:-1]):            
-            block = pytree_k[0, :, 0].reshape(widths[l], widths[k]) #.sum(axis=(0, 1))
+        for k, pytree_k in enumerate(pytree_l[:-1]):
+            block = pytree_k[0, :, 0].reshape(widths[l], widths[k])  # .sum(axis=(0, 1))
 
             hessian_matrix = hessian_matrix.at[
-                start_row_idx:start_row_idx + widths[l],
-                start_col_idx:start_col_idx + widths[k]
+                start_row_idx : start_row_idx + widths[l],
+                start_col_idx : start_col_idx + widths[k],
             ].set(block)
 
             start_col_idx += widths[k]
@@ -362,4 +368,4 @@ def unwrap_hessian_pytree(hessian_pytree, activities):
 
 
 def compute_cond_num(eigenvals):
-    return np.abs(max(eigenvals))/np.abs(min(eigenvals))
+    return np.abs(max(eigenvals)) / np.abs(min(eigenvals))

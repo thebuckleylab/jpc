@@ -2,24 +2,24 @@ import os
 
 
 def setup_pc_experiment(
-        results_dir,
-        dataset,
-        loss_id,
-        width,
-        n_blocks,
-        act_fn,
-        param_type,
-        param_optim_id,
-        param_lr,
-        batch_size,
-        max_infer_iters,
-        activity_lr,
-        max_epochs,
-        seed
+    results_dir,
+    dataset,
+    loss_id,
+    width,
+    n_blocks,
+    act_fn,
+    param_type,
+    param_optim_id,
+    param_lr,
+    batch_size,
+    max_infer_iters,
+    activity_lr,
+    max_epochs,
+    seed,
 ):
     """Setup save directory for CNN PC training."""
     print(
-            f"""
+        f"""
 Starting CNN PC training:
 
   Dataset: {dataset}
@@ -36,7 +36,7 @@ Starting CNN PC training:
   Max epochs: {max_epochs}
   Seed: {seed}
 """
-        )
+    )
     return os.path.join(
         results_dir,
         dataset,
@@ -52,27 +52,27 @@ Starting CNN PC training:
         f"{max_infer_iters}_max_infer_iters",
         f"activity_lr_{activity_lr}",
         f"{max_epochs}_epochs",
-        str(seed)
+        str(seed),
     )
 
 
 def setup_bp_experiment(
-        results_dir,
-        dataset,
-        loss_id,
-        width,
-        n_blocks,
-        act_fn,
-        param_type,
-        param_optim_id,
-        param_lr,
-        batch_size,
-        max_epochs,
-        seed
+    results_dir,
+    dataset,
+    loss_id,
+    width,
+    n_blocks,
+    act_fn,
+    param_type,
+    param_optim_id,
+    param_lr,
+    batch_size,
+    max_epochs,
+    seed,
 ):
     """Setup save directory for CNN BP training (no PC-specific args)."""
     print(
-            f"""
+        f"""
 Starting CNN BP training:
 
   Dataset: {dataset}
@@ -87,7 +87,7 @@ Starting CNN BP training:
   Max epochs: {max_epochs}
   Seed: {seed}
 """
-        )
+    )
     return os.path.join(
         results_dir,
         dataset,
@@ -101,5 +101,5 @@ Starting CNN BP training:
         f"param_lr_{param_lr}",
         f"batch_size_{batch_size}",
         f"{max_epochs}_epochs",
-        str(seed)
+        str(seed),
     )

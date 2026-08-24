@@ -1,48 +1,50 @@
 """Function to solve the inference (activity) dynamics of PC networks."""
 
-from jaxtyping import PyTree, ArrayLike, Array, Scalar
+from typing import Callable, Optional, Tuple
+
 import jax.numpy as jnp
-from typing import Tuple, Callable, Optional
-from ._grads import neg_pc_activity_grad
-from optimistix import rms_norm
 from diffrax import (
     AbstractSolver,
     AbstractStepSizeController,
-    Heun,
-    PIDController,
     diffeqsolve,
-    ODETerm,
     Event,
-    SaveAt
+    Heun,
+    ODETerm,
+    PIDController,
+    SaveAt,
 )
+from jaxtyping import Array, ArrayLike, PyTree, Scalar
+from optimistix import rms_norm
+
+from ._grads import neg_pc_activity_grad
 
 
 def solve_inference(
-        params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
-        activities: PyTree[ArrayLike],
-        output: ArrayLike,
-        *,
-        input: Optional[ArrayLike] = None,
-        loss_id: str = "mse",
-        param_type: str = "sp",
-        solver: AbstractSolver = Heun(),
-        max_t1: int = 20,
-        dt: float | int = None,
-        stepsize_controller: AbstractStepSizeController = PIDController(
-            rtol=1e-3, atol=1e-3
-        ),
-        weight_decay: Scalar = 0.,
-        spectral_penalty: Scalar = 0.,
-        activity_decay: Scalar = 0.,
-        gamma: Optional[Scalar] = None,
-        output_energy_scaling: Optional[Scalar] = None,
-        record_iters: bool = False,
-        record_every: int = None
+    params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
+    activities: PyTree[ArrayLike],
+    output: ArrayLike,
+    *,
+    input: Optional[ArrayLike] = None,
+    loss_id: str = "mse",
+    param_type: str = "sp",
+    solver: AbstractSolver = Heun(),
+    max_t1: int = 20,
+    dt: float | int = None,
+    stepsize_controller: AbstractStepSizeController = PIDController(
+        rtol=1e-3, atol=1e-3
+    ),
+    weight_decay: Scalar = 0.0,
+    spectral_penalty: Scalar = 0.0,
+    activity_decay: Scalar = 0.0,
+    gamma: Optional[Scalar] = None,
+    output_energy_scaling: Optional[Scalar] = None,
+    record_iters: bool = False,
+    record_every: int = None,
 ) -> PyTree[Array]:
     """Solves the inference (activity) dynamics of a predictive coding network.
 
-    This is a wrapper around [`diffrax.diffeqsolve()`](https://docs.kidger.site/diffrax/api/diffeqsolve/#diffrax.diffeqsolve) 
-    to integrate the gradient ODE system [`jpc.neg_activity_grad()`](https://thebuckleylab.github.io/jpc/api/Gradients/#jpc.neg_activity_grad) 
+    This is a wrapper around [`diffrax.diffeqsolve()`](https://docs.kidger.site/diffrax/api/diffeqsolve/#diffrax.diffeqsolve)
+    to integrate the gradient ODE system [`jpc.neg_activity_grad()`](https://thebuckleylab.github.io/jpc/api/Gradients/#jpc.neg_activity_grad)
     defining the PC inference dynamics.
 
     $$
@@ -62,26 +64,26 @@ def solve_inference(
     **Other arguments:**
 
     - `input`: Optional prior of the generative model.
-    - `loss_id`: Loss function to use at the output layer. Options are mean squared 
+    - `loss_id`: Loss function to use at the output layer. Options are mean squared
         error `"mse"` (default) or cross-entropy `"ce"`.
-    - `param_type`: Determines the parameterisation. Options are `"sp"` 
-        (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))), 
-        or `"ntp"` (neural tangent parameterisation). 
-        See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) 
+    - `param_type`: Determines the parameterisation. Options are `"sp"`
+        (standard parameterisation), `"mupc"` ([μPC](https://openreview.net/forum?id=lSLSzYuyfX&referrer=%5Bthe%20profile%20of%20Francesco%20Innocenti%5D(%2Fprofile%3Fid%3D~Francesco_Innocenti1))),
+        or `"ntp"` (neural tangent parameterisation).
+        See [`_get_param_scalings()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings)
         for the specific scalings of these different parameterisations. Defaults
         to `"sp"`.
-    - `solver`: [diffrax ODE solver](https://docs.kidger.site/diffrax/api/solvers/ode_solvers/) 
-        to be used. Default is [`Heun`](https://docs.kidger.site/diffrax/api/solvers/ode_solvers/#diffrax.Heun), 
+    - `solver`: [diffrax ODE solver](https://docs.kidger.site/diffrax/api/solvers/ode_solvers/)
+        to be used. Default is [`Heun`](https://docs.kidger.site/diffrax/api/solvers/ode_solvers/#diffrax.Heun),
         a 2nd order explicit Runge--Kutta method.
     - `max_t1`: Maximum end of integration region (20 by default).
     - `dt`: Integration step size. Defaults to `None` since the default
         `stepsize_controller` will automatically determine it.
-    - `stepsize_controller`: [diffrax controller](https://docs.kidger.site/diffrax/api/stepsize_controller/) 
-        for step size integration. Defaults to [`PIDController`](https://docs.kidger.site/diffrax/api/stepsize_controller/#diffrax.PIDController). 
-        Note that the relative and absolute tolerances of the controller will 
+    - `stepsize_controller`: [diffrax controller](https://docs.kidger.site/diffrax/api/stepsize_controller/)
+        for step size integration. Defaults to [`PIDController`](https://docs.kidger.site/diffrax/api/stepsize_controller/#diffrax.PIDController).
+        Note that the relative and absolute tolerances of the controller will
         also determine the steady state to terminate the solver.
     - `weight_decay`: $\ell^2$ regulariser for the weights (0 by default).
-    - `spectral_penalty`: Weight spectral penalty of the form 
+    - `spectral_penalty`: Weight spectral penalty of the form
         $||\mathbf{I} - \mathbf{W}_\ell^T \mathbf{W}_\ell||^2$ (0 by default).
     - `activity_decay`: $\ell^2$ regulariser for the activities (0 by default).
     - `gamma`: Optional scaling factor for the output layer. If provided, the
@@ -114,21 +116,21 @@ def solve_inference(
         dt0=dt,
         y0=activities,
         args=(
-            params, 
-            output, 
-            input, 
-            loss_id, 
+            params,
+            output,
+            input,
+            loss_id,
             param_type,
-            weight_decay, 
-            spectral_penalty, 
+            weight_decay,
+            spectral_penalty,
             activity_decay,
             gamma,
             output_energy_scaling,
-            stepsize_controller
+            stepsize_controller,
         ),
         stepsize_controller=stepsize_controller,
         event=Event(steady_state_event_with_timeout),
-        saveat=saveat
+        saveat=saveat,
     )
     return solution.ys
 

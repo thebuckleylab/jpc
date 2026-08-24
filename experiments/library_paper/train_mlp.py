@@ -1,25 +1,15 @@
 import os
 import time
-import numpy as np
 
-import jax
 import equinox as eqx
+import jax
 import jpc
+import numpy as np
 import optax
-from diffrax import PIDController, ConstantStepSize
-
-from utils import (
-    setup_mlp_experiment,
-    get_ode_solver,
-    set_seed
-)
-from plotting import (
-    plot_loss,
-    plot_loss_and_accuracy,
-    plot_runtimes,
-    plot_norms
-)
+from diffrax import ConstantStepSize, PIDController
 from experiments.datasets import get_dataloaders
+from plotting import plot_loss, plot_loss_and_accuracy, plot_norms, plot_runtimes
+from utils import get_ode_solver, set_seed, setup_mlp_experiment
 
 
 def evaluate(model, test_loader):
@@ -28,9 +18,7 @@ def evaluate(model, test_loader):
         img_batch, label_batch = img_batch.numpy(), label_batch.numpy()
 
         test_loss, test_acc = jpc.test_discriminative_pc(
-            model=model,
-            output=label_batch,
-            input=img_batch
+            model=model, output=label_batch, input=img_batch
         )
         avg_test_loss += test_loss
         avg_test_acc += test_acc
@@ -39,37 +27,35 @@ def evaluate(model, test_loader):
 
 
 def train_mlp(
-        seed,
-        dataset,
-        width,
-        n_hidden,
-        act_fn,
-        max_t1,
-        activity_lr,
-        param_lr,
-        batch_size,
-        activity_optim_id,
-        max_epochs,
-        test_every,
-        save_dir
+    seed,
+    dataset,
+    width,
+    n_hidden,
+    act_fn,
+    max_t1,
+    activity_lr,
+    param_lr,
+    batch_size,
+    activity_optim_id,
+    max_epochs,
+    test_every,
+    save_dir,
 ):
     set_seed(seed)
     os.makedirs(save_dir, exist_ok=True)
 
     key = jax.random.PRNGKey(seed)
     model = jpc.make_mlp(
-        key, 
+        key,
         input_dim=784,
         width=width,
-        depth=n_hidden+1,
+        depth=n_hidden + 1,
         output_dim=10,
-        act_fn=act_fn
+        act_fn=act_fn,
     )
 
     param_optim = optax.adam(param_lr)
-    param_opt_state = param_optim.init(
-        (eqx.filter(model, eqx.is_array), None)
-    )
+    param_opt_state = param_optim.init((eqx.filter(model, eqx.is_array), None))
     train_loader, test_loader = get_dataloaders(dataset, batch_size)
 
     train_losses = []
@@ -78,9 +64,11 @@ def train_mlp(
     inference_runtimes = []
 
     if activity_optim_id != "SGD":
-        stepsize_controller = ConstantStepSize() if (
-                activity_optim_id == "Euler"
-        ) else PIDController(rtol=1e-3, atol=1e-3)
+        stepsize_controller = (
+            ConstantStepSize()
+            if (activity_optim_id == "Euler")
+            else PIDController(rtol=1e-3, atol=1e-3)
+        )
         ode_solver = get_ode_solver(activity_optim_id)
 
     elif activity_optim_id == "SGD":
@@ -106,7 +94,7 @@ def train_mlp(
                     stepsize_controller=stepsize_controller,
                     activity_norms=True,
                     param_norms=True,
-                    grad_norms=True
+                    grad_norms=True,
                 )
                 model, param_opt_state = result["model"], result["opt_state"]
                 train_loss = result["loss"]
@@ -119,10 +107,7 @@ def train_mlp(
                 )
 
             elif activity_optim_id == "SGD":
-                activities = jpc.init_activities_with_ffwd(
-                    model=model,
-                    input=img_batch
-                )
+                activities = jpc.init_activities_with_ffwd(model=model, input=img_batch)
                 activity_opt_state = activity_optim.init(activities)
                 train_loss = jpc.mse_loss(activities[-1], label_batch)
 
@@ -133,7 +118,7 @@ def train_mlp(
                         optim=activity_optim,
                         opt_state=activity_opt_state,
                         output=label_batch,
-                        input=img_batch
+                        input=img_batch,
                     )
                     activities = activity_update_result["activities"]
                     activity_optim = activity_update_result["activity_optim"]
@@ -145,7 +130,7 @@ def train_mlp(
                     optim=param_optim,
                     opt_state=param_opt_state,
                     output=label_batch,
-                    input=img_batch
+                    input=img_batch,
                 )
                 model = param_update_result["model"]
                 param_grads = param_update_result["param_grads"]
@@ -168,16 +153,13 @@ def train_mlp(
                         solver=ode_solver,
                         max_t1=max_t1,
                         dt=activity_lr,
-                        stepsize_controller=stepsize_controller
+                        stepsize_controller=stepsize_controller,
                     )
                 )
                 end_time = time.time()
 
             elif activity_optim_id == "SGD":
-                activities = jpc.init_activities_with_ffwd(
-                    model=model,
-                    input=img_batch
-                )
+                activities = jpc.init_activities_with_ffwd(model=model, input=img_batch)
                 activity_opt_state = activity_optim.init(activities)
                 start_time = time.time()
                 for t in range(max_t1):
@@ -188,7 +170,7 @@ def train_mlp(
                             activity_optim,
                             activity_opt_state,
                             label_batch,
-                            img_batch
+                            img_batch,
                         )
                     )
                 end_time = time.time()
@@ -198,7 +180,9 @@ def train_mlp(
             global_batch_id += 1
 
             if global_batch_id % test_every == 0:
-                print(f"Train loss: {train_loss:.7f} [{batch_id * len(img_batch)}/{len(train_loader.dataset)}]")
+                print(
+                    f"Train loss: {train_loss:.7f} [{batch_id * len(img_batch)}/{len(train_loader.dataset)}]"
+                )
 
                 avg_test_loss, avg_test_acc = evaluate(model, test_loader)
                 test_losses.append(avg_test_loss)
@@ -209,33 +193,30 @@ def train_mlp(
         loss=train_losses,
         yaxis_title="Train loss",
         xaxis_title="Iteration",
-        save_path=f"{save_dir}/train_losses.pdf"
+        save_path=f"{save_dir}/train_losses.pdf",
     )
     plot_loss_and_accuracy(
         loss=test_losses,
         accuracy=test_accs,
         mode="test",
         xaxis_title="Training iteration",
-        save_path=f"{save_dir}/test_losses_and_accs.pdf"
+        save_path=f"{save_dir}/test_losses_and_accs.pdf",
     )
     plot_norms(
-        norms=param_norms,
-        norm_type="param",
-        save_path=f"{save_dir}/param_norms.pdf"
+        norms=param_norms, norm_type="param", save_path=f"{save_dir}/param_norms.pdf"
     )
     plot_norms(
         norms=param_grad_norms,
         norm_type="param_grad",
-        save_path=f"{save_dir}/param_grad_norms.pdf"
+        save_path=f"{save_dir}/param_grad_norms.pdf",
     )
     plot_norms(
         norms=activity_norms,
         norm_type="activity",
-        save_path=f"{save_dir}/activity_norms.pdf"
+        save_path=f"{save_dir}/activity_norms.pdf",
     )
     plot_runtimes(
-        runtimes=inference_runtimes,
-        save_path=f"{save_dir}/inference_runtimes.pdf"
+        runtimes=inference_runtimes, save_path=f"{save_dir}/inference_runtimes.pdf"
     )
 
     np.save(f"{save_dir}/batch_train_losses.npy", train_losses)
@@ -283,7 +264,7 @@ if __name__ == "__main__":
                                 activity_lr=activity_lr,
                                 param_lr=PARAM_LR,
                                 activity_optim_id=activity_optim_id,
-                                seed=seed
+                                seed=seed,
                             )
                             train_mlp(
                                 seed=seed,
@@ -298,5 +279,5 @@ if __name__ == "__main__":
                                 activity_optim_id=activity_optim_id,
                                 max_epochs=MAX_EPOCHS,
                                 test_every=TEST_EVERY,
-                                save_dir=save_dir
+                                save_dir=save_dir,
                             )

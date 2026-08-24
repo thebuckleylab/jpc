@@ -15,9 +15,9 @@ def test_check_param_type_invalid():
     """Test that invalid parameter types raise ValueError."""
     with pytest.raises(ValueError, match="Invalid parameterisation"):
         _check_param_type("invalid")
-    
+
     with pytest.raises(ValueError, match="Invalid parameterisation"):
         _check_param_type("")
-    
+
     with pytest.raises(ValueError, match="Invalid parameterisation"):
         _check_param_type("ntk")

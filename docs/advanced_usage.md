@@ -12,20 +12,17 @@ activities = jpc.init_activities_with_ffwd(model=model, input=x)
 
 # 2. run inference to equilibrium
 equilibrated_activities = jpc.solve_inference(
-    params=(model, None), 
-    activities=activities, 
-    output=y, 
-    input=x
+    params=(model, None), activities=activities, output=y, input=x
 )
 
 # 3. update parameters at the activities' solution with PC
 param_update_result = jpc.update_params(
-    params=(model, None), 
+    params=(model, None),
     activities=equilibrated_activities,
     optim=param_optim,
     opt_state=param_opt_state,
-    output=y, 
-    input=x
+    output=y,
+    input=x,
 )
 
 # updated model and optimiser
@@ -55,7 +52,7 @@ for t in range(T):
         optim=activity_optim,
         opt_state=activity_opt_state,
         output=y,
-        input=x
+        input=x,
     )
     # updated activities and optimiser
     activities = activity_update_result["activities"]

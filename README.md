@@ -129,19 +129,19 @@ for _ in range(len(model)):
         optim=activity_optim,
         opt_state=activity_opt_state,
         output=y,
-        input=x
+        input=x,
     )
     activities = activity_update_result["activities"]
     activity_opt_state = activity_update_result["opt_state"]
 
 # 3. update parameters at the activities' solution with PC
 result = jpc.update_params(
-    params=(model, None), 
+    params=(model, None),
     activities=converged_activities,
     optim=optim,
     opt_state=opt_state,
-    output=y, 
-    input=x
+    output=y,
+    input=x,
 )
 ```
 which can be embedded in a jitted function with any other additional 

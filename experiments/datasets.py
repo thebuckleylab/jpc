@@ -2,7 +2,6 @@ import os
 from pathlib import Path
 
 import jax.random as jr
-
 import torch
 from torch.utils.data import DataLoader, Dataset
 from torchvision import datasets, transforms
@@ -21,31 +20,21 @@ def make_gaussian_dataset(key, mean, std, shape):
 
 
 def get_dataloaders(dataset_id, batch_size, flatten=True, generator=None):
-    train_data = get_dataset(
-        id=dataset_id,
-        train=True,
-        normalise=True,
-        flatten=flatten
-    )
-    test_data = get_dataset(
-        id=dataset_id,
-        train=False,
-        normalise=True,
-        flatten=flatten
-    )
+    train_data = get_dataset(id=dataset_id, train=True, normalise=True, flatten=flatten)
+    test_data = get_dataset(id=dataset_id, train=False, normalise=True, flatten=flatten)
     train_loader = DataLoader(
         dataset=train_data,
         batch_size=batch_size,
         shuffle=True,
         drop_last=True,
-        generator=generator
+        generator=generator,
     )
     test_loader = DataLoader(
         dataset=test_data,
         batch_size=batch_size,
         shuffle=True,
         drop_last=True,
-        generator=generator
+        generator=generator,
     )
     return train_loader, test_loader
 
@@ -72,7 +61,7 @@ def get_imagenet_loaders(batch_size):
         shuffle=True,
         drop_last=True,
         num_workers=32,
-        persistent_workers=True
+        persistent_workers=True,
     )
     val_loader = DataLoader(
         dataset=val_data,
@@ -80,7 +69,7 @@ def get_imagenet_loaders(batch_size):
         shuffle=True,
         drop_last=True,
         num_workers=32,
-        persistent_workers=True
+        persistent_workers=True,
     )
     return train_loader, val_loader
 
@@ -116,9 +105,7 @@ class MNIST(datasets.MNIST):
             transform = transforms.Compose(
                 [
                     transforms.ToTensor(),
-                    transforms.Normalize(
-                        mean=(0.1307), std=(0.3081)
-                    )
+                    transforms.Normalize(mean=(0.1307), std=(0.3081)),
                 ]
             )
         else:
@@ -138,12 +125,7 @@ class FashionMNIST(datasets.FashionMNIST):
         self.flatten = flatten
         if normalise:
             transform = transforms.Compose(
-                [
-                    transforms.ToTensor(),
-                    transforms.Normalize(
-                        mean=(0.5), std=(0.5)
-                    )
-                ]
+                [transforms.ToTensor(), transforms.Normalize(mean=(0.5), std=(0.5))]
             )
         else:
             transform = transforms.Compose([transforms.ToTensor()])
@@ -158,26 +140,28 @@ class FashionMNIST(datasets.FashionMNIST):
 
 
 class CIFAR10(datasets.CIFAR10):
-    def __init__(self, train, normalise=True, flatten=True, save_dir=f"{DATA_DIR}/CIFAR10"):
+    def __init__(
+        self, train, normalise=True, flatten=True, save_dir=f"{DATA_DIR}/CIFAR10"
+    ):
         self.flatten = flatten
         if normalise:
             if train:
                 transform = transforms.Compose(
                     [
-                        transforms.Resize((32,32)), 
+                        transforms.Resize((32, 32)),
                         transforms.RandomCrop(32, padding=4),
-                        transforms.RandomHorizontalFlip(), 
+                        transforms.RandomHorizontalFlip(),
                         transforms.RandomRotation(10),
-                        transforms.ToTensor(), 
-                        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+                        transforms.ToTensor(),
+                        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
                     ]
                 )
             else:
                 transform = transforms.Compose(
                     [
-                        transforms.Resize((32,32)),
+                        transforms.Resize((32, 32)),
                         transforms.ToTensor(),
-                        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+                        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
                     ]
                 )
         else:
@@ -195,15 +179,17 @@ class CIFAR10(datasets.CIFAR10):
 class ImageNet(datasets.ImageNet):
     def __init__(self, split):
         if split == "train":
-            transform = transforms.Compose([
-                transforms.RandomResizedCrop(224),
-                transforms.RandomHorizontalFlip(),
-                transforms.ColorJitter(0.4, 0.4, 0.4, 0.1),
-                transforms.ToTensor(),
-                transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406],
-                    std=[0.229, 0.224, 0.225])
-            ])
+            transform = transforms.Compose(
+                [
+                    transforms.RandomResizedCrop(224),
+                    transforms.RandomHorizontalFlip(),
+                    transforms.ColorJitter(0.4, 0.4, 0.4, 0.1),
+                    transforms.ToTensor(),
+                    transforms.Normalize(
+                        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                    ),
+                ]
+            )
         elif split == "val":
             transform = transforms.Compose(
                 [
@@ -211,8 +197,7 @@ class ImageNet(datasets.ImageNet):
                     transforms.CenterCrop(224),
                     transforms.ToTensor(),
                     transforms.Normalize(
-                        mean=[0.485, 0.456, 0.406],
-                        std=[0.229, 0.224, 0.225]
+                        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
                     ),
                 ]
             )

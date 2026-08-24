@@ -1,15 +1,18 @@
 import argparse
 import os
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
-plt.rcParams.update({
-    "text.usetex": True,
-    "font.family": "serif",
-    "axes.unicode_minus": False,
-    "text.latex.preamble": r"\usepackage{amsmath}\usepackage{amssymb}"
-})
+
+plt.rcParams.update(
+    {
+        "text.usetex": True,
+        "font.family": "serif",
+        "axes.unicode_minus": False,
+        "text.latex.preamble": r"\usepackage{amsmath}\usepackage{amssymb}",
+    }
+)
 
 FIG_SIZE = (8, 6)
 FONT_SIZES = {"label": 45, "legend": 25, "tick": 35}
@@ -21,12 +24,42 @@ ALPHA = 0.7
 def _is_sequential_colormap(colormap_name):
     """Check if a colormap is sequential (aligned with plot_toy_results.py)."""
     sequential = {
-        "viridis", "plasma", "inferno", "magma", "cividis",
-        "Reds", "Blues", "Greens", "Oranges", "Purples", "Greys",
-        "YlOrRd", "YlOrBr", "YlGnBu", "YlGn", "RdPu",
-        "BuGn", "BuPu", "GnBu", "PuBu", "PuBuGn", "PuRd", "OrRd",
-        "RdYlBu", "RdYlGn", "Spectral", "coolwarm", "cool", "hot",
-        "copper", "bone", "pink", "spring", "summer", "autumn", "winter",
+        "viridis",
+        "plasma",
+        "inferno",
+        "magma",
+        "cividis",
+        "Reds",
+        "Blues",
+        "Greens",
+        "Oranges",
+        "Purples",
+        "Greys",
+        "YlOrRd",
+        "YlOrBr",
+        "YlGnBu",
+        "YlGn",
+        "RdPu",
+        "BuGn",
+        "BuPu",
+        "GnBu",
+        "PuBu",
+        "PuBuGn",
+        "PuRd",
+        "OrRd",
+        "RdYlBu",
+        "RdYlGn",
+        "Spectral",
+        "coolwarm",
+        "cool",
+        "hot",
+        "copper",
+        "bone",
+        "pink",
+        "spring",
+        "summer",
+        "autumn",
+        "winter",
     }
     return colormap_name in sequential
 
@@ -219,7 +252,14 @@ def discover_width_run_dirs(results_dir):
     }
 
 
-def _file_suffix(activity_lr, n_infer_iters, use_amortiser, n_activity_lr_groups, n_infer_iters_groups, n_use_amortiser_groups):
+def _file_suffix(
+    activity_lr,
+    n_infer_iters,
+    use_amortiser,
+    n_activity_lr_groups,
+    n_infer_iters_groups,
+    n_use_amortiser_groups,
+):
     """Filename suffix for per-activity_lr, per-n_infer_iters and per-use_amortiser outputs when multiple groups exist."""
     parts = []
     if n_activity_lr_groups > 1:
@@ -247,7 +287,9 @@ def main(args):
         filtered_groups = {}
         for key, width_runs in activity_lr_groups.items():
             filtered_groups[key] = (
-                _filter_width_runs_by_seed(width_runs, selected_seed) if width_runs else width_runs
+                _filter_width_runs_by_seed(width_runs, selected_seed)
+                if width_runs
+                else width_runs
             )
         activity_lr_groups = filtered_groups
     if not activity_lr_groups:
@@ -308,7 +350,10 @@ def main(args):
         # Ensure consistent feature dimension by truncating to min D if needed
         n_dim = min(a.shape[1] if a.ndim > 1 else 1 for a in arrays_2d)
         stacked = np.stack(
-            [(a[:n_time, :n_dim] if a.ndim > 1 else a[:n_time].reshape(-1, 1)) for a in arrays_2d],
+            [
+                (a[:n_time, :n_dim] if a.ndim > 1 else a[:n_time].reshape(-1, 1))
+                for a in arrays_2d
+            ],
             axis=0,
         )  # (n_seeds, n_time, n_dim)
         mean = stacked.mean(axis=0)
@@ -318,11 +363,31 @@ def main(args):
             sem = stacked.std(axis=0, ddof=1) / np.sqrt(stacked.shape[0])
         return mean, sem, stacked.shape[0], n_time
 
-    def plot_mean_with_sem(x, mean, sem, *, color, label=None, linestyle="-", alpha_line=ALPHA, alpha_band=0.18):
+    def plot_mean_with_sem(
+        x,
+        mean,
+        sem,
+        *,
+        color,
+        label=None,
+        linestyle="-",
+        alpha_line=ALPHA,
+        alpha_band=0.18,
+    ):
         """Line plot of mean with SEM band."""
-        plt.plot(x, mean, linestyle, color=color, linewidth=LINE_WIDTH, alpha=alpha_line, label=label)
+        plt.plot(
+            x,
+            mean,
+            linestyle,
+            color=color,
+            linewidth=LINE_WIDTH,
+            alpha=alpha_line,
+            label=label,
+        )
         if sem is not None and np.any(np.isfinite(sem)) and np.max(sem) > 0:
-            plt.fill_between(x, mean - sem, mean + sem, color=color, alpha=alpha_band, linewidth=0)
+            plt.fill_between(
+                x, mean - sem, mean + sem, color=color, alpha=alpha_band, linewidth=0
+            )
 
     def load_numerical_energy(run_dir):
         """Load per-step numerical/experimental energy curve from a run dir.
@@ -363,11 +428,19 @@ def main(args):
     def load_cos_sims(run_dir):
         path_overall = os.path.join(run_dir, "grad_cosine_similarities.npy")
         path_per_layer = os.path.join(run_dir, "grad_cosine_similarities_per_layer.npy")
-        path_overall_theory_bp = os.path.join(run_dir, "grad_cosine_similarities_theory_bp.npy")
-        path_per_layer_theory_bp = os.path.join(run_dir, "grad_cosine_similarities_theory_bp_per_layer.npy")
+        path_overall_theory_bp = os.path.join(
+            run_dir, "grad_cosine_similarities_theory_bp.npy"
+        )
+        path_per_layer_theory_bp = os.path.join(
+            run_dir, "grad_cosine_similarities_theory_bp_per_layer.npy"
+        )
         path_names = os.path.join(run_dir, "grad_cosine_similarities_layer_names.npy")
 
-        names = np.load(path_names, allow_pickle=True) if os.path.isfile(path_names) else None
+        names = (
+            np.load(path_names, allow_pickle=True)
+            if os.path.isfile(path_names)
+            else None
+        )
         if names is not None and isinstance(names, np.ndarray):
             names = list(names)
         if not names:
@@ -381,7 +454,9 @@ def main(args):
 
         overall_theory_bp = None
         per_layer_theory_bp = None
-        if os.path.isfile(path_overall_theory_bp) and os.path.isfile(path_per_layer_theory_bp):
+        if os.path.isfile(path_overall_theory_bp) and os.path.isfile(
+            path_per_layer_theory_bp
+        ):
             overall_theory_bp = np.load(path_overall_theory_bp).flatten()
             per_layer_theory_bp = np.load(path_per_layer_theory_bp)
 
@@ -394,20 +469,40 @@ def main(args):
     n_infer_iters_groups = len(set(k[1] for k in activity_lr_groups.keys()))
     n_use_amortiser_groups = len(set(k[2] for k in activity_lr_groups.keys()))
 
-    for (activity_lr, n_infer_iters, use_amortiser), width_runs in activity_lr_groups.items():
+    for (
+        activity_lr,
+        n_infer_iters,
+        use_amortiser,
+    ), width_runs in activity_lr_groups.items():
         if plot_widths_set is not None and width_runs:
             width_runs = [(w, ds) for (w, ds) in width_runs if w in plot_widths_set]
             if not width_runs:
-                available = sorted({w for (w, _) in activity_lr_groups[(activity_lr, n_infer_iters, use_amortiser)]})
+                available = sorted(
+                    {
+                        w
+                        for (w, _) in activity_lr_groups[
+                            (activity_lr, n_infer_iters, use_amortiser)
+                        ]
+                    }
+                )
                 raise ValueError(
                     f"--plot_widths={sorted(plot_widths_set)} selected no discovered widths. "
                     f"Available widths for this group: {available}. "
                     "Either omit --plot_widths to include all discovered widths, or pass one of the available widths."
                 )
-        suffix = _file_suffix(activity_lr, n_infer_iters, use_amortiser, n_activity_lr_groups, n_infer_iters_groups, n_use_amortiser_groups)
+        suffix = _file_suffix(
+            activity_lr,
+            n_infer_iters,
+            use_amortiser,
+            n_activity_lr_groups,
+            n_infer_iters_groups,
+            n_use_amortiser_groups,
+        )
         if selected_seed is not None:
             suffix = f"{suffix}_seed_{selected_seed}"
-        use_discovered_widths = len(width_runs) > 1 or (selected_seed is not None and bool(width_runs))
+        use_discovered_widths = len(width_runs) > 1 or (
+            selected_seed is not None and bool(width_runs)
+        )
         if width_runs:
             data_dir = width_runs[0][1][0]
         else:
@@ -415,7 +510,9 @@ def main(args):
 
         steps = np.load(os.path.join(data_dir, "steps.npy"))
         out_features_path = _run_sibling_path(data_dir, "out_features")
-        out_features = int(np.load(out_features_path)) if os.path.isfile(out_features_path) else 1
+        out_features = (
+            int(np.load(out_features_path)) if os.path.isfile(out_features_path) else 1
+        )
 
         if not use_discovered_widths:
             # Some runs/scripts may not produce theory energies; handle that gracefully.
@@ -431,7 +528,9 @@ def main(args):
         if os.path.isfile(widths_path) and not use_discovered_widths:
             widths = list(np.load(widths_path))
             if plot_widths_set is not None:
-                keep_idx = [i for i, w in enumerate(widths) if int(w) in plot_widths_set]
+                keep_idx = [
+                    i for i, w in enumerate(widths) if int(w) in plot_widths_set
+                ]
                 if not keep_idx:
                     raise ValueError(
                         f"--plot_widths={sorted(plot_widths_set)} selected no widths from widths.npy={widths}."
@@ -443,7 +542,10 @@ def main(args):
         elif use_discovered_widths:
             widths = [w for w, _ in width_runs]
             n_widths = len(widths)
-            colors = [plt.get_cmap(colormap_name)(_get_color_val(i, n_widths, colormap_name)) for i in range(n_widths)]
+            colors = [
+                plt.get_cmap(colormap_name)(_get_color_val(i, n_widths, colormap_name))
+                for i in range(n_widths)
+            ]
             has_widths = True
         else:
             widths = [None]
@@ -480,29 +582,57 @@ def main(args):
                     if exp is None:
                         continue
                     exp_curves.append(exp)
-                    steps_list.append(np.load(os.path.join(w_run_dir, "steps.npy")).flatten())
+                    steps_list.append(
+                        np.load(os.path.join(w_run_dir, "steps.npy")).flatten()
+                    )
                     th = load_theory_energy(w_run_dir)
                     if th is not None:
                         th_curves.append(th)
                 if not exp_curves:
                     continue
                 exp_mean, exp_sem, _, n_t = aggregate_seed_curves(exp_curves)
-                steps_w = min(steps_list, key=len)[:n_t] if steps_list else np.arange(n_t)
+                steps_w = (
+                    min(steps_list, key=len)[:n_t] if steps_list else np.arange(n_t)
+                )
                 color = colormap(_get_color_val(idx, n_widths, colormap_name))
                 lbl = _legend_n_label(width)
-                plot_mean_with_sem(steps_w, exp_mean, exp_sem, color=color, label=lbl, linestyle="-", alpha_band=0.14)
+                plot_mean_with_sem(
+                    steps_w,
+                    exp_mean,
+                    exp_sem,
+                    color=color,
+                    label=lbl,
+                    linestyle="-",
+                    alpha_band=0.14,
+                )
                 if th_curves:
                     th_mean, th_sem, _, n_t_th = aggregate_seed_curves(th_curves)
                     steps_th = steps_w[: min(len(steps_w), n_t_th)]
-                    plot_mean_with_sem(steps_th, th_mean[: len(steps_th)], th_sem[: len(steps_th)], color=color, label=None, linestyle="--", alpha_line=0.8, alpha_band=0.10)
+                    plot_mean_with_sem(
+                        steps_th,
+                        th_mean[: len(steps_th)],
+                        th_sem[: len(steps_th)],
+                        color=color,
+                        label=None,
+                        linestyle="--",
+                        alpha_line=0.8,
+                        alpha_band=0.10,
+                    )
             if width_runs:
-                _setup_plot("$t$", r"$\mathcal{F}(\boldsymbol{\theta}_t)$", log_scale=True)
+                _setup_plot(
+                    "$t$", r"$\mathcal{F}(\boldsymbol{\theta}_t)$", log_scale=True
+                )
                 ax = plt.gca()
                 formatter = ax.yaxis.get_major_formatter()
                 if hasattr(formatter, "set_useOffset"):
                     formatter.set_useOffset(False)
                 plt.tight_layout()
-                plt.savefig(os.path.join(args.output_dir, f"theory_vs_numerical_energy{suffix}.pdf"), bbox_inches="tight")
+                plt.savefig(
+                    os.path.join(
+                        args.output_dir, f"theory_vs_numerical_energy{suffix}.pdf"
+                    ),
+                    bbox_inches="tight",
+                )
                 plt.close()
         else:
             plt.figure(figsize=FIG_SIZE)
@@ -514,17 +644,39 @@ def main(args):
                     ee = get_curve(experiment_energies_f, i)
                     w = widths[i]
                     lbl = _legend_n_label(w) if has_widths else "Numerical"
-                    plt.plot(steps, ee, "-", color=colors[i], linewidth=LINE_WIDTH, alpha=ALPHA, label=lbl)
+                    plt.plot(
+                        steps,
+                        ee,
+                        "-",
+                        color=colors[i],
+                        linewidth=LINE_WIDTH,
+                        alpha=ALPHA,
+                        label=lbl,
+                    )
                     if theory_energies_f is not None:
                         te = get_curve(theory_energies_f, i)
-                        plt.plot(steps, te, "--", color=colors[i] if has_widths else "black", linewidth=LINE_WIDTH, alpha=0.8)
-                _setup_plot("$t$", r"$\mathcal{F}(\boldsymbol{\theta}_t)$", log_scale=True)
+                        plt.plot(
+                            steps,
+                            te,
+                            "--",
+                            color=colors[i] if has_widths else "black",
+                            linewidth=LINE_WIDTH,
+                            alpha=0.8,
+                        )
+                _setup_plot(
+                    "$t$", r"$\mathcal{F}(\boldsymbol{\theta}_t)$", log_scale=True
+                )
                 ax = plt.gca()
                 formatter = ax.yaxis.get_major_formatter()
                 if hasattr(formatter, "set_useOffset"):
                     formatter.set_useOffset(False)
                 plt.tight_layout()
-                plt.savefig(os.path.join(args.output_dir, f"theory_vs_numerical_energy{suffix}.pdf"), bbox_inches="tight")
+                plt.savefig(
+                    os.path.join(
+                        args.output_dir, f"theory_vs_numerical_energy{suffix}.pdf"
+                    ),
+                    bbox_inches="tight",
+                )
                 plt.close()
 
         # PC (numerical) energy vs t only (all widths)
@@ -540,15 +692,24 @@ def main(args):
                     if exp is None:
                         continue
                     exp_curves.append(exp)
-                    steps_list.append(np.load(os.path.join(w_run_dir, "steps.npy")).flatten())
+                    steps_list.append(
+                        np.load(os.path.join(w_run_dir, "steps.npy")).flatten()
+                    )
                 if not exp_curves:
                     continue
                 exp_mean, exp_sem, _, n_t = aggregate_seed_curves(exp_curves)
-                steps_w = min(steps_list, key=len)[:n_t] if steps_list else np.arange(n_t)
+                steps_w = (
+                    min(steps_list, key=len)[:n_t] if steps_list else np.arange(n_t)
+                )
                 color = colormap(_get_color_val(idx, n_widths_energy, colormap_name))
                 plot_mean_with_sem(
-                    steps_w, exp_mean, exp_sem,
-                    color=color, label=_legend_n_label(width), linestyle="-", alpha_band=0.14,
+                    steps_w,
+                    exp_mean,
+                    exp_sem,
+                    color=color,
+                    label=_legend_n_label(width),
+                    linestyle="-",
+                    alpha_band=0.14,
                 )
         else:
             exp = load_numerical_energy(data_dir)
@@ -558,12 +719,25 @@ def main(args):
                     ee = get_curve(experiment_energies_f, i)
                     w = widths[i]
                     lbl = _legend_n_label(w) if has_widths else "PC energy"
-                    plt.plot(steps, ee, "-", color=colors[i], linewidth=LINE_WIDTH, alpha=ALPHA, label=lbl)
+                    plt.plot(
+                        steps,
+                        ee,
+                        "-",
+                        color=colors[i],
+                        linewidth=LINE_WIDTH,
+                        alpha=ALPHA,
+                        label=lbl,
+                    )
             elif exp is not None:
                 n = min(len(steps), len(exp))
                 plt.plot(
-                    steps[:n], exp[:n], "-", color="#4A90E2",
-                    linewidth=LINE_WIDTH, alpha=ALPHA, label="PC energy",
+                    steps[:n],
+                    exp[:n],
+                    "-",
+                    color="#4A90E2",
+                    linewidth=LINE_WIDTH,
+                    alpha=ALPHA,
+                    label="PC energy",
                 )
         _setup_plot("$t$", r"$\mathcal{F}(\boldsymbol{\theta}_t)$", log_scale=True)
         ax = plt.gca()
@@ -571,7 +745,10 @@ def main(args):
         if hasattr(formatter, "set_useOffset"):
             formatter.set_useOffset(False)
         plt.tight_layout()
-        plt.savefig(os.path.join(args.output_dir, f"experiment_energy{suffix}.pdf"), bbox_inches="tight")
+        plt.savefig(
+            os.path.join(args.output_dir, f"experiment_energy{suffix}.pdf"),
+            bbox_inches="tight",
+        )
         plt.close()
 
         # BP loss vs t only (all widths, if present)
@@ -586,23 +763,37 @@ def main(args):
                     if bp is None:
                         continue
                     bp_curves.append(bp)
-                    steps_list.append(np.load(os.path.join(w_run_dir, "steps.npy")).flatten())
+                    steps_list.append(
+                        np.load(os.path.join(w_run_dir, "steps.npy")).flatten()
+                    )
                 if not bp_curves:
                     continue
                 bp_mean, bp_sem, _, n_t = aggregate_seed_curves(bp_curves)
-                steps_w = min(steps_list, key=len)[:n_t] if steps_list else np.arange(n_t)
+                steps_w = (
+                    min(steps_list, key=len)[:n_t] if steps_list else np.arange(n_t)
+                )
                 color = colormap(_get_color_val(idx, n_widths_bp, colormap_name))
                 plot_mean_with_sem(
-                    steps_w, bp_mean, bp_sem,
-                    color=color, label=_legend_n_label(width), linestyle="-", alpha_band=0.14,
+                    steps_w,
+                    bp_mean,
+                    bp_sem,
+                    color=color,
+                    label=_legend_n_label(width),
+                    linestyle="-",
+                    alpha_band=0.14,
                 )
         else:
             bp = load_bp_losses(data_dir)
             if bp is not None:
                 n = min(len(steps), len(bp))
                 plt.plot(
-                    steps[:n], bp[:n], "-", color="#4A90E2",
-                    linewidth=LINE_WIDTH, alpha=ALPHA, label="BP loss",
+                    steps[:n],
+                    bp[:n],
+                    "-",
+                    color="#4A90E2",
+                    linewidth=LINE_WIDTH,
+                    alpha=ALPHA,
+                    label="BP loss",
                 )
         _setup_plot("$t$", r"$\mathcal{L}(\boldsymbol{\theta}_t)$", log_scale=True)
         ax = plt.gca()
@@ -610,7 +801,9 @@ def main(args):
         if hasattr(formatter, "set_useOffset"):
             formatter.set_useOffset(False)
         plt.tight_layout()
-        plt.savefig(os.path.join(args.output_dir, f"bp_loss{suffix}.pdf"), bbox_inches="tight")
+        plt.savefig(
+            os.path.join(args.output_dir, f"bp_loss{suffix}.pdf"), bbox_inches="tight"
+        )
         plt.close()
 
         # Losses & energies overlay (toy-results style)
@@ -636,13 +829,25 @@ def main(args):
                     if exp is None:
                         continue
                     exp_curves.append(exp)
-                    steps_list.append(np.load(os.path.join(w_run_dir, "steps.npy")).flatten())
+                    steps_list.append(
+                        np.load(os.path.join(w_run_dir, "steps.npy")).flatten()
+                    )
                 if not exp_curves:
                     continue
                 mean, sem, _, n_t = aggregate_seed_curves(exp_curves)
-                steps_w = min(steps_list, key=len)[:n_t] if steps_list else np.arange(n_t) + 1
+                steps_w = (
+                    min(steps_list, key=len)[:n_t] if steps_list else np.arange(n_t) + 1
+                )
                 color = blues_cmap(_get_color_val(idx, len(width_runs), "Blues"))
-                plot_mean_with_sem(steps_w, mean, sem, color=color, label=None, linestyle="-", alpha_band=0.10)
+                plot_mean_with_sem(
+                    steps_w,
+                    mean,
+                    sem,
+                    color=color,
+                    label=None,
+                    linestyle="-",
+                    alpha_band=0.10,
+                )
                 widths_present.append(width)
 
             # Plot BP loss (widest width only, mean +/- SEM band)
@@ -657,41 +862,89 @@ def main(args):
                     if bp is None:
                         continue
                     bp_curves.append(bp)
-                    steps_list.append(np.load(os.path.join(w_run_dir, "steps.npy")).flatten())
+                    steps_list.append(
+                        np.load(os.path.join(w_run_dir, "steps.npy")).flatten()
+                    )
                 if bp_curves:
                     bp_mean, bp_sem, _, n_t = aggregate_seed_curves(bp_curves)
-                    bp_steps = min(steps_list, key=len)[:n_t] if steps_list else np.arange(n_t) + 1
-                    plot_mean_with_sem(bp_steps, bp_mean, bp_sem, color=bp_color, label=None, linestyle="-", alpha_line=ALPHA, alpha_band=0.10)
+                    bp_steps = (
+                        min(steps_list, key=len)[:n_t]
+                        if steps_list
+                        else np.arange(n_t) + 1
+                    )
+                    plot_mean_with_sem(
+                        bp_steps,
+                        bp_mean,
+                        bp_sem,
+                        color=bp_color,
+                        label=None,
+                        linestyle="-",
+                        alpha_line=ALPHA,
+                        alpha_band=0.10,
+                    )
                     widths_present.append(max_width)
 
             # Build custom legend (same idea as plot_toy_results.py)
             legend_handles = []
             legend_labels = []
             if widths_present:
-                legend_handles.append(plt.Line2D([0], [0], color=pc_legend_color, linewidth=LINE_WIDTH, alpha=ALPHA))
+                legend_handles.append(
+                    plt.Line2D(
+                        [0],
+                        [0],
+                        color=pc_legend_color,
+                        linewidth=LINE_WIDTH,
+                        alpha=ALPHA,
+                    )
+                )
                 legend_labels.append(r"$\mathcal{F}^*(\boldsymbol{\theta})$ (PC)")
             if bp_mean is not None:
-                legend_handles.append(plt.Line2D([0], [0], color=bp_color, linewidth=LINE_WIDTH, alpha=ALPHA))
+                legend_handles.append(
+                    plt.Line2D(
+                        [0], [0], color=bp_color, linewidth=LINE_WIDTH, alpha=ALPHA
+                    )
+                )
                 legend_labels.append(r"$\mathcal{L}(\boldsymbol{\theta})$ (BP)")
 
             all_widths = sorted(set(widths_present))
             n_all_widths = len(all_widths)
             for i, w in enumerate(all_widths):
-                gray_val = 0.3 + (i / max(n_all_widths - 1, 1)) * 0.5 if n_all_widths > 1 else 0.5
-                legend_handles.append(plt.Line2D([0], [0], color=gray_cmap(gray_val), linewidth=LINE_WIDTH))
+                gray_val = (
+                    0.3 + (i / max(n_all_widths - 1, 1)) * 0.5
+                    if n_all_widths > 1
+                    else 0.5
+                )
+                legend_handles.append(
+                    plt.Line2D(
+                        [0], [0], color=gray_cmap(gray_val), linewidth=LINE_WIDTH
+                    )
+                )
                 legend_labels.append(_legend_n_label(w))
 
             ax = plt.gca()
             ax.spines["top"].set_visible(False)
             ax.spines["right"].set_visible(False)
             plt.xlabel("$t$", fontsize=FONT_SIZES["label"], labelpad=LABEL_PAD)
-            plt.ylabel(r"$l(\boldsymbol{\theta}_t)$", fontsize=FONT_SIZES["label"], labelpad=LABEL_PAD)
+            plt.ylabel(
+                r"$l(\boldsymbol{\theta}_t)$",
+                fontsize=FONT_SIZES["label"],
+                labelpad=LABEL_PAD,
+            )
             if legend_handles:
-                plt.legend(handles=legend_handles, labels=legend_labels, fontsize=FONT_SIZES["legend"], bbox_to_anchor=(1.05, 1), loc="upper left")
+                plt.legend(
+                    handles=legend_handles,
+                    labels=legend_labels,
+                    fontsize=FONT_SIZES["legend"],
+                    bbox_to_anchor=(1.05, 1),
+                    loc="upper left",
+                )
             plt.grid(True, which="both", ls="-", alpha=0.4)
             plt.tick_params(axis="both", labelsize=FONT_SIZES["tick"])
             plt.tight_layout()
-            plt.savefig(os.path.join(args.output_dir, f"losses_and_energies{suffix}.pdf"), bbox_inches="tight")
+            plt.savefig(
+                os.path.join(args.output_dir, f"losses_and_energies{suffix}.pdf"),
+                bbox_inches="tight",
+            )
             plt.close()
 
         # Energy delta plot (only when theory energies are available)
@@ -710,14 +963,26 @@ def main(args):
                         continue
                     n = min(len(th), len(ex))
                     delta_curves.append(ex[:n] - th[:n])
-                    steps_list.append(np.load(os.path.join(w_run_dir, "steps.npy")).flatten()[:n])
+                    steps_list.append(
+                        np.load(os.path.join(w_run_dir, "steps.npy")).flatten()[:n]
+                    )
                 if not delta_curves:
                     continue
                 delta_mean, delta_sem, _, n_t = aggregate_seed_curves(delta_curves)
-                steps_w = min(steps_list, key=len)[:n_t] if steps_list else np.arange(n_t)
+                steps_w = (
+                    min(steps_list, key=len)[:n_t] if steps_list else np.arange(n_t)
+                )
                 color = colormap(_get_color_val(idx, n_widths, colormap_name))
                 lbl = _legend_n_label(width)
-                plot_mean_with_sem(steps_w, delta_mean, delta_sem, color=color, label=lbl, linestyle="-", alpha_band=0.14)
+                plot_mean_with_sem(
+                    steps_w,
+                    delta_mean,
+                    delta_sem,
+                    color=color,
+                    label=lbl,
+                    linestyle="-",
+                    alpha_band=0.14,
+                )
                 any_delta_plotted = True
             if any_delta_plotted:
                 _setup_plot(
@@ -730,7 +995,12 @@ def main(args):
                 if hasattr(formatter, "set_useOffset"):
                     formatter.set_useOffset(False)
                 plt.tight_layout()
-                plt.savefig(os.path.join(args.output_dir, f"theory_vs_numerical_energy_delta{suffix}.pdf"), bbox_inches="tight")
+                plt.savefig(
+                    os.path.join(
+                        args.output_dir, f"theory_vs_numerical_energy_delta{suffix}.pdf"
+                    ),
+                    bbox_inches="tight",
+                )
                 plt.close()
         else:
             if theory_energies is not None and experiment_energies is not None:
@@ -743,7 +1013,15 @@ def main(args):
                     w = widths[i]
                     delta = ee - te
                     lbl = _legend_n_label(w) if has_widths else "Delta"
-                    plt.plot(steps, delta, "-", color=colors[i], linewidth=LINE_WIDTH, alpha=ALPHA, label=lbl)
+                    plt.plot(
+                        steps,
+                        delta,
+                        "-",
+                        color=colors[i],
+                        linewidth=LINE_WIDTH,
+                        alpha=ALPHA,
+                        label=lbl,
+                    )
                 _setup_plot(
                     "$t$",
                     r"$\Delta\mathcal{F}(\boldsymbol{\theta}_t)$",
@@ -754,7 +1032,12 @@ def main(args):
                 if hasattr(formatter, "set_useOffset"):
                     formatter.set_useOffset(False)
                 plt.tight_layout()
-                plt.savefig(os.path.join(args.output_dir, f"theory_vs_numerical_energy_delta{suffix}.pdf"), bbox_inches="tight")
+                plt.savefig(
+                    os.path.join(
+                        args.output_dir, f"theory_vs_numerical_energy_delta{suffix}.pdf"
+                    ),
+                    bbox_inches="tight",
+                )
                 plt.close()
 
         # Energy rescaling
@@ -775,20 +1058,35 @@ def main(args):
                     if not os.path.isfile(r_path):
                         continue
                     r_curves.append(np.load(r_path).flatten())
-                    steps_list.append(np.load(os.path.join(w_run_dir, "steps.npy")).flatten())
+                    steps_list.append(
+                        np.load(os.path.join(w_run_dir, "steps.npy")).flatten()
+                    )
                 if not r_curves:
                     continue
                 r_mean, r_sem, _, n_t = aggregate_seed_curves(r_curves)
-                steps_w = min(steps_list, key=len)[:n_t] if steps_list else np.arange(n_t)
+                steps_w = (
+                    min(steps_list, key=len)[:n_t] if steps_list else np.arange(n_t)
+                )
                 color = colormap(_get_color_val(idx, len(width_runs), colormap_name))
-                plot_mean_with_sem(steps_w, r_mean, r_sem, color=color, label=_legend_n_label(width), linestyle="-", alpha_band=0.14)
+                plot_mean_with_sem(
+                    steps_w,
+                    r_mean,
+                    r_sem,
+                    color=color,
+                    label=_legend_n_label(width),
+                    linestyle="-",
+                    alpha_band=0.14,
+                )
                 any_rescaling_plotted = True
             if any_rescaling_plotted:
                 _setup_plot("$t$", rescaling_ylabel, log_scale=False)
                 ax = plt.gca()
                 ax.yaxis.get_major_formatter().set_useOffset(False)
                 plt.tight_layout()
-                plt.savefig(os.path.join(args.output_dir, f"theory_rescaling{suffix}.pdf"), bbox_inches="tight")
+                plt.savefig(
+                    os.path.join(args.output_dir, f"theory_rescaling{suffix}.pdf"),
+                    bbox_inches="tight",
+                )
                 plt.close()
             else:
                 plt.close()
@@ -799,12 +1097,23 @@ def main(args):
                     r = get_curve(rescalings_f, i)
                     w = widths[i]
                     lbl = _legend_n_label(w) if has_widths else None
-                    plt.plot(steps, r, "-", color=colors[i], linewidth=LINE_WIDTH, alpha=ALPHA, label=lbl)
+                    plt.plot(
+                        steps,
+                        r,
+                        "-",
+                        color=colors[i],
+                        linewidth=LINE_WIDTH,
+                        alpha=ALPHA,
+                        label=lbl,
+                    )
                 _setup_plot("$t$", rescaling_ylabel, log_scale=False)
                 ax = plt.gca()
                 ax.yaxis.get_major_formatter().set_useOffset(False)
                 plt.tight_layout()
-                plt.savefig(os.path.join(args.output_dir, f"theory_rescaling{suffix}.pdf"), bbox_inches="tight")
+                plt.savefig(
+                    os.path.join(args.output_dir, f"theory_rescaling{suffix}.pdf"),
+                    bbox_inches="tight",
+                )
                 plt.close()
             else:
                 plt.close()
@@ -848,7 +1157,12 @@ def main(args):
                 ax.set_xticks(widths_cond)
                 ax.set_xticklabels(widths_cond)
                 plt.tight_layout()
-                plt.savefig(os.path.join(args.output_dir, f"hessian_condition_vs_width{suffix}.pdf"), bbox_inches="tight")
+                plt.savefig(
+                    os.path.join(
+                        args.output_dir, f"hessian_condition_vs_width{suffix}.pdf"
+                    ),
+                    bbox_inches="tight",
+                )
                 plt.close()
 
         # Cosine similarities
@@ -863,7 +1177,13 @@ def main(args):
                 names = None
                 any_dir_for_steps = None
                 for w_run_dir in w_run_dirs:
-                    overall, per_layer, names_i, overall_theory_bp, per_layer_theory_bp = load_cos_sims(w_run_dir)
+                    (
+                        overall,
+                        per_layer,
+                        names_i,
+                        overall_theory_bp,
+                        per_layer_theory_bp,
+                    ) = load_cos_sims(w_run_dir)
                     if any_dir_for_steps is None:
                         any_dir_for_steps = w_run_dir
                     if names is None:
@@ -875,12 +1195,24 @@ def main(args):
                         overall_th_curves.append(overall_theory_bp)
                         per_layer_th_curves.append(per_layer_theory_bp)
                 if overall_curves:
-                    overall_mean, overall_sem, _, n_t = aggregate_seed_curves(overall_curves)
-                    per_layer_mean, per_layer_sem, _, n_t2 = aggregate_seed_arrays_2d(per_layer_curves)
+                    overall_mean, overall_sem, _, n_t = aggregate_seed_curves(
+                        overall_curves
+                    )
+                    per_layer_mean, per_layer_sem, _, n_t2 = aggregate_seed_arrays_2d(
+                        per_layer_curves
+                    )
                     if per_layer_mean is None:
                         n_t_use = n_t
                         cos_data.append(
-                            (width, any_dir_for_steps, overall_mean[:n_t_use], overall_sem[:n_t_use], None, None, names)
+                            (
+                                width,
+                                any_dir_for_steps,
+                                overall_mean[:n_t_use],
+                                overall_sem[:n_t_use],
+                                None,
+                                None,
+                                names,
+                            )
                         )
                     else:
                         n_t_use = min(n_t, n_t2) if (n_t and n_t2) else (n_t or n_t2)
@@ -896,12 +1228,24 @@ def main(args):
                             )
                         )
                 if overall_th_curves:
-                    overall_th_mean, overall_th_sem, _, n_t = aggregate_seed_curves(overall_th_curves)
-                    per_layer_th_mean, per_layer_th_sem, _, n_t2 = aggregate_seed_arrays_2d(per_layer_th_curves)
+                    overall_th_mean, overall_th_sem, _, n_t = aggregate_seed_curves(
+                        overall_th_curves
+                    )
+                    per_layer_th_mean, per_layer_th_sem, _, n_t2 = (
+                        aggregate_seed_arrays_2d(per_layer_th_curves)
+                    )
                     if per_layer_th_mean is None:
                         n_t_use = n_t
                         cos_data_theory_bp.append(
-                            (width, any_dir_for_steps, overall_th_mean[:n_t_use], overall_th_sem[:n_t_use], None, None, names)
+                            (
+                                width,
+                                any_dir_for_steps,
+                                overall_th_mean[:n_t_use],
+                                overall_th_sem[:n_t_use],
+                                None,
+                                None,
+                                names,
+                            )
                         )
                     else:
                         n_t_use = min(n_t, n_t2) if (n_t and n_t2) else (n_t or n_t2)
@@ -923,7 +1267,9 @@ def main(args):
                 steps_cos = np.load(os.path.join(cos_data_theory_bp[0][1], "steps.npy"))
                 layer_names = cos_data_theory_bp[0][6]
         else:
-            overall, per_layer, layer_names, overall_theory_bp, per_layer_theory_bp = load_cos_sims(data_dir)
+            overall, per_layer, layer_names, overall_theory_bp, per_layer_theory_bp = (
+                load_cos_sims(data_dir)
+            )
             if overall is not None:
                 overall = np.asarray(overall).flatten()
                 overall_sem = np.zeros_like(overall)
@@ -935,7 +1281,17 @@ def main(args):
                     if per_layer_mean.ndim == 1:
                         per_layer_mean = per_layer_mean.reshape(-1, 1)
                     per_layer_sem = np.zeros_like(per_layer_mean)
-                cos_data = [(widths[0] if has_widths else None, data_dir, overall, overall_sem, per_layer_mean, per_layer_sem, layer_names)]
+                cos_data = [
+                    (
+                        widths[0] if has_widths else None,
+                        data_dir,
+                        overall,
+                        overall_sem,
+                        per_layer_mean,
+                        per_layer_sem,
+                        layer_names,
+                    )
+                ]
                 steps_cos = steps
             else:
                 cos_data = []
@@ -949,7 +1305,9 @@ def main(args):
                 else:
                     per_layer_theory_bp_mean = np.asarray(per_layer_theory_bp)
                     if per_layer_theory_bp_mean.ndim == 1:
-                        per_layer_theory_bp_mean = per_layer_theory_bp_mean.reshape(-1, 1)
+                        per_layer_theory_bp_mean = per_layer_theory_bp_mean.reshape(
+                            -1, 1
+                        )
                     per_layer_theory_bp_sem = np.zeros_like(per_layer_theory_bp_mean)
                 cos_data_theory_bp = [
                     (
@@ -974,16 +1332,31 @@ def main(args):
             # Overall grad cos sim vs t (widths in legend, like plot_toy_results)
             cos_sim_ylabel = r"$\cos\left(\nabla_{\boldsymbol{\theta}} \mathcal{L}, \nabla_{\boldsymbol{\theta}} \mathcal{F}\right)$"
             plt.figure(figsize=FIG_SIZE)
-            for idx, (width, _, overall_mean, overall_sem, _, _, _) in enumerate(cos_data):
+            for idx, (width, _, overall_mean, overall_sem, _, _, _) in enumerate(
+                cos_data
+            ):
                 n = min(len(steps_cos), len(overall_mean))
                 color = colormap(_get_color_val(idx, n_w, colormap_name))
                 lbl = _legend_n_label(width) if width is not None else "Overall"
-                plot_mean_with_sem(steps_cos[:n], overall_mean[:n], overall_sem[:n], color=color, label=lbl, linestyle="-", alpha_band=0.14)
+                plot_mean_with_sem(
+                    steps_cos[:n],
+                    overall_mean[:n],
+                    overall_sem[:n],
+                    color=color,
+                    label=lbl,
+                    linestyle="-",
+                    alpha_band=0.14,
+                )
             _setup_plot("$t$", cos_sim_ylabel, log_scale=False)
             ax = plt.gca()
             ax.yaxis.get_major_formatter().set_useOffset(False)
             plt.tight_layout()
-            plt.savefig(os.path.join(args.output_dir, f"grad_cosine_similarity_overall{suffix}.pdf"), bbox_inches="tight")
+            plt.savefig(
+                os.path.join(
+                    args.output_dir, f"grad_cosine_similarity_overall{suffix}.pdf"
+                ),
+                bbox_inches="tight",
+            )
             plt.close()
 
             # Per-layer cos sim vs t (one separate plot per layer)
@@ -995,17 +1368,45 @@ def main(args):
                 else:
                     names = [f"Layer {j}" for j in range(n_layers)]
                 for layer_idx in range(n_layers):
-                    layer_name = names[layer_idx] if layer_idx < len(names) else f"layer_{layer_idx}"
+                    layer_name = (
+                        names[layer_idx]
+                        if layer_idx < len(names)
+                        else f"layer_{layer_idx}"
+                    )
                     plt.figure(figsize=FIG_SIZE)
-                    for idx, (width, _, _, _, per_layer_mean, per_layer_sem, _) in enumerate(cos_data):
+                    for idx, (
+                        width,
+                        _,
+                        _,
+                        _,
+                        per_layer_mean,
+                        per_layer_sem,
+                        _,
+                    ) in enumerate(cos_data):
                         if per_layer_mean is None:
                             continue
                         n = min(len(steps_cos), per_layer_mean.shape[0])
-                        vals = per_layer_mean[:n, layer_idx] if per_layer_mean.ndim > 1 else per_layer_mean[:n]
-                        vals_sem = per_layer_sem[:n, layer_idx] if per_layer_sem.ndim > 1 else per_layer_sem[:n]
+                        vals = (
+                            per_layer_mean[:n, layer_idx]
+                            if per_layer_mean.ndim > 1
+                            else per_layer_mean[:n]
+                        )
+                        vals_sem = (
+                            per_layer_sem[:n, layer_idx]
+                            if per_layer_sem.ndim > 1
+                            else per_layer_sem[:n]
+                        )
                         color = colormap(_get_color_val(idx, n_w, colormap_name))
                         lbl = _legend_n_label(width) if width is not None else "Overall"
-                        plot_mean_with_sem(steps_cos[:n], vals, vals_sem, color=color, label=lbl, linestyle="-", alpha_band=0.14)
+                        plot_mean_with_sem(
+                            steps_cos[:n],
+                            vals,
+                            vals_sem,
+                            color=color,
+                            label=lbl,
+                            linestyle="-",
+                            alpha_band=0.14,
+                        )
                     display_name = _layer_cos_sim_display_name(layer_name)
                     layer_ylabel = _layer_cos_sim_ylabel(layer_name)
                     _setup_plot("$t$", layer_ylabel, log_scale=False)
@@ -1014,7 +1415,10 @@ def main(args):
                     plt.tight_layout()
                     file_token = display_name.replace(" ", "")
                     plt.savefig(
-                        os.path.join(args.output_dir, f"grad_cosine_similarity_{file_token}{suffix}.pdf"),
+                        os.path.join(
+                            args.output_dir,
+                            f"grad_cosine_similarity_{file_token}{suffix}.pdf",
+                        ),
                         bbox_inches="tight",
                     )
                     plt.close()
@@ -1027,21 +1431,45 @@ def main(args):
             # Overall BP vs theory-PC grad cos sim vs t
             cos_sim_ylabel_theory_bp = r"$\cos\left(\nabla_{\boldsymbol{\theta}} \mathcal{L}, \nabla_{\boldsymbol{\theta}} \mathcal{F}_{\text{theory}}\right)$"
             plt.figure(figsize=FIG_SIZE)
-            for idx, (width, _, overall_th_mean, overall_th_sem, _, _, _) in enumerate(cos_data_theory_bp):
+            for idx, (width, _, overall_th_mean, overall_th_sem, _, _, _) in enumerate(
+                cos_data_theory_bp
+            ):
                 n = min(len(steps_cos), len(overall_th_mean))
                 color = colormap(_get_color_val(idx, n_w, colormap_name))
-                lbl = _legend_n_label(width) if width is not None else "Overall (theory vs BP)"
-                plot_mean_with_sem(steps_cos[:n], overall_th_mean[:n], overall_th_sem[:n], color=color, label=lbl, linestyle="-", alpha_band=0.14)
+                lbl = (
+                    _legend_n_label(width)
+                    if width is not None
+                    else "Overall (theory vs BP)"
+                )
+                plot_mean_with_sem(
+                    steps_cos[:n],
+                    overall_th_mean[:n],
+                    overall_th_sem[:n],
+                    color=color,
+                    label=lbl,
+                    linestyle="-",
+                    alpha_band=0.14,
+                )
             _setup_plot("$t$", cos_sim_ylabel_theory_bp, log_scale=False)
             ax = plt.gca()
             ax.yaxis.get_major_formatter().set_useOffset(False)
             plt.tight_layout()
-            plt.savefig(os.path.join(args.output_dir, f"grad_cosine_similarity_overall_theory_bp{suffix}.pdf"), bbox_inches="tight")
+            plt.savefig(
+                os.path.join(
+                    args.output_dir,
+                    f"grad_cosine_similarity_overall_theory_bp{suffix}.pdf",
+                ),
+                bbox_inches="tight",
+            )
             plt.close()
 
             # Per-layer BP vs theory-PC cos sim vs t (one separate plot per layer)
             if cos_data_theory_bp[0][4] is not None:
-                n_layers_th = cos_data_theory_bp[0][4].shape[1] if cos_data_theory_bp[0][4].ndim > 1 else 1
+                n_layers_th = (
+                    cos_data_theory_bp[0][4].shape[1]
+                    if cos_data_theory_bp[0][4].ndim > 1
+                    else 1
+                )
                 names_th = cos_data_theory_bp[0][6]
                 if isinstance(names_th, np.ndarray):
                     names_th = list(names_th)
@@ -1049,17 +1477,49 @@ def main(args):
                     names_th = [f"Layer {j}" for j in range(n_layers_th)]
 
                 for layer_idx in range(n_layers_th):
-                    layer_name = names_th[layer_idx] if layer_idx < len(names_th) else f"layer_{layer_idx}"
+                    layer_name = (
+                        names_th[layer_idx]
+                        if layer_idx < len(names_th)
+                        else f"layer_{layer_idx}"
+                    )
                     plt.figure(figsize=FIG_SIZE)
-                    for idx, (width, _, _, _, per_layer_th_mean, per_layer_th_sem, _) in enumerate(cos_data_theory_bp):
+                    for idx, (
+                        width,
+                        _,
+                        _,
+                        _,
+                        per_layer_th_mean,
+                        per_layer_th_sem,
+                        _,
+                    ) in enumerate(cos_data_theory_bp):
                         if per_layer_th_mean is None:
                             continue
                         n = min(len(steps_cos), per_layer_th_mean.shape[0])
-                        vals = per_layer_th_mean[:n, layer_idx] if per_layer_th_mean.ndim > 1 else per_layer_th_mean[:n]
-                        vals_sem = per_layer_th_sem[:n, layer_idx] if per_layer_th_sem.ndim > 1 else per_layer_th_sem[:n]
+                        vals = (
+                            per_layer_th_mean[:n, layer_idx]
+                            if per_layer_th_mean.ndim > 1
+                            else per_layer_th_mean[:n]
+                        )
+                        vals_sem = (
+                            per_layer_th_sem[:n, layer_idx]
+                            if per_layer_th_sem.ndim > 1
+                            else per_layer_th_sem[:n]
+                        )
                         color = colormap(_get_color_val(idx, n_w, colormap_name))
-                        lbl = _legend_n_label(width) if width is not None else "Overall (theory vs BP)"
-                        plot_mean_with_sem(steps_cos[:n], vals[:n], vals_sem[:n], color=color, label=lbl, linestyle="-", alpha_band=0.14)
+                        lbl = (
+                            _legend_n_label(width)
+                            if width is not None
+                            else "Overall (theory vs BP)"
+                        )
+                        plot_mean_with_sem(
+                            steps_cos[:n],
+                            vals[:n],
+                            vals_sem[:n],
+                            color=color,
+                            label=lbl,
+                            linestyle="-",
+                            alpha_band=0.14,
+                        )
                     display_name = _layer_cos_sim_display_name(layer_name)
                     layer_ylabel = _layer_cos_sim_ylabel(layer_name)
                     _setup_plot("$t$", layer_ylabel, log_scale=False)
@@ -1083,7 +1543,10 @@ def main(args):
         if key not in groups_by_alr_amortiser:
             groups_by_alr_amortiser[key] = []
         groups_by_alr_amortiser[key].append((n_infer, width_runs))
-    for (activity_lr, use_amortiser), n_infer_width_runs in groups_by_alr_amortiser.items():
+    for (
+        activity_lr,
+        use_amortiser,
+    ), n_infer_width_runs in groups_by_alr_amortiser.items():
         n_infer_vals = sorted(set(n for n, _ in n_infer_width_runs if n is not None))
         if len(n_infer_vals) < 2:
             continue
@@ -1093,7 +1556,9 @@ def main(args):
             if n_infer is None:
                 continue
             for width, w_run_dirs in width_runs:
-                by_width.setdefault(width, {}).setdefault(n_infer, []).extend(w_run_dirs)
+                by_width.setdefault(width, {}).setdefault(n_infer, []).extend(
+                    w_run_dirs
+                )
 
         # For each width, get cos_sim at step 0 for each n_infer_iters (mean +/- SEM over seeds)
         init_cos_data = []  # (width, n_infer_list, cos_mean_list, cos_sem_list)
@@ -1120,7 +1585,14 @@ def main(args):
                 init_cos_data.append((width, n_infer_list, cos_mean, cos_sem))
         if not init_cos_data:
             continue
-        suffix_init = _file_suffix(activity_lr, None, use_amortiser, n_activity_lr_groups, 1, n_use_amortiser_groups)
+        suffix_init = _file_suffix(
+            activity_lr,
+            None,
+            use_amortiser,
+            n_activity_lr_groups,
+            1,
+            n_use_amortiser_groups,
+        )
         if selected_seed is not None:
             suffix_init = f"{suffix_init}_seed_{selected_seed}"
         cos_sim_ylabel = r"$\cos\left(\nabla_{\boldsymbol{\theta}} \mathcal{L}, \nabla_{\boldsymbol{\theta}} \mathcal{F}\right)$"
@@ -1147,7 +1619,10 @@ def main(args):
         ax.yaxis.get_major_formatter().set_useOffset(False)
         plt.tight_layout()
         plt.savefig(
-            os.path.join(args.output_dir, f"grad_cosine_similarity_overall_init_vs_n_infer_iters{suffix_init}.pdf"),
+            os.path.join(
+                args.output_dir,
+                f"grad_cosine_similarity_overall_init_vs_n_infer_iters{suffix_init}.pdf",
+            ),
             bbox_inches="tight",
         )
         plt.close()
@@ -1155,28 +1630,44 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--run_dir", type=str, default=None,
-                        help="Run directory (contains steps.npy, theory_energies.npy, etc.); or base dir to discover *_width runs for rescaling plot")
-    parser.add_argument("--results_file", type=str, default=None,
-                        help="Path to a .npy file in the run dir (used to infer run dir if --run_dir not set)")
-    parser.add_argument("--output_dir", type=str, default=None,
-                        help="Directory for PDFs (default: run_dir or same as results_file dir)")
-    parser.add_argument("--colormap", type=str, default="Blues",
-                        help="Colormap for multi-width plots (default: Blues, same as plot_toy_results)")
+    parser.add_argument(
+        "--run_dir",
+        type=str,
+        default=None,
+        help="Run directory (contains steps.npy, theory_energies.npy, etc.); or base dir to discover *_width runs for rescaling plot",
+    )
+    parser.add_argument(
+        "--results_file",
+        type=str,
+        default=None,
+        help="Path to a .npy file in the run dir (used to infer run dir if --run_dir not set)",
+    )
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        default=None,
+        help="Directory for PDFs (default: run_dir or same as results_file dir)",
+    )
+    parser.add_argument(
+        "--colormap",
+        type=str,
+        default="Blues",
+        help="Colormap for multi-width plots (default: Blues, same as plot_toy_results)",
+    )
     parser.add_argument(
         "--plot_widths",
         type=int,
         nargs="*",
         default=[8, 16, 32],
         help="Optional list of widths N to include in plots (e.g. --plot_widths 16 32 64). "
-             "If omitted, include all discovered widths (and all widths in widths.npy, if present).",
+        "If omitted, include all discovered widths (and all widths in widths.npy, if present).",
     )
     parser.add_argument(
         "--seed",
         type=int,
         default=2,
         help="Plot metrics from this seed/replication only (run dir basename, e.g. .../0 or .../seed_0). "
-             "By default, metrics are averaged across all discovered seeds with SEM bands.",
+        "By default, metrics are averaged across all discovered seeds with SEM bands.",
     )
     args = parser.parse_args()
     if args.run_dir is not None:
