@@ -3,9 +3,8 @@ import jax.numpy as jnp
 from jax.tree_util import tree_map, tree_leaves
 from equinox import tree_at
 import equinox.nn as nn
-from jpc import pc_energy_fn, _check_param_type
+from ._core import _check_param_type, pc_energy_fn
 from jaxtyping import PRNGKeyArray, PyTree, ArrayLike, Scalar, Array
-from jaxlib.xla_extension import PjitFunction
 from typing import Callable, Optional, Tuple
 from dataclasses import dataclass
 
@@ -234,7 +233,7 @@ def compute_param_norms(params):
     def process_model_params(model_params):
         norms = []
         for p in tree_leaves(model_params):
-            if p is None or isinstance(p, PjitFunction):
+            if p is None:
                 norms.append(0.)
             elif callable(p) and not hasattr(p, 'shape'):
                 # Skip callable functions (like Lambda-wrapped activations) that don't have shape

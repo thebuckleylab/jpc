@@ -9,23 +9,25 @@ from diffrax import (
     Heun,
     PIDController
 )
-from jpc import (
-    init_activities_with_ffwd,
+from ._core import (
+    _check_param_type,
+    compute_hpc_param_grads,
+    compute_pc_param_grads,
+    hpc_energy_fn,
     init_activities_from_normal,
     init_activities_with_amort,
-    mse_loss,
-    cross_entropy_loss,
-    solve_inference,
-    get_t_max,
-    compute_activity_norms,
+    init_activities_with_ffwd,
     pc_energy_fn,
-    compute_infer_energies,
-    compute_pc_param_grads,
-    compute_param_norms,
+    solve_inference,
+)
+from ._utils import (
     compute_accuracy,
-    hpc_energy_fn,
-    compute_hpc_param_grads,
-    _check_param_type
+    compute_activity_norms,
+    compute_infer_energies,
+    compute_param_norms,
+    cross_entropy_loss,
+    get_t_max,
+    mse_loss,
 )
 from optax import GradientTransformation, GradientTransformationExtraArgs, OptState
 from jaxtyping import PyTree, ArrayLike, Scalar, PRNGKeyArray

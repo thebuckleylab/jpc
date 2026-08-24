@@ -1,16 +1,14 @@
 """Utility functions to test predictive coding networks."""
 
 import equinox as eqx
-from jpc import (
+from ._core import (
+    _check_param_type,
     init_activities_from_normal,
-    init_activities_with_ffwd,
     init_activities_with_amort,
-    mse_loss,
-    cross_entropy_loss,
-    compute_accuracy,
+    init_activities_with_ffwd,
     solve_inference,
-    _check_param_type
 )
+from ._utils import compute_accuracy, cross_entropy_loss, mse_loss
 from diffrax import (
     AbstractSolver,
     AbstractStepSizeController,
