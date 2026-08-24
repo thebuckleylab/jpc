@@ -6,6 +6,6 @@ def _check_param_type(param_type):
         raise ValueError(
             'Invalid parameterisation. Options are `"sp"` (standard '
             'parameterisation), `"mupc"` (μPC), or `"ntp"` (neural tangent '
-            'parameterisation). See `_get_param_scalings()` (https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) '
-            'for the specific scalings of these different parameterisations.'
+            "parameterisation). See `_get_param_scalings()` (https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc._get_param_scalings) "
+            "for the specific scalings of these different parameterisations."
         )

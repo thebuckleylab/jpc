@@ -1,15 +1,18 @@
 import argparse
 import os
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
-plt.rcParams.update({
-    "text.usetex": True,
-    "font.family": "serif",
-    "axes.unicode_minus": False,
-    "text.latex.preamble": r"\usepackage{amsmath}\usepackage{amssymb}"
-})
+
+plt.rcParams.update(
+    {
+        "text.usetex": True,
+        "font.family": "serif",
+        "axes.unicode_minus": False,
+        "text.latex.preamble": r"\usepackage{amsmath}\usepackage{amssymb}",
+    }
+)
 
 FIG_SIZE = (8, 6)
 FONT_SIZES = {"label": 45, "legend": 25, "tick": 35}
@@ -20,12 +23,42 @@ ALPHA = 0.7
 
 def _is_sequential_colormap(colormap_name):
     sequential = {
-        "viridis", "plasma", "inferno", "magma", "cividis",
-        "Reds", "Blues", "Greens", "Oranges", "Purples", "Greys",
-        "YlOrRd", "YlOrBr", "YlGnBu", "YlGn", "RdPu",
-        "BuGn", "BuPu", "GnBu", "PuBu", "PuBuGn", "PuRd", "OrRd",
-        "RdYlBu", "RdYlGn", "Spectral", "coolwarm", "cool", "hot",
-        "copper", "bone", "pink", "spring", "summer", "autumn", "winter",
+        "viridis",
+        "plasma",
+        "inferno",
+        "magma",
+        "cividis",
+        "Reds",
+        "Blues",
+        "Greens",
+        "Oranges",
+        "Purples",
+        "Greys",
+        "YlOrRd",
+        "YlOrBr",
+        "YlGnBu",
+        "YlGn",
+        "RdPu",
+        "BuGn",
+        "BuPu",
+        "GnBu",
+        "PuBu",
+        "PuBuGn",
+        "PuRd",
+        "OrRd",
+        "RdYlBu",
+        "RdYlGn",
+        "Spectral",
+        "coolwarm",
+        "cool",
+        "hot",
+        "copper",
+        "bone",
+        "pink",
+        "spring",
+        "summer",
+        "autumn",
+        "winter",
     }
     return colormap_name in sequential
 
@@ -47,7 +80,9 @@ def _layer_cos_sim_ylabel(layer_name):
         return r"Grad cos. Block $L$"
     if name == "readout":
         return r"Grad cos. Readout"
-    return "Grad cos. " + (layer_name[:1].upper() + layer_name[1:] if layer_name else "Layer")
+    return "Grad cos. " + (
+        layer_name[:1].upper() + layer_name[1:] if layer_name else "Layer"
+    )
 
 
 def _setup_plot(xlabel, ylabel, log_scale=False):
@@ -161,12 +196,19 @@ def discover_d_model_run_dirs(results_dir):
         key: [(dm, by_group[key][dm]) for dm in sorted(by_group[key].keys())]
         for key in sorted(
             by_group.keys(),
-            key=lambda k: (k[0] is None, k[0] or 0, k[1] is None, k[1] if k[1] is not None else 0),
+            key=lambda k: (
+                k[0] is None,
+                k[0] or 0,
+                k[1] is None,
+                k[1] if k[1] is not None else 0,
+            ),
         )
     }
 
 
-def _file_suffix(activity_lr, n_infer_iters, n_activity_lr_groups, n_infer_iters_groups):
+def _file_suffix(
+    activity_lr, n_infer_iters, n_activity_lr_groups, n_infer_iters_groups
+):
     """Filename suffix when multiple (activity_lr, n_infer_iters) groups exist."""
     parts = []
     if n_activity_lr_groups > 1:
@@ -189,7 +231,9 @@ def main(args):
         filtered_groups = {}
         for key, d_model_runs in activity_lr_groups.items():
             filtered_groups[key] = (
-                _filter_d_model_runs_by_seed(d_model_runs, selected_seed) if d_model_runs else d_model_runs
+                _filter_d_model_runs_by_seed(d_model_runs, selected_seed)
+                if d_model_runs
+                else d_model_runs
             )
         activity_lr_groups = filtered_groups
     if not activity_lr_groups:
@@ -217,9 +261,9 @@ def main(args):
             if kept:
                 filtered[key] = kept
         if not filtered:
-            available = sorted({
-                dm for runs in activity_lr_groups.values() for dm, _ in runs
-            })
+            available = sorted(
+                {dm for runs in activity_lr_groups.values() for dm, _ in runs}
+            )
             raise ValueError(
                 f"No runs match --d_models {sorted(selected_set)}. "
                 f"Available d_models in {run_dir!r}: {available}."
@@ -265,7 +309,10 @@ def main(args):
             return None, None, 0, 0
         n_dim = min(a.shape[1] if a.ndim > 1 else 1 for a in arrays_2d)
         stacked = np.stack(
-            [(a[:n_time, :n_dim] if a.ndim > 1 else a[:n_time].reshape(-1, 1)) for a in arrays_2d],
+            [
+                (a[:n_time, :n_dim] if a.ndim > 1 else a[:n_time].reshape(-1, 1))
+                for a in arrays_2d
+            ],
             axis=0,
         )  # (n_seeds, n_time, n_dim)
         mean = stacked.mean(axis=0)
@@ -275,11 +322,31 @@ def main(args):
             std = stacked.std(axis=0, ddof=1)
         return mean, std, stacked.shape[0], n_time
 
-    def plot_mean_with_std(x, mean, std, *, color, label=None, linestyle="-", alpha_line=ALPHA, alpha_band=0.18):
+    def plot_mean_with_std(
+        x,
+        mean,
+        std,
+        *,
+        color,
+        label=None,
+        linestyle="-",
+        alpha_line=ALPHA,
+        alpha_band=0.18,
+    ):
         """Line plot of mean with ±1 std band."""
-        plt.plot(x, mean, linestyle, color=color, linewidth=LINE_WIDTH, alpha=alpha_line, label=label)
+        plt.plot(
+            x,
+            mean,
+            linestyle,
+            color=color,
+            linewidth=LINE_WIDTH,
+            alpha=alpha_line,
+            label=label,
+        )
         if std is not None and np.any(np.isfinite(std)) and np.max(std) > 0:
-            plt.fill_between(x, mean - std, mean + std, color=color, alpha=alpha_band, linewidth=0)
+            plt.fill_between(
+                x, mean - std, mean + std, color=color, alpha=alpha_band, linewidth=0
+            )
 
     def load_cos_sims(run_dir):
         path_overall = os.path.join(run_dir, "grad_cosine_similarities.npy")
@@ -314,7 +381,9 @@ def main(args):
         )
         if selected_seed is not None:
             suffix = f"{suffix}_seed_{selected_seed}"
-        use_discovered = len(d_model_runs) > 1 or (selected_seed is not None and bool(d_model_runs))
+        use_discovered = len(d_model_runs) > 1 or (
+            selected_seed is not None and bool(d_model_runs)
+        )
         if d_model_runs:
             data_dir = d_model_runs[0][1][0]
         else:
@@ -334,11 +403,15 @@ def main(args):
                     if not os.path.isfile(ee_path):
                         continue
                     ee_curves.append(np.load(ee_path).flatten())
-                    steps_list.append(np.load(os.path.join(w_run_dir, "steps.npy")).flatten())
+                    steps_list.append(
+                        np.load(os.path.join(w_run_dir, "steps.npy")).flatten()
+                    )
                 if not ee_curves:
                     continue
                 mean, std, _, n_t = aggregate_seed_curves(ee_curves)
-                steps_w = min(steps_list, key=len)[:n_t] if steps_list else np.arange(n_t)
+                steps_w = (
+                    min(steps_list, key=len)[:n_t] if steps_list else np.arange(n_t)
+                )
                 color = colormap(_get_color_val(idx, len(d_model_runs), colormap_name))
                 plot_mean_with_std(
                     steps_w,
@@ -385,11 +458,15 @@ def main(args):
                     if not os.path.isfile(bp_path):
                         continue
                     bp_curves.append(np.load(bp_path).flatten())
-                    steps_list.append(np.load(os.path.join(w_run_dir, "steps.npy")).flatten())
+                    steps_list.append(
+                        np.load(os.path.join(w_run_dir, "steps.npy")).flatten()
+                    )
                 if not bp_curves:
                     continue
                 mean, std, _, n_t = aggregate_seed_curves(bp_curves)
-                steps_w = min(steps_list, key=len)[:n_t] if steps_list else np.arange(n_t)
+                steps_w = (
+                    min(steps_list, key=len)[:n_t] if steps_list else np.arange(n_t)
+                )
                 color = colormap(_get_color_val(idx, len(d_model_runs), colormap_name))
                 plot_mean_with_std(
                     steps_w,
@@ -462,7 +539,9 @@ def main(args):
                 ax.set_xticklabels([str(dm) for dm in d_models_cond])
                 plt.tight_layout()
                 plt.savefig(
-                    os.path.join(args.output_dir, f"hessian_condition_vs_d_model{suffix}.pdf"),
+                    os.path.join(
+                        args.output_dir, f"hessian_condition_vs_d_model{suffix}.pdf"
+                    ),
                     bbox_inches="tight",
                 )
                 plt.close()
@@ -486,12 +565,24 @@ def main(args):
                         per_layer_curves.append(per_layer)
                 if not overall_curves:
                     continue
-                overall_mean, overall_std, _, n_t = aggregate_seed_curves(overall_curves)
-                per_layer_mean, per_layer_std, _, n_t2 = aggregate_seed_arrays_2d(per_layer_curves)
+                overall_mean, overall_std, _, n_t = aggregate_seed_curves(
+                    overall_curves
+                )
+                per_layer_mean, per_layer_std, _, n_t2 = aggregate_seed_arrays_2d(
+                    per_layer_curves
+                )
                 if per_layer_mean is None:
                     n_t_use = n_t
                     cos_data.append(
-                        (d_model, any_dir_for_steps, overall_mean[:n_t_use], overall_std[:n_t_use], None, None, names)
+                        (
+                            d_model,
+                            any_dir_for_steps,
+                            overall_mean[:n_t_use],
+                            overall_std[:n_t_use],
+                            None,
+                            None,
+                            names,
+                        )
                     )
                 else:
                     n_t_use = min(n_t, n_t2) if (n_t and n_t2) else (n_t or n_t2)
@@ -524,7 +615,15 @@ def main(args):
                         per_layer_mean = per_layer_mean.reshape(-1, 1)
                     per_layer_std = np.zeros_like(per_layer_mean)
                 cos_data = [
-                    (d_model_label, data_dir, overall, overall_std, per_layer_mean, per_layer_std, layer_names)
+                    (
+                        d_model_label,
+                        data_dir,
+                        overall,
+                        overall_std,
+                        per_layer_mean,
+                        per_layer_std,
+                        layer_names,
+                    )
                 ]
                 steps_cos = steps
             else:
@@ -540,7 +639,9 @@ def main(args):
                 r"\nabla_{\boldsymbol{\theta}} \mathcal{F}\right)$"
             )
             plt.figure(figsize=FIG_SIZE)
-            for idx, (d_model, _, overall_mean, overall_std, _, _, _) in enumerate(cos_data):
+            for idx, (d_model, _, overall_mean, overall_std, _, _, _) in enumerate(
+                cos_data
+            ):
                 n = min(len(steps_cos), len(overall_mean))
                 color = colormap(_get_color_val(idx, n_w, colormap_name))
                 lbl = rf"$N = {d_model}$" if d_model is not None else "Overall"
@@ -559,7 +660,9 @@ def main(args):
                 ax.yaxis.get_major_formatter().set_useOffset(False)
             plt.tight_layout()
             plt.savefig(
-                os.path.join(args.output_dir, f"grad_cosine_similarity_overall{suffix}.pdf"),
+                os.path.join(
+                    args.output_dir, f"grad_cosine_similarity_overall{suffix}.pdf"
+                ),
                 bbox_inches="tight",
             )
             plt.close()
@@ -575,17 +678,31 @@ def main(args):
                 names = names or [f"Layer {j}" for j in range(n_layers)]
             for layer_idx in range(n_layers):
                 layer_name = (
-                    names[layer_idx]
-                    if layer_idx < len(names)
-                    else f"layer_{layer_idx}"
+                    names[layer_idx] if layer_idx < len(names) else f"layer_{layer_idx}"
                 )
                 plt.figure(figsize=FIG_SIZE)
-                for idx, (d_model, _, _, _, per_layer_mean, per_layer_std, _) in enumerate(cos_data):
+                for idx, (
+                    d_model,
+                    _,
+                    _,
+                    _,
+                    per_layer_mean,
+                    per_layer_std,
+                    _,
+                ) in enumerate(cos_data):
                     if per_layer_mean is None:
                         continue
                     n = min(len(steps_cos), per_layer_mean.shape[0])
-                    vals = per_layer_mean[:n, layer_idx] if per_layer_mean.ndim > 1 else per_layer_mean[:n]
-                    vals_std = per_layer_std[:n, layer_idx] if per_layer_std.ndim > 1 else per_layer_std[:n]
+                    vals = (
+                        per_layer_mean[:n, layer_idx]
+                        if per_layer_mean.ndim > 1
+                        else per_layer_mean[:n]
+                    )
+                    vals_std = (
+                        per_layer_std[:n, layer_idx]
+                        if per_layer_std.ndim > 1
+                        else per_layer_std[:n]
+                    )
                     color = colormap(_get_color_val(idx, n_w, colormap_name))
                     lbl = rf"$N = {d_model}$" if d_model is not None else "Overall"
                     plot_mean_with_std(
@@ -623,9 +740,7 @@ def main(args):
         key=lambda k: (k is None, float(k) if k is not None else 0.0),
     ):
         n_infer_width_runs = groups_by_activity_lr[activity_lr]
-        n_infer_vals = sorted(
-            {n for n, _ in n_infer_width_runs if n is not None}
-        )
+        n_infer_vals = sorted({n for n, _ in n_infer_width_runs if n is not None})
         if len(n_infer_vals) < 2:
             continue
 
@@ -634,7 +749,9 @@ def main(args):
             if n_infer is None:
                 continue
             for d_model, w_run_dirs in d_model_runs:
-                by_width.setdefault(d_model, {}).setdefault(n_infer, []).extend(w_run_dirs)
+                by_width.setdefault(d_model, {}).setdefault(n_infer, []).extend(
+                    w_run_dirs
+                )
 
         init_cos_data = []  # (d_model, n_infer_list, cos_mean, cos_std)
         for d_model in sorted(by_width.keys()):

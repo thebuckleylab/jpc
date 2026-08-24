@@ -58,7 +58,6 @@ from typing import Callable, Dict, List, Optional, Tuple
 import jax
 import jax.numpy as jnp
 from jax import random
-
 from theory_pc_utils import (
     damp,
     make_delta0_projector,
@@ -69,6 +68,7 @@ from theory_pc_utils import (
     solve_pc_output_boundary,
     symmetrise,
 )
+
 
 Array = jax.Array
 
@@ -269,9 +269,7 @@ def single_site_residuals(
     scale = jnp.maximum(1.0, jnp.sqrt(jnp.mean(H**2)))
     return (
         jnp.sqrt(
-            jnp.mean(error_res**2)
-            + jnp.mean(backward_res**2)
-            + jnp.mean(step_res**2)
+            jnp.mean(error_res**2) + jnp.mean(backward_res**2) + jnp.mean(step_res**2)
         )
         / scale
     )
@@ -370,9 +368,7 @@ def make_hidden_pc_nonlin_layer_solver(
         Rdelta = jnp.zeros((n, n), dtype=u_chi.dtype)
         for b in range(num_batches):
             block = slice(b * batch, (b + 1) * batch)
-            phi_jac, delta_jac = mean_jacobians(
-                u_chi[block], u_xi[block], A_off, B_op
-            )
+            phi_jac, delta_jac = mean_jacobians(u_chi[block], u_xi[block], A_off, B_op)
             Rphi += phi_jac / num_batches
             Rdelta += delta_jac / num_batches
 
@@ -403,7 +399,9 @@ def solve_pc_kernels_nonlin(
     cdelta_init_eps: float = 1e-2,
     resample_fields: bool = False,
     seed: int = 0,
-) -> Tuple[List[Array], List[Array], List[Array], List[Array], Array, Array, Array, dict]:
+) -> Tuple[
+    List[Array], List[Array], List[Array], List[Array], Array, Array, Array, dict
+]:
     """Solve the non-linear PC DMFT by sampled fixed-point iteration.
 
     Mirrors ``theory_pc_utils.solve_pc_kernels`` and returns the same tuple, so
@@ -493,9 +491,7 @@ def solve_pc_kernels_nonlin(
     Cphi0 = make_input_covariance(Kx, K, T)
     zero_op = jnp.zeros((n, n), dtype=dtype)
 
-    all_Cphi = initialise_phi_kernels(
-        Kx, depth, K, T, phi, init_key, num_mc_samples
-    )
+    all_Cphi = initialise_phi_kernels(Kx, depth, K, T, phi, init_key, num_mc_samples)
     eps_eye = cdelta_init_eps * jnp.eye(n, dtype=dtype)
     all_Cdelta = [delta_projector @ eps_eye @ delta_projector for _ in range(depth)]
     all_Rphi = [zero_op for _ in range(depth)]

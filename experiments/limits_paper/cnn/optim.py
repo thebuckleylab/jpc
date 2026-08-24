@@ -1,8 +1,7 @@
-import numpy as np
-import jax.tree_util as jtu
 import equinox as eqx
+import jax.tree_util as jtu
+import numpy as np
 import optax
-
 from model import ResNetBlock
 
 
@@ -50,7 +49,7 @@ def configure_cnn_param_optim(
 ):
     """Configure parameter optimiser for CNN (ResNet-style).
 
-    Only conv layers inside residual blocks get depth scaling with Adam; stage 
+    Only conv layers inside residual blocks get depth scaling with Adam; stage
     convs and readout get width-only scaling. Same GD scaling as MLP for both.
     Follows scalings of https://arxiv.org/abs/2309.16620.
 
@@ -58,7 +57,7 @@ def configure_cnn_param_optim(
     - MLP with use_skips: lr / sqrt(width * depth); without: lr / sqrt(width).
     - CNN: res-block convs = "with skips" -> lr_res = lr / sqrt(width * depth);
             stage convs + readout = no depth factor -> lr_other = lr / sqrt(width).
-    
+
     **Arguments:**
 
     - model: ResNet instance.
@@ -67,10 +66,10 @@ def configure_cnn_param_optim(
     - param_lr: base learning rate.
     - width: channel width.
     - depth: effective depth for μPC LRs; must match ``ResNet`` forward scaling
-        ``n_res_blocks + additive_depth_factor`` (same as ``depth`` in 
-        ``model.py``), not ``n_res_blocks`` alone when ``additive_depth_factor`` 
+        ``n_res_blocks + additive_depth_factor`` (same as ``depth`` in
+        ``model.py``), not ``n_res_blocks`` alone when ``additive_depth_factor``
         is non-zero. Defaults to 1.
-    - params_for_pc: if True, lr tree matches (model_params, None) for 
+    - params_for_pc: if True, lr tree matches (model_params, None) for
         `jpc.update_pc_params`. Defaults to False.
     - gamma_0: scaling factor for GD optimiser.
 
@@ -97,7 +96,7 @@ def configure_cnn_param_optim(
         if params_for_pc:
             lr_tree_gd = (lr_tree_gd, None)
         return _scale_by_per_param_lr(lr_tree_gd)
-    
+
     elif optim_id == "adam":
         return optax.chain(optax.scale_by_adam(), _scale_by_per_param_lr(lr_tree))
     else:

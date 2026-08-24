@@ -1,13 +1,13 @@
 import argparse
 import os
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import plot_toy_results as pmr
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
-import plot_toy_results as pmr
 
 
 @dataclass(frozen=True)
@@ -19,7 +19,7 @@ class RunConfig:
     act_fn: Optional[str] = None
     param_type: Optional[str] = None
     param_optim: Optional[str] = None  # PC path component: "{id}_param_optim"
-    optim_id: Optional[str] = None     # BP path component: "{id}_optim_id"
+    optim_id: Optional[str] = None  # BP path component: "{id}_optim_id"
     param_lr: Optional[float] = None
     gamma_0: Optional[float] = None
     n_train_iters: Optional[int] = None
@@ -106,7 +106,14 @@ def _matches_config(extracted: Dict[str, Any], cfg: RunConfig, is_pc: bool) -> b
     """Check whether extracted path config matches the requested config."""
     # Integers/strings: exact match when specified.
     # Note: BP directories do not include infer_mode/activity_lr, so only match those for PC.
-    keys = ["input_dim", "n_samples", "n_hidden", "act_fn", "param_type", "n_train_iters"]
+    keys = [
+        "input_dim",
+        "n_samples",
+        "n_hidden",
+        "act_fn",
+        "param_type",
+        "n_train_iters",
+    ]
     if is_pc:
         keys.append("infer_mode")
     for k in keys:
@@ -190,7 +197,9 @@ def _find_bp_dirs(dataset_results_dir: str, cfg: RunConfig) -> Dict[int, str]:
     return bp_dirs
 
 
-def load_nonlinear_data(dataset_results_dir: str, cfg: RunConfig, widths: Optional[List[int]] = None) -> Dict[str, Any]:
+def load_nonlinear_data(
+    dataset_results_dir: str, cfg: RunConfig, widths: Optional[List[int]] = None
+) -> Dict[str, Any]:
     """Load nonlinear training curves (PC loss/energy + BP loss + grad cosine sims) by width."""
     pc_dirs = _find_pc_dirs(dataset_results_dir, cfg)
     bp_dirs = _find_bp_dirs(dataset_results_dir, cfg)
@@ -213,7 +222,9 @@ def load_nonlinear_data(dataset_results_dir: str, cfg: RunConfig, widths: Option
         if pc_dir:
             energies = pmr._load_npy_safe(os.path.join(pc_dir, "energies.npy"))
             train_losses = pmr._load_npy_safe(os.path.join(pc_dir, "train_losses.npy"))
-            cos_sims = pmr._load_npy_safe(os.path.join(pc_dir, "grad_cosine_similarities.npy"))
+            cos_sims = pmr._load_npy_safe(
+                os.path.join(pc_dir, "grad_cosine_similarities.npy")
+            )
             if energies is not None:
                 data["pc_energies"][w] = energies
             if train_losses is not None:
@@ -230,7 +241,12 @@ def load_nonlinear_data(dataset_results_dir: str, cfg: RunConfig, widths: Option
     return data
 
 
-def plot_pc_losses(data: Dict[str, Any], plot_dir: str, colormap_name: str = "Blues", log_x_scale: bool = False) -> None:
+def plot_pc_losses(
+    data: Dict[str, Any],
+    plot_dir: str,
+    colormap_name: str = "Blues",
+    log_x_scale: bool = False,
+) -> None:
     """PC train loss curves vs t, colored by width (same style as plot_main_results)."""
     plt.figure(figsize=(12.5, 6))
     widths_list = sorted([w for w in data["widths"] if w in data["pc_train_losses"]])
@@ -241,13 +257,25 @@ def plot_pc_losses(data: Dict[str, Any], plot_dir: str, colormap_name: str = "Bl
             y = np.array(data["pc_train_losses"][w]).flatten()
             x = np.arange(1, len(y) + 1)
             color = cmap(pmr.get_color_val(idx, n_widths, colormap_name))
-            plt.plot(x, y, "-", alpha=pmr.ALPHA, linewidth=pmr.LINE_WIDTH, color=color, label="")
+            plt.plot(
+                x,
+                y,
+                "-",
+                alpha=pmr.ALPHA,
+                linewidth=pmr.LINE_WIDTH,
+                color=color,
+                label="",
+            )
 
     ax = plt.gca()
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     plt.xlabel("$t$", fontsize=pmr.FONT_SIZES["label"], labelpad=pmr.LABEL_PAD)
-    plt.ylabel(r"$\mathcal{L}(\boldsymbol{\theta}_t)$", fontsize=pmr.FONT_SIZES["label"], labelpad=pmr.LABEL_PAD)
+    plt.ylabel(
+        r"$\mathcal{L}(\boldsymbol{\theta}_t)$",
+        fontsize=pmr.FONT_SIZES["label"],
+        labelpad=pmr.LABEL_PAD,
+    )
     if log_x_scale:
         plt.xscale("log", base=10)
 
@@ -256,11 +284,24 @@ def plot_pc_losses(data: Dict[str, Any], plot_dir: str, colormap_name: str = "Bl
         gray_cmap = plt.get_cmap("Greys")
         legend_handles, legend_labels = [], []
         for idx, w in enumerate(widths_list):
-            gray_val = 0.3 + (idx / max(len(widths_list) - 1, 1)) * 0.5 if len(widths_list) > 1 else 0.5
-            legend_handles.append(plt.Line2D([0], [0], color=gray_cmap(gray_val), linewidth=pmr.LINE_WIDTH))
+            gray_val = (
+                0.3 + (idx / max(len(widths_list) - 1, 1)) * 0.5
+                if len(widths_list) > 1
+                else 0.5
+            )
+            legend_handles.append(
+                plt.Line2D(
+                    [0], [0], color=gray_cmap(gray_val), linewidth=pmr.LINE_WIDTH
+                )
+            )
             legend_labels.append(f"$N = {w}$")
-        plt.legend(handles=legend_handles, labels=legend_labels, fontsize=pmr.FONT_SIZES["legend"],
-                   bbox_to_anchor=(1.05, 1), loc="upper left")
+        plt.legend(
+            handles=legend_handles,
+            labels=legend_labels,
+            fontsize=pmr.FONT_SIZES["legend"],
+            bbox_to_anchor=(1.05, 1),
+            loc="upper left",
+        )
 
     plt.grid(True, which="both", ls="-", alpha=0.4)
     plt.tick_params(axis="both", labelsize=pmr.FONT_SIZES["tick"])
@@ -268,7 +309,12 @@ def plot_pc_losses(data: Dict[str, Any], plot_dir: str, colormap_name: str = "Bl
     pmr.save_plot(plot_dir, "pc_losses.pdf", n_hidden=None, add_suffix=False)
 
 
-def plot_losses_and_energies(data: Dict[str, Any], plot_dir: str, colormap_name: str = "Blues", log_x_scale: bool = False) -> None:
+def plot_losses_and_energies(
+    data: Dict[str, Any],
+    plot_dir: str,
+    colormap_name: str = "Blues",
+    log_x_scale: bool = False,
+) -> None:
     """Overlay PC energies (by width) and BP loss at max width (same style as plot_main_results)."""
     plt.figure(figsize=(12.5, 6))
 
@@ -286,50 +332,108 @@ def plot_losses_and_energies(data: Dict[str, Any], plot_dir: str, colormap_name:
             y = np.array(data["pc_energies"][w]).flatten()
             x = np.arange(1, len(y) + 1)
             color = blues_cmap(pmr.get_color_val(idx, n_widths, colormap_name))
-            plt.plot(x, y, "-", alpha=pmr.ALPHA, linewidth=pmr.LINE_WIDTH, color=color, label="")
+            plt.plot(
+                x,
+                y,
+                "-",
+                alpha=pmr.ALPHA,
+                linewidth=pmr.LINE_WIDTH,
+                color=color,
+                label="",
+            )
 
     # BP loss at widest N (matches plot_main_results convention)
     if max_width is not None and max_width in data["bp_losses"]:
         y = np.array(data["bp_losses"][max_width]).flatten()
         x = np.arange(1, len(y) + 1)
-        plt.plot(x, y, "-", color=bp_color, linewidth=pmr.LINE_WIDTH, alpha=pmr.ALPHA, label="")
+        plt.plot(
+            x,
+            y,
+            "-",
+            color=bp_color,
+            linewidth=pmr.LINE_WIDTH,
+            alpha=pmr.ALPHA,
+            label="",
+        )
 
     # Custom legend: PC/BP + widths
     legend_handles, legend_labels = [], []
     if widths_with_energy:
-        legend_handles.append(plt.Line2D([0], [0], color=pc_legend_color, linewidth=pmr.LINE_WIDTH, alpha=pmr.ALPHA))
+        legend_handles.append(
+            plt.Line2D(
+                [0],
+                [0],
+                color=pc_legend_color,
+                linewidth=pmr.LINE_WIDTH,
+                alpha=pmr.ALPHA,
+            )
+        )
         legend_labels.append(r"$\mathcal{F}(\mathbf{z}_{T_{\text{max}}})$ (PC)")
     if max_width is not None and max_width in data["bp_losses"]:
-        legend_handles.append(plt.Line2D([0], [0], color=bp_color, linewidth=pmr.LINE_WIDTH, alpha=pmr.ALPHA))
+        legend_handles.append(
+            plt.Line2D(
+                [0], [0], color=bp_color, linewidth=pmr.LINE_WIDTH, alpha=pmr.ALPHA
+            )
+        )
         legend_labels.append(r"$\mathcal{L}(\boldsymbol{\theta})$ (BP)")
 
-    all_widths = sorted(set(widths_with_energy + ([max_width] if max_width is not None and max_width in data["bp_losses"] else [])))
+    all_widths = sorted(
+        set(
+            widths_with_energy
+            + (
+                [max_width]
+                if max_width is not None and max_width in data["bp_losses"]
+                else []
+            )
+        )
+    )
     if all_widths:
         gray_cmap = plt.get_cmap("Greys")
         for idx, w in enumerate(all_widths):
-            gray_val = 0.3 + (idx / max(len(all_widths) - 1, 1)) * 0.5 if len(all_widths) > 1 else 0.5
-            legend_handles.append(plt.Line2D([0], [0], color=gray_cmap(gray_val), linewidth=pmr.LINE_WIDTH))
+            gray_val = (
+                0.3 + (idx / max(len(all_widths) - 1, 1)) * 0.5
+                if len(all_widths) > 1
+                else 0.5
+            )
+            legend_handles.append(
+                plt.Line2D(
+                    [0], [0], color=gray_cmap(gray_val), linewidth=pmr.LINE_WIDTH
+                )
+            )
             legend_labels.append(f"$N = {w}$")
 
     ax = plt.gca()
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     plt.xlabel("$t$", fontsize=pmr.FONT_SIZES["label"], labelpad=pmr.LABEL_PAD)
-    plt.ylabel(r"$l(\boldsymbol{\theta}_t)$", fontsize=pmr.FONT_SIZES["label"], labelpad=pmr.LABEL_PAD)
+    plt.ylabel(
+        r"$l(\boldsymbol{\theta}_t)$",
+        fontsize=pmr.FONT_SIZES["label"],
+        labelpad=pmr.LABEL_PAD,
+    )
     if log_x_scale:
         plt.xscale("log", base=10)
     if legend_handles:
-        plt.legend(handles=legend_handles, labels=legend_labels, fontsize=pmr.FONT_SIZES["legend"],
-                   bbox_to_anchor=(1.05, 1), loc="upper left")
+        plt.legend(
+            handles=legend_handles,
+            labels=legend_labels,
+            fontsize=pmr.FONT_SIZES["legend"],
+            bbox_to_anchor=(1.05, 1),
+            loc="upper left",
+        )
     plt.grid(True, which="both", ls="-", alpha=0.4)
     plt.tick_params(axis="both", labelsize=pmr.FONT_SIZES["tick"])
     pmr.save_plot(plot_dir, "losses_and_energies.pdf", n_hidden=None, add_suffix=False)
 
 
-def plot_cosine_similarity(data: Dict[str, Any], plot_dir: str, colormap_name: str = "viridis") -> None:
+def plot_cosine_similarity(
+    data: Dict[str, Any], plot_dir: str, colormap_name: str = "viridis"
+) -> None:
     """Cosine similarity curves vs t (same style as plot_main_results)."""
     plt.figure(figsize=pmr.FIG_SIZE)
-    widths_list = sorted([w for w in data["widths"] if w in data["grad_cosine_similarities"]])
+    widths_list = sorted(
+        [w for w in data["widths"] if w in data["grad_cosine_similarities"]]
+    )
     if widths_list:
         cmap = plt.get_cmap(colormap_name)
         n_widths = len(widths_list)
@@ -337,7 +441,14 @@ def plot_cosine_similarity(data: Dict[str, Any], plot_dir: str, colormap_name: s
             y = np.array(data["grad_cosine_similarities"][w]).flatten()
             x = np.arange(1, len(y) + 1)
             color = cmap(pmr.get_color_val(idx, n_widths, colormap_name))
-            plt.plot(x, y, label=f"$N = {w}$", alpha=pmr.ALPHA, linewidth=pmr.LINE_WIDTH, color=color)
+            plt.plot(
+                x,
+                y,
+                label=f"$N = {w}$",
+                alpha=pmr.ALPHA,
+                linewidth=pmr.LINE_WIDTH,
+                color=color,
+            )
 
     ax = plt.gca()
     ax.spines["top"].set_visible(False)
@@ -350,11 +461,18 @@ def plot_cosine_similarity(data: Dict[str, Any], plot_dir: str, colormap_name: s
     )
     handles, labels = plt.gca().get_legend_handles_labels()
     if handles:
-        plt.legend(handles=handles, labels=labels, fontsize=pmr.FONT_SIZES["legend"],
-                   bbox_to_anchor=(1.0, 0.0), loc="lower right")
+        plt.legend(
+            handles=handles,
+            labels=labels,
+            fontsize=pmr.FONT_SIZES["legend"],
+            bbox_to_anchor=(1.0, 0.0),
+            loc="lower right",
+        )
     plt.grid(True, which="both", ls="-", alpha=0.4)
     plt.tick_params(axis="both", labelsize=pmr.FONT_SIZES["tick"])
-    pmr.save_plot(plot_dir, "grads_cosine_similarities.pdf", n_hidden=None, add_suffix=False)
+    pmr.save_plot(
+        plot_dir, "grads_cosine_similarities.pdf", n_hidden=None, add_suffix=False
+    )
 
 
 def plot_cosine_similarity_by_activity_lr(
@@ -365,7 +483,7 @@ def plot_cosine_similarity_by_activity_lr(
     use_colorbar: bool = True,
 ) -> None:
     """Plot cosine similarity vs t for smallest and largest depth, sweeping activity_lr.
-    
+
     Uses green colorscale for shallow depth and orange for deep depth, with beta values
     varying the intensity within each colorscale. If use_colorbar is True, a greyscale
     colorbar on the right shows beta values. If False, the legend lists one entry per beta
@@ -395,28 +513,35 @@ def plot_cosine_similarity_by_activity_lr(
                     y = np.array(activity_lr_to_values[lr]).flatten()
                     x = np.arange(1, len(y) + 1)
                     color = cmap(pmr.get_color_val(idx, n_series, colormap_name))
-                    plt.plot(x, y, label=rf"$\beta = {lr}$", alpha=pmr.ALPHA, linewidth=pmr.LINE_WIDTH, color=color)
+                    plt.plot(
+                        x,
+                        y,
+                        label=rf"$\beta = {lr}$",
+                        alpha=pmr.ALPHA,
+                        linewidth=pmr.LINE_WIDTH,
+                        color=color,
+                    )
     else:
         # Use smallest and largest depths
         min_depth = depths[0]
         max_depth = depths[-1]
-        
+
         # Green colormap for shallow depth, orange for deep depth
         green_cmap = plt.get_cmap("Greens")
         orange_cmap = plt.get_cmap("Oranges")
         grey_cmap = plt.get_cmap("Greys")
-        
+
         # Collect all activity_lrs across both depths
         all_activity_lrs = set()
         for depth in [min_depth, max_depth]:
             all_activity_lrs.update(depth_to_activity_lr_to_values[depth].keys())
         all_activity_lrs = sorted(all_activity_lrs)
-        
+
         # Plot lines for min_depth (green/shallow) and max_depth (orange/deep)
         for depth, cmap_to_use in [(min_depth, green_cmap), (max_depth, orange_cmap)]:
             activity_lr_to_values = depth_to_activity_lr_to_values[depth]
             activity_lrs = sorted(activity_lr_to_values.keys())
-            
+
             for lr in activity_lrs:
                 if lr not in activity_lr_to_values:
                     continue
@@ -425,27 +550,57 @@ def plot_cosine_similarity_by_activity_lr(
                 # Color intensity based on beta value position in all_activity_lrs
                 # Use the depth colormap (green or orange) with beta variation
                 beta_idx = all_activity_lrs.index(lr)
-                color_val = 0.3 + 0.5 * (beta_idx / max(len(all_activity_lrs) - 1, 1)) if len(all_activity_lrs) > 1 else 0.5
+                color_val = (
+                    0.3 + 0.5 * (beta_idx / max(len(all_activity_lrs) - 1, 1))
+                    if len(all_activity_lrs) > 1
+                    else 0.5
+                )
                 depth_color = cmap_to_use(color_val)
-                plt.plot(x, y, alpha=pmr.ALPHA, linewidth=pmr.LINE_WIDTH, color=depth_color)
+                plt.plot(
+                    x, y, alpha=pmr.ALPHA, linewidth=pmr.LINE_WIDTH, color=depth_color
+                )
 
         # Create custom legend: depth entries with green/orange
         # Add depth entries (L = n_hidden + 1)
         if min_depth in depth_to_activity_lr_to_values:
-            legend_handles.append(plt.Line2D([0], [0], color=green_cmap(0.7), linewidth=pmr.LINE_WIDTH, alpha=pmr.ALPHA))
+            legend_handles.append(
+                plt.Line2D(
+                    [0],
+                    [0],
+                    color=green_cmap(0.7),
+                    linewidth=pmr.LINE_WIDTH,
+                    alpha=pmr.ALPHA,
+                )
+            )
             legend_labels.append(f"$L = {min_depth + 1}$")
         if max_depth in depth_to_activity_lr_to_values:
-            legend_handles.append(plt.Line2D([0], [0], color=orange_cmap(0.7), linewidth=pmr.LINE_WIDTH, alpha=pmr.ALPHA))
+            legend_handles.append(
+                plt.Line2D(
+                    [0],
+                    [0],
+                    color=orange_cmap(0.7),
+                    linewidth=pmr.LINE_WIDTH,
+                    alpha=pmr.ALPHA,
+                )
+            )
             legend_labels.append(f"$L = {max_depth + 1}$")
         # If not using colorbar, add one legend entry per beta (grey colorscale)
         if not use_colorbar:
             for idx, lr in enumerate(all_activity_lrs):
-                grey_val = 0.3 + (idx / max(len(all_activity_lrs) - 1, 1)) * 0.5 if len(all_activity_lrs) > 1 else 0.5
-                legend_handles.append(plt.Line2D([0], [0], color=grey_cmap(grey_val), linewidth=pmr.LINE_WIDTH))
+                grey_val = (
+                    0.3 + (idx / max(len(all_activity_lrs) - 1, 1)) * 0.5
+                    if len(all_activity_lrs) > 1
+                    else 0.5
+                )
+                legend_handles.append(
+                    plt.Line2D(
+                        [0], [0], color=grey_cmap(grey_val), linewidth=pmr.LINE_WIDTH
+                    )
+                )
                 legend_labels.append(rf"$\beta = {lr}$")
 
     ax = plt.gca()
-    
+
     # Create colorbar for beta values on the right side (only when use_colorbar)
     if use_colorbar and all_activity_lrs:
         # Use greyscale colormap to represent beta values
@@ -454,7 +609,9 @@ def plot_cosine_similarity_by_activity_lr(
         sm = ScalarMappable(cmap=beta_cmap, norm=norm)
         sm.set_array([])
         cbar = plt.colorbar(sm, ax=ax, pad=0.02)
-        cbar.set_label(r"$\beta$", fontsize=pmr.FONT_SIZES["label"], labelpad=pmr.LABEL_PAD)
+        cbar.set_label(
+            r"$\beta$", fontsize=pmr.FONT_SIZES["label"], labelpad=pmr.LABEL_PAD
+        )
         cbar.ax.tick_params(labelsize=pmr.FONT_SIZES["tick"])
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
@@ -466,7 +623,12 @@ def plot_cosine_similarity_by_activity_lr(
     )
     if legend_handles:
         if use_colorbar:
-            plt.legend(handles=legend_handles, labels=legend_labels, fontsize=pmr.FONT_SIZES["legend"], loc="lower right")
+            plt.legend(
+                handles=legend_handles,
+                labels=legend_labels,
+                fontsize=pmr.FONT_SIZES["legend"],
+                loc="lower right",
+            )
         else:
             plt.legend(
                 handles=legend_handles,
@@ -500,11 +662,13 @@ if __name__ == "__main__":
     parser.add_argument("--n_hiddens", type=int, nargs="+", default=[31])
     parser.add_argument("--activity_lrs", type=float, nargs="+", default=[0.3])
     parser.add_argument("--use_skips", nargs="+", default=[True])
-    parser.add_argument("--activity_lrs_beta_plot", type=float, nargs="+", default=[0.4])
+    parser.add_argument(
+        "--activity_lrs_beta_plot", type=float, nargs="+", default=[0.4]
+    )
     parser.add_argument(
         "--activity_lrs_losses",
         type=float,
-        nargs="+", 
+        nargs="+",
         default=None,
         help=(
             "Subset of activity_lrs for which to generate loss/energy plots "
@@ -523,7 +687,12 @@ if __name__ == "__main__":
     parser.add_argument("--infer_mode", type=str, default="optim")
 
     # Plot controls
-    parser.add_argument("--widths", type=int, nargs="+", default=[8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096])
+    parser.add_argument(
+        "--widths",
+        type=int,
+        nargs="+",
+        default=[8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096],
+    )
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--colormap", type=str, default="Blues")
     parser.add_argument("--log_x_scale", action="store_true", default=False)
@@ -555,7 +724,9 @@ if __name__ == "__main__":
     for dataset, input_dim in zip(args.datasets, args.dataset_input_dims):
         dataset_results_dir = os.path.join(args.results_dir, f"{input_dim}_input_dim")
         if not os.path.exists(dataset_results_dir):
-            print(f"Warning: results directory not found: {dataset_results_dir}. Skipping {dataset}.")
+            print(
+                f"Warning: results directory not found: {dataset_results_dir}. Skipping {dataset}."
+            )
             continue
 
         dataset_plot_dir = os.path.join(args.plot_dir, dataset)
@@ -569,11 +740,15 @@ if __name__ == "__main__":
                 for use_skips in parsed_use_skips:
                     for gamma_0 in args.gamma_0s:
                         # Collect data across all n_hiddens for the beta plot
-                        target_width: Optional[int] = max(args.widths) if args.widths else None
+                        target_width: Optional[int] = (
+                            max(args.widths) if args.widths else None
+                        )
                         depth_to_cos_sims_by_lr: Dict[int, Dict[float, np.ndarray]] = {}
-                        
+
                         activity_lrs_for_beta_plot = (
-                            args.activity_lrs_beta_plot if args.activity_lrs_beta_plot is not None else args.activity_lrs
+                            args.activity_lrs_beta_plot
+                            if args.activity_lrs_beta_plot is not None
+                            else args.activity_lrs
                         )
                         if args.activity_lrs_losses is not None:
                             activity_lrs_for_per_lr_plots = args.activity_lrs_losses
@@ -581,25 +756,39 @@ if __name__ == "__main__":
                             # Default: treat only the first activity_lr as the single-run
                             activity_lrs_for_per_lr_plots = args.activity_lrs[:1]
                         activity_lrs_union = sorted(
-                            set(float(x) for x in (list(activity_lrs_for_per_lr_plots) + list(activity_lrs_for_beta_plot)))
+                            set(
+                                float(x)
+                                for x in (
+                                    list(activity_lrs_for_per_lr_plots)
+                                    + list(activity_lrs_for_beta_plot)
+                                )
+                            )
                         )
 
                         # First pass: collect data for beta plot and create per-n_hidden plots
                         for n_hidden in args.n_hiddens:
-                            n_hidden_dir = os.path.join(act_fn_plot_dir, f"{n_hidden}_n_hidden")
+                            n_hidden_dir = os.path.join(
+                                act_fn_plot_dir, f"{n_hidden}_n_hidden"
+                            )
                             os.makedirs(n_hidden_dir, exist_ok=True)
-                            
-                            skip_dir = os.path.join(n_hidden_dir, f"{use_skips}_use_skips")
+
+                            skip_dir = os.path.join(
+                                n_hidden_dir, f"{use_skips}_use_skips"
+                            )
                             os.makedirs(skip_dir, exist_ok=True)
-                            
+
                             gamma_dir = os.path.join(skip_dir, f"{gamma_0}_gamma_0")
                             os.makedirs(gamma_dir, exist_ok=True)
-                            
+
                             cos_sims_by_lr_for_depth: Dict[float, np.ndarray] = {}
 
                             for activity_lr in activity_lrs_union:
                                 # Keep directory naming consistent with training (float string)
-                                act_lr_dir = os.path.join(gamma_dir, f"{_format_float_dir_name(activity_lr)}_activity_lr", param_type)
+                                act_lr_dir = os.path.join(
+                                    gamma_dir,
+                                    f"{_format_float_dir_name(activity_lr)}_activity_lr",
+                                    param_type,
+                                )
                                 os.makedirs(act_lr_dir, exist_ok=True)
 
                                 cfg = RunConfig(
@@ -610,7 +799,7 @@ if __name__ == "__main__":
                                     act_fn=act_fn,
                                     param_type=param_type,
                                     param_optim=args.param_optim,
-                                    optim_id=args.param_optim,   # BP uses *_optim_id
+                                    optim_id=args.param_optim,  # BP uses *_optim_id
                                     param_lr=args.param_lr,
                                     gamma_0=gamma_0,
                                     n_train_iters=args.n_train_iters,
@@ -619,7 +808,9 @@ if __name__ == "__main__":
                                     seed=args.seed,
                                 )
 
-                                data = load_nonlinear_data(dataset_results_dir, cfg, widths=args.widths)
+                                data = load_nonlinear_data(
+                                    dataset_results_dir, cfg, widths=args.widths
+                                )
                                 if not data["widths"]:
                                     print(
                                         "Warning: no PC runs found for "
@@ -633,32 +824,49 @@ if __name__ == "__main__":
                                     )
                                     continue
 
-                                if float(activity_lr) in set(float(x) for x in activity_lrs_for_per_lr_plots):
+                                if float(activity_lr) in set(
+                                    float(x) for x in activity_lrs_for_per_lr_plots
+                                ):
                                     # Plots requested: losses_and_energies + cosine similarities
                                     plot_losses_and_energies(
-                                        data, act_lr_dir, colormap_name=args.colormap, log_x_scale=args.log_x_scale
+                                        data,
+                                        act_lr_dir,
+                                        colormap_name=args.colormap,
+                                        log_x_scale=args.log_x_scale,
                                     )
-                                    plot_cosine_similarity(data, act_lr_dir, colormap_name=args.colormap)
+                                    plot_cosine_similarity(
+                                        data, act_lr_dir, colormap_name=args.colormap
+                                    )
 
                                 # Store cosine sims for largest width for the activity-lr sweep plot
                                 if target_width is None and data["widths"]:
                                     target_width = max(data["widths"])
                                 if target_width is not None:
-                                    vals = data["grad_cosine_similarities"].get(target_width)
-                                    if vals is not None and float(activity_lr) in set(float(x) for x in activity_lrs_for_beta_plot):
-                                        cos_sims_by_lr_for_depth[float(activity_lr)] = np.array(vals).flatten()
-                            
+                                    vals = data["grad_cosine_similarities"].get(
+                                        target_width
+                                    )
+                                    if vals is not None and float(activity_lr) in set(
+                                        float(x) for x in activity_lrs_for_beta_plot
+                                    ):
+                                        cos_sims_by_lr_for_depth[float(activity_lr)] = (
+                                            np.array(vals).flatten()
+                                        )
+
                             if cos_sims_by_lr_for_depth:
-                                depth_to_cos_sims_by_lr[n_hidden] = cos_sims_by_lr_for_depth
-                        
+                                depth_to_cos_sims_by_lr[n_hidden] = (
+                                    cos_sims_by_lr_for_depth
+                                )
+
                         # Create the beta plot with smallest and largest depths
                         if depth_to_cos_sims_by_lr:
                             # Save at act_fn level (common across all n_hiddens)
-                            skip_dir = os.path.join(act_fn_plot_dir, f"{use_skips}_use_skips")
+                            skip_dir = os.path.join(
+                                act_fn_plot_dir, f"{use_skips}_use_skips"
+                            )
                             gamma_dir = os.path.join(skip_dir, f"{gamma_0}_gamma_0")
                             gamma_param_dir = os.path.join(gamma_dir, param_type)
                             os.makedirs(gamma_param_dir, exist_ok=True)
-                            
+
                             plot_cosine_similarity_by_activity_lr(
                                 depth_to_cos_sims_by_lr,
                                 gamma_param_dir,

@@ -8,8 +8,7 @@ import equinox.nn as nn
 import jax
 import jax.numpy as jnp
 import optax
-
-from model import ScaledConv2d, ResNet
+from model import ResNet, ScaledConv2d
 
 
 def _get_layer_output_shapes(model: ResNet) -> List[Tuple[int, int, int]]:

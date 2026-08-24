@@ -1,22 +1,19 @@
-import os
 import argparse
-import numpy as np
-
-import jax
-import jax.random as jr
 
 import equinox as eqx
+import jax
+import jax.random as jr
 import jpc
+import numpy as np
 import optax
-from optimistix import rms_norm
-
 from experiments.datasets import get_dataloaders
 from experiments.mupc_paper.utils import (
-    setup_experiment,
+    init_weights,
     set_seed,
+    setup_experiment,
     setup_logger,
-    init_weights
 )
+from optimistix import rms_norm
 
 
 def evaluate(params, test_loader, loss_id, param_type):
@@ -31,7 +28,7 @@ def evaluate(params, test_loader, loss_id, param_type):
             input=img_batch,
             skip_model=skip_model,
             loss=loss_id,
-            param_type=param_type
+            param_type=param_type,
         )
         avg_test_loss += test_loss
         avg_test_acc += test_acc
@@ -40,27 +37,27 @@ def evaluate(params, test_loader, loss_id, param_type):
 
 
 def train_mlp(
-        seed,
-        dataset,
-        loss_id,
-        width,
-        n_hidden,
-        act_fn,
-        use_skips,
-        weight_init,
-        param_type,
-        param_optim_id,
-        param_lr,
-        batch_size,
-        max_infer_iters,
-        activity_optim_id,
-        activity_lr,
-        activity_decay,
-        weight_decay,
-        spectral_penalty,
-        max_epochs,
-        test_every,
-        save_dir
+    seed,
+    dataset,
+    loss_id,
+    width,
+    n_hidden,
+    act_fn,
+    use_skips,
+    weight_init,
+    param_type,
+    param_optim_id,
+    param_lr,
+    batch_size,
+    max_infer_iters,
+    activity_optim_id,
+    activity_lr,
+    activity_decay,
+    weight_decay,
+    spectral_penalty,
+    max_epochs,
+    test_every,
+    save_dir,
 ):
     set_seed(seed)
     key = jax.random.PRNGKey(seed)
@@ -68,7 +65,7 @@ def train_mlp(
     logger = setup_logger(save_dir)
 
     # create and initialise model
-    d_in = 32*32*3 if dataset == "CIFAR10" else 28*28
+    d_in = 32 * 32 * 3 if dataset == "CIFAR10" else 28 * 28
     d_out = 10
     L = n_hidden + 1
     model = jpc.make_mlp(
@@ -79,15 +76,12 @@ def train_mlp(
         output_dim=d_out,
         act_fn=act_fn,
         use_bias=False,
-        param_type=param_type
+        param_type=param_type,
     )
     if weight_init == "orthogonal":
         gain = 1.05 if (weight_init == "orthogonal" and act_fn == "tanh") else 1
         model = init_weights(
-            key=keys[1],
-            model=model,
-            init_fn_id=weight_init,
-            gain=gain
+            key=keys[1], model=model, init_fn_id=weight_init, gain=gain
         )
     skip_model = jpc.make_skip_model(L) if use_skips else None
 
@@ -99,12 +93,12 @@ def train_mlp(
     else:
         raise ValueError("Invalid param optim id. Options are 'sgd' and 'adam'.")
 
-    param_opt_state = param_optim.init(
-        (eqx.filter(model, eqx.is_array), skip_model)
+    param_opt_state = param_optim.init((eqx.filter(model, eqx.is_array), skip_model))
+    activity_optim = (
+        optax.sgd(activity_lr)
+        if (activity_optim_id == "gd")
+        else optax.adam(activity_lr)
     )
-    activity_optim = optax.sgd(activity_lr) if (
-            activity_optim_id == "gd"
-    ) else optax.adam(activity_lr)
 
     # data
     train_loader, test_loader = get_dataloaders(dataset, batch_size)
@@ -112,7 +106,7 @@ def train_mlp(
     # key metrics
     train_losses = []
     test_losses, test_accs = [], []
-    
+
     n_train_iters = len(train_loader.dataset) // batch_size * max_epochs
     n_infer_iters = np.ones(n_train_iters) * max_infer_iters
 
@@ -129,7 +123,7 @@ def train_mlp(
                 model=model,
                 input=img_batch,
                 skip_model=skip_model,
-                param_type=param_type
+                param_type=param_type,
             )
             activity_opt_state = activity_optim.init(activities)
             if loss_id == "mse":
@@ -150,14 +144,14 @@ def train_mlp(
                     param_type=param_type,
                     activity_decay=activity_decay,
                     weight_decay=weight_decay,
-                    spectral_penalty=spectral_penalty
+                    spectral_penalty=spectral_penalty,
                 )
                 activities = activity_update_result["activities"]
                 activity_opt_state = activity_update_result["opt_state"]
                 activity_grads = activity_update_result["grads"]
                 if rms_norm(activity_grads) < 1e-3 + 1e-3 * rms_norm(activity_grads):
                     n_infer_iters[global_batch_id] = t
-                
+
             # update parameters
             param_update_result = jpc.update_params(
                 params=(model, skip_model),
@@ -170,7 +164,7 @@ def train_mlp(
                 param_type=param_type,
                 activity_decay=activity_decay,
                 weight_decay=weight_decay,
-                spectral_penalty=spectral_penalty
+                spectral_penalty=spectral_penalty,
             )
             model = param_update_result["model"]
             skip_model = param_update_result["skip_model"]
@@ -187,7 +181,7 @@ def train_mlp(
                     params=(model, skip_model),
                     test_loader=test_loader,
                     loss_id=loss_id,
-                    param_type=param_type
+                    param_type=param_type,
                 )
                 test_losses.append(avg_test_loss)
                 test_accs.append(avg_test_acc)
@@ -196,17 +190,15 @@ def train_mlp(
             if np.isinf(train_loss) or np.isnan(train_loss):
                 diverged = True
                 break
-            
+
             if global_batch_id >= test_every and avg_test_acc < 15:
                 no_learning = True
                 break
-        
+
         if diverged:
-            logger.info(
-                f"Stopping training because of diverging loss: {train_loss}"
-            )
+            logger.info(f"Stopping training because of diverging loss: {train_loss}")
             break
-        
+
         if no_learning:
             logger.info(
                 f"Stopping training because of chance accuracy (no learning): {avg_test_acc}"
@@ -222,23 +214,32 @@ def train_mlp(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--results_dir", type=str, default="pcn_results")
-    parser.add_argument("--datasets", type=str, nargs='+', default=["CIFAR10"])
+    parser.add_argument("--datasets", type=str, nargs="+", default=["CIFAR10"])
     parser.add_argument("--loss_id", type=str, default="mse")
-    parser.add_argument("--widths", type=int, nargs='+', default=[512])
-    parser.add_argument("--n_hiddens", type=int, nargs='+', default=[8])
-    parser.add_argument("--act_fns", type=str, nargs='+', default=["relu"])
-    parser.add_argument("--use_skips", type=int, nargs='+', default=[True])
-    parser.add_argument("--weight_inits", type=str, nargs='+', default=["standard_gauss"]) 
-    parser.add_argument("--param_types", type=str, nargs='+', default=["mupc"]) 
-    parser.add_argument("--param_lrs", type=float, nargs='+', default=[5e-1, 1e-1, 5e-2, 1e-2])
+    parser.add_argument("--widths", type=int, nargs="+", default=[512])
+    parser.add_argument("--n_hiddens", type=int, nargs="+", default=[8])
+    parser.add_argument("--act_fns", type=str, nargs="+", default=["relu"])
+    parser.add_argument("--use_skips", type=int, nargs="+", default=[True])
+    parser.add_argument(
+        "--weight_inits", type=str, nargs="+", default=["standard_gauss"]
+    )
+    parser.add_argument("--param_types", type=str, nargs="+", default=["mupc"])
+    parser.add_argument(
+        "--param_lrs", type=float, nargs="+", default=[5e-1, 1e-1, 5e-2, 1e-2]
+    )
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--max_infer_iters", type=int, default=16)
-    parser.add_argument("--param_optim_ids", type=str, nargs='+', default=["adam"])
-    parser.add_argument("--activity_optim_ids", type=str, nargs='+', default=["gd"])
-    parser.add_argument("--activity_lrs", type=float, nargs='+', default=[1e3, 5e2, 1e2, 5e1, 1e1, 5e0, 1e0, 5e-1, 1e-1, 5e-2, 1e-2])
-    parser.add_argument("--activity_decays", type=float, nargs='+', default=[0])
-    parser.add_argument("--weight_decays", type=float, nargs='+', default=[0])
-    parser.add_argument("--spectral_penalties", type=float, nargs='+', default=[0])
+    parser.add_argument("--param_optim_ids", type=str, nargs="+", default=["adam"])
+    parser.add_argument("--activity_optim_ids", type=str, nargs="+", default=["gd"])
+    parser.add_argument(
+        "--activity_lrs",
+        type=float,
+        nargs="+",
+        default=[1e3, 5e2, 1e2, 5e1, 1e1, 5e0, 1e0, 5e-1, 1e-1, 5e-2, 1e-2],
+    )
+    parser.add_argument("--activity_decays", type=float, nargs="+", default=[0])
+    parser.add_argument("--weight_decays", type=float, nargs="+", default=[0])
+    parser.add_argument("--spectral_penalties", type=float, nargs="+", default=[0])
     parser.add_argument("--max_epochs", type=int, default=20)
     parser.add_argument("--test_every", type=int, default=389)
     parser.add_argument("--n_seeds", type=int, default=3)
@@ -253,12 +254,22 @@ if __name__ == "__main__":
                             for param_type in args.param_types:
                                 for param_optim_id in args.param_optim_ids:
                                     for param_lr in args.param_lrs:
-                                        for activity_optim_id in args.activity_optim_ids:
+                                        for (
+                                            activity_optim_id
+                                        ) in args.activity_optim_ids:
                                             for activity_lr in args.activity_lrs:
-                                                for activity_decay in args.activity_decays:
-                                                    for weight_decay in args.weight_decays:
-                                                        for spectral_penalty in args.spectral_penalties:
-                                                            for seed in range(args.n_seeds):
+                                                for (
+                                                    activity_decay
+                                                ) in args.activity_decays:
+                                                    for (
+                                                        weight_decay
+                                                    ) in args.weight_decays:
+                                                        for (
+                                                            spectral_penalty
+                                                        ) in args.spectral_penalties:
+                                                            for seed in range(
+                                                                args.n_seeds
+                                                            ):
                                                                 save_dir = setup_experiment(
                                                                     results_dir=args.results_dir,
                                                                     loss_id=args.loss_id,
@@ -279,7 +290,7 @@ if __name__ == "__main__":
                                                                     weight_decay=weight_decay,
                                                                     spectral_penalty=spectral_penalty,
                                                                     max_epochs=args.max_epochs,
-                                                                    seed=seed
+                                                                    seed=seed,
                                                                 )
                                                                 train_mlp(
                                                                     seed=seed,
@@ -302,5 +313,5 @@ if __name__ == "__main__":
                                                                     spectral_penalty=spectral_penalty,
                                                                     max_epochs=args.max_epochs,
                                                                     test_every=args.test_every,
-                                                                    save_dir=save_dir
+                                                                    save_dir=save_dir,
                                                                 )

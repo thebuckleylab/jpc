@@ -1,6 +1,6 @@
 """Train a ResNet CNN with PC (and BP) on ImageNet.
 
-This trains on a fixed ImageNet (or CIFAR / TinyImageNet) batch with the same 
+This trains on a fixed ImageNet (or CIFAR / TinyImageNet) batch with the same
 μPC ResNet and CNN optimiser. It uses the output-energy scaling
 parameterisation from ``train.py`` / ``test_coord_check.py``
 
@@ -20,10 +20,10 @@ import jax
 import jax.numpy as jnp
 import jax.random as jr
 import jax.tree_util as jtu
+import jpc
 import numpy as np
 import optax
 
-import jpc
 
 _CNN_DIR = Path(__file__).resolve().parents[1] / "limits_paper" / "cnn"
 if str(_CNN_DIR) not in sys.path:
@@ -40,7 +40,7 @@ from utils import (  # noqa: E402
 
 def get_output_energy_scaling(param_type, gamma, width):
     """Match ``train.py`` / ``test_coord_check.get_coord_data``."""
-    return (gamma ** 2) * width if param_type == "mupc" else 1.0
+    return (gamma**2) * width if param_type == "mupc" else 1.0
 
 
 def load_batch(args):
@@ -192,10 +192,7 @@ def train_pc(args, x, y, model, output_energy_scaling, save_dir):
         loss, acc = ffwd_metrics(model, x, y, args.loss_id)
         losses.append(loss)
         accs.append(acc)
-        print(
-            f"  PC step {step}: energy={energy:.6f}  "
-            f"loss={loss:.6f}  acc={acc:.4f}"
-        )
+        print(f"  PC step {step}: energy={energy:.6f}  loss={loss:.6f}  acc={acc:.4f}")
 
     np.save(os.path.join(save_dir, "energies.npy"), np.asarray(energies))
     np.save(os.path.join(save_dir, "train_losses.npy"), np.asarray(losses))
@@ -276,9 +273,7 @@ def main(args):
     train_pc(args, x, y, pc_model, output_energy_scaling, pc_save_dir)
 
     bp_save_dir = setup_bp_save_dir(args)
-    print(
-        f"BP training (same init, same data, grads × {output_energy_scaling})..."
-    )
+    print(f"BP training (same init, same data, grads × {output_energy_scaling})...")
     train_bp(args, x, y, bp_model, output_energy_scaling, bp_save_dir)
 
 
@@ -294,9 +289,7 @@ if __name__ == "__main__":
     )
 
     # Model parameters
-    parser.add_argument(
-        "--widths", type=int, nargs="+", default=[64]
-    )
+    parser.add_argument("--widths", type=int, nargs="+", default=[64])
     parser.add_argument("--n_res_blocks", type=int, default=3)
     parser.add_argument(
         "--param_type", type=str, default="mupc", choices=["sp", "mupc"]

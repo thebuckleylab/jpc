@@ -1,31 +1,30 @@
 import argparse
 import os
 
-import numpy as np
+import equinox as eqx
 import jax
-import jpc
-import optax
 import jax.numpy as jnp
 import jax.random as jr
-import equinox as eqx
-
+import jpc
+import numpy as np
+import optax
 from experiments.limits_paper.cnn.utils import (
     hessian_vector_product,
-    power_iteration,
     inverse_iteration_cg,
-)
-from utils import (
-    load_shakespeare,
-    flatten_grads_per_layer_transformer,
-    get_tracked_transformer_param_positions_and_names,
-    setup_experiment,
-    compute_cosine_similarity
+    power_iteration,
 )
 from model import Transformer
 from optim import (
     add_weight_decay_to_grads,
     configure_transformer_adamw,
     weight_decay_tree_for_transformer,
+)
+from utils import (
+    compute_cosine_similarity,
+    flatten_grads_per_layer_transformer,
+    get_tracked_transformer_param_positions_and_names,
+    load_shakespeare,
+    setup_experiment,
 )
 
 
@@ -139,7 +138,9 @@ def train_pcn(args, x, y, model):
         params_for_pc=True,
     )
 
-    _, tracked_param_positions, _ = get_tracked_transformer_param_positions_and_names(model)
+    _, tracked_param_positions, _ = get_tracked_transformer_param_positions_and_names(
+        model
+    )
     n_infer_this = args.n_infer_iters
 
     for step in range(args.n_steps):
@@ -156,18 +157,14 @@ def train_pcn(args, x, y, model):
                 opt_state=activity_opt_state,
                 output=y,
                 input=x,
-                loss_id=args.loss_id
+                loss_id=args.loss_id,
             )
             activities = result["activities"]
             activity_opt_state = result["opt_state"]
 
         experiment_energy = float(
             jpc.pc_energy_fn(
-                params=params,
-                activities=activities,
-                y=y,
-                x=x,
-                loss=args.loss_id
+                params=params, activities=activities, y=y, x=x, loss=args.loss_id
             )
         )
         if not np.isfinite(experiment_energy):
@@ -185,7 +182,7 @@ def train_pcn(args, x, y, model):
             opt_state=param_opt_state,
             output=y,
             input=x,
-            loss_id=args.loss_id
+            loss_id=args.loss_id,
         )
         model = param_result["model"]
         param_opt_state = param_result["opt_state"]
@@ -269,7 +266,7 @@ def main(args):
         use_softmax=args.use_softmax,
         use_bias=args.use_bias,
         act_fn=args.act_fn,
-        init_std=args.init_std
+        init_std=args.init_std,
     )
     print(
         f"\nPC training (d_model={args.d_model}, n_blocks={args.n_blocks}, n_heads={args.n_heads}, "
@@ -294,7 +291,7 @@ def main(args):
         use_softmax=args.use_softmax,
         use_bias=args.use_bias,
         act_fn=args.act_fn,
-        init_std=args.init_std
+        init_std=args.init_std,
     )
     print("\nBP training (same init, same data)\n")
     cosine_similarities, cosine_similarities_per_layer = train_bp(
@@ -324,14 +321,23 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=64)
 
     # model parameters
-    parser.add_argument("--d_models", type=int, nargs="+", default=[8, 16, 32, 64, 128, 256, 512])
+    parser.add_argument(
+        "--d_models", type=int, nargs="+", default=[8, 16, 32, 64, 128, 256, 512]
+    )
     parser.add_argument("--n_blocks", type=int, default=12)
     parser.add_argument("--n_heads", type=int, default=8)
-    parser.add_argument("--param_type", type=str, default="mupc", choices=["sp", "mupc"])
+    parser.add_argument(
+        "--param_type", type=str, default="mupc", choices=["sp", "mupc"]
+    )
     parser.add_argument("--use_layer_norm", action="store_true", default=False)
     parser.add_argument("--use_softmax", action="store_true", default=True)
     parser.add_argument("--use_bias", action="store_true", default=False)
-    parser.add_argument("--act_fn", type=str, default="gelu", choices=["linear", "gelu", "relu", "swish"])
+    parser.add_argument(
+        "--act_fn",
+        type=str,
+        default="gelu",
+        choices=["linear", "gelu", "relu", "swish"],
+    )
     parser.add_argument("--init_std", type=float, default=0.02)
 
     # training parameters
@@ -339,7 +345,7 @@ if __name__ == "__main__":
     parser.add_argument("--beta1", type=float, default=0.9, help="Adam β₁.")
     parser.add_argument("--beta2", type=float, default=0.95, help="Adam β₂.")
     parser.add_argument("--adam_eps", type=float, default=1e-12, help="Adam ε")
-    parser.add_argument("--weight_decay", type=float, default=0.)  # 1e-1
+    parser.add_argument("--weight_decay", type=float, default=0.0)  # 1e-1
     parser.add_argument("--n_steps", type=int, default=100)
     parser.add_argument("--loss_id", type=str, default="ce", choices=["mse", "ce"])
     parser.add_argument("--n_seeds", type=int, default=3)
@@ -377,7 +383,6 @@ if __name__ == "__main__":
             for activity_lr in args.activity_lrs:
                 args.activity_lr = activity_lr
                 for seed in range(args.n_seeds):
-
                     if seed == 2:
                         args.seed = seed
                         print(f"Running experiment for seed: {seed}")

@@ -1,19 +1,18 @@
 import math
 from typing import Callable, List
 
+import equinox as eqx
+import equinox.nn as nn
 import jax
 import jax.numpy as jnp
 import jax.random as jr
-
 import jpc
-import equinox as eqx
-import equinox.nn as nn
-
 from utils import init_weights
 
 
 class LayerNorm(eqx.Module):
     """Token-wise LayerNorm for inputs shaped (T, N)."""
+
     ln: eqx.nn.LayerNorm
 
     def __init__(self, ndim: int, *, eps: float = 1e-5, use_bias: bool = False):
@@ -43,7 +42,7 @@ class CausalSelfAttention(eqx.Module):
         use_softmax: bool = True,
         use_bias: bool = False,
         n_blocks: int = 2,
-        init_std: float = 0.02
+        init_std: float = 0.02,
     ):
         assert n_embd % n_heads == 0
 
@@ -112,7 +111,7 @@ class MLP(eqx.Module):
         use_bias: bool = False,
         act_fn: str = "linear",
         n_blocks: int = 2,
-        init_std: float = 0.02
+        init_std: float = 0.02,
     ):
         k1, k2 = jr.split(key, 2)
         k1_lin, k1_mup = jr.split(k1, 2)
@@ -159,7 +158,7 @@ class Block(eqx.Module):
         use_bias: bool = False,
         act_fn: str = "linear",
         n_blocks: int = 2,
-        init_std: float = 0.02
+        init_std: float = 0.02,
     ):
         k_attn, k_mlp = jr.split(key, 2)
         self.ln_1 = (
@@ -168,23 +167,23 @@ class Block(eqx.Module):
             else eqx.nn.Identity()
         )
         self.attn = CausalSelfAttention(
-            n_embd=n_embd, 
-            n_heads=n_heads, 
-            key=k_attn, 
-            param_type=param_type, 
-            use_softmax=use_softmax, 
+            n_embd=n_embd,
+            n_heads=n_heads,
+            key=k_attn,
+            param_type=param_type,
+            use_softmax=use_softmax,
             use_bias=use_bias,
             n_blocks=n_blocks,
-            init_std=init_std
+            init_std=init_std,
         )
         self.mlp = MLP(
-            n_embd=n_embd, 
-            key=k_mlp, 
-            param_type=param_type, 
-            use_bias=use_bias, 
+            n_embd=n_embd,
+            key=k_mlp,
+            param_type=param_type,
+            use_bias=use_bias,
             act_fn=act_fn,
             n_blocks=n_blocks,
-            init_std=init_std
+            init_std=init_std,
         )
         self.ln_2 = (
             LayerNorm(n_embd, eps=1e-5, use_bias=use_bias)
@@ -210,7 +209,7 @@ class TokenPositionEmbedding(eqx.Module):
         n_embd: int,
         *,
         key: jax.Array,
-        init_std: float = 0.02
+        init_std: float = 0.02,
     ):
         kt, kp = jr.split(key, 2)
         kt_embed, kt_init = jr.split(kt, 2)
@@ -243,7 +242,7 @@ class LMHead(eqx.Module):
         key: jax.Array,
         param_type: str = "sp",
         use_bias: bool = False,
-        init_std: float = 0.02
+        init_std: float = 0.02,
     ):
         k_lin, k_mup = jr.split(key, 2)
         self.linear = nn.Linear(n_embd, vocab_size, key=k_lin, use_bias=use_bias)
@@ -275,18 +274,14 @@ class Transformer(eqx.Module):
         use_softmax: bool = True,
         use_bias: bool = False,
         act_fn: str = "linear",
-        init_std: float = 0.02
+        init_std: float = 0.02,
     ):
         keys = jr.split(key, 2 + n_blocks)
 
         self.layers = []
         self.layers.append(
             TokenPositionEmbedding(
-                vocab_size, 
-                seq_len, 
-                n_embd,
-                key=keys[0],
-                init_std=init_std
+                vocab_size, seq_len, n_embd, key=keys[0], init_std=init_std
             )
         )
         for i in range(n_blocks):
@@ -301,7 +296,7 @@ class Transformer(eqx.Module):
                     act_fn=act_fn,
                     n_blocks=n_blocks,
                     use_layer_norm=use_layer_norm,
-                    init_std=init_std
+                    init_std=init_std,
                 )
             )
         self.layers.append(
@@ -316,7 +311,7 @@ class Transformer(eqx.Module):
                 key=keys[-1],
                 param_type=param_type,
                 use_bias=use_bias,
-                init_std=init_std
+                init_std=init_std,
             )
         )
 

@@ -10,13 +10,12 @@ import os
 import equinox as eqx
 import jax.numpy as jnp
 import jax.random as jr
+import jpc
 import numpy as np
 import optax
+from experiments.limits_paper.utils import flatten_grads, MLP
 from jax import vmap
 from jax.tree_util import tree_map
-
-import jpc
-from experiments.limits_paper.utils import MLP, flatten_grads
 
 
 def create_linear_dataset(key, n_samples, input_dim, noise_std=0.0):
@@ -32,7 +31,7 @@ def create_linear_dataset(key, n_samples, input_dim, noise_std=0.0):
 
 def get_output_energy_scaling(param_type, gamma, width, depth):
     if param_type == "mupc":
-        return gamma ** 2 * width * depth
+        return gamma**2 * width * depth
     return 1.0
 
 
@@ -242,12 +241,8 @@ def print_training_losses(pc_losses, bp_losses, pc_energies, log_every):
     print(f"  {'step':>6}  {'pc_loss':>12}  {'bp_loss':>12}  {'pc_energy':>12}")
     for t in range(n):
         if t == 0 or t == n - 1 or t % log_every == 0:
-            energy_str = (
-                f"{pc_energies[t - 1]:12.6f}" if t > 0 else f"{'—':>12}"
-            )
-            print(
-                f"  {t:6d}  {pc_losses[t]:12.6f}  {bp_losses[t]:12.6f}  {energy_str}"
-            )
+            energy_str = f"{pc_energies[t - 1]:12.6f}" if t > 0 else f"{'—':>12}"
+            print(f"  {t:6d}  {pc_losses[t]:12.6f}  {bp_losses[t]:12.6f}  {energy_str}")
 
 
 def run(args):
@@ -335,10 +330,7 @@ def run(args):
     if args.compute_cos_sims:
         cos_sims = compute_cosine_similarities(pc_grads, bp_grads)
         np.save(os.path.join(save_dir, "grad_cosine_similarities.npy"), cos_sims)
-        print(
-            f"  grad cos sim: mean={cos_sims.mean():.4f}, "
-            f"final={cos_sims[-1]:.4f}"
-        )
+        print(f"  grad cos sim: mean={cos_sims.mean():.4f}, final={cos_sims[-1]:.4f}")
 
     print(f"  saved to {save_dir}")
 

@@ -1,41 +1,40 @@
+import argparse
+import os
+from pathlib import Path
+
+import equinox as eqx
 import jax
 import jax.numpy as jnp
-import numpy as np
-import pandas as pd
-
 import jpc
-import equinox as eqx
+import numpy as np
 import optax
-
-import os
-import argparse
-from pathlib import Path
+import pandas as pd
 from experiments.datasets import get_dataloaders
 from experiments.mupc_paper.utils import set_seed
+from plot_dmft_results import (
+    plot_bp_theory_vs_finite_loss,
+    plot_dmft_kernels_and_loss,
+    plot_grad_cosine_similarities,
+    plot_pc_dmft_kernels_and_loss,
+    plot_pc_theory_vs_finite_loss,
+)
+from theory_pc_nonlin_utils import solve_pc_kernels_nonlin
+from theory_pc_utils import solve_pc_kernels
+from theory_utils import get_Delta, solve_Delta, solve_kernels, solve_kernels_nonlin
 from utils import (
-    setup_pc_experiment,
-    setup_bp_experiment,
+    compute_grad_cosine_similarities,
     configure_param_optim,
     create_toy_dataset,
     flatten_grads,
-    compute_grad_cosine_similarities,
     MLP,
-)
-from theory_utils import solve_kernels, solve_kernels_nonlin, get_Delta, solve_Delta
-from theory_pc_utils import solve_pc_kernels
-from theory_pc_nonlin_utils import solve_pc_kernels_nonlin
-from plot_dmft_results import (
-    plot_dmft_kernels_and_loss,
-    plot_pc_dmft_kernels_and_loss,
-    plot_pc_theory_vs_finite_loss,
-    plot_bp_theory_vs_finite_loss,
-    plot_grad_cosine_similarities,
+    setup_bp_experiment,
+    setup_pc_experiment,
 )
 
 
 def _output_energy_scaling(param_type: str, gamma_0: float, width: int) -> float:
     """Match ``test_coord_check.get_coord_data`` µPC output-energy scaling."""
-    return (gamma_0 ** 2) * width if param_type == "mupc" else 1.0
+    return (gamma_0**2) * width if param_type == "mupc" else 1.0
 
 
 def _cleanup_experiment_dirs(results_dir: str):
@@ -54,22 +53,22 @@ def _cleanup_experiment_dirs(results_dir: str):
 
 
 def train_pcn(
-      model,
-      use_skips,
-      X_input,
-      Y_target,
-      width,
-      gamma_0,
-      param_type,
-      infer_mode,
-      n_infer_iters,
-      activity_lr,
-      param_optim_id,
-      param_lr,
-      n_train_iters,
-      loss_id,
-      save_dir,
-      store_grads=False
+    model,
+    use_skips,
+    X_input,
+    Y_target,
+    width,
+    gamma_0,
+    param_type,
+    infer_mode,
+    n_infer_iters,
+    activity_lr,
+    param_optim_id,
+    param_lr,
+    n_train_iters,
+    loss_id,
+    save_dir,
+    store_grads=False,
 ):
     """Train a PC network.
 
@@ -93,9 +92,7 @@ def train_pcn(
         param_optim = optax.adam(param_lr)
     else:
         raise ValueError(f"Invalid optimiser: {param_optim_id}")
-    param_opt_state = param_optim.init(
-        (eqx.filter(model, eqx.is_array), skip_model)
-    )
+    param_opt_state = param_optim.init((eqx.filter(model, eqx.is_array), skip_model))
 
     num_energies, theory_energies = [], []
     train_losses = []
@@ -103,7 +100,6 @@ def train_pcn(
     pc_grads = [] if store_grads else None
 
     for _ in range(n_train_iters):
-
         # Record supervised loss on the current feedforward prediction *before*
         # the parameter update, matching get_coord_data / DMFT step indexing.
         activities = jpc.init_activities_with_ffwd(
@@ -111,7 +107,7 @@ def train_pcn(
             input=X_input,
             skip_model=skip_model,
             param_type=param_type,
-            gamma=gamma_0
+            gamma=gamma_0,
         )
         if loss_id == "mse":
             train_loss = jpc.mse_loss(activities[-1], Y_target)
@@ -205,19 +201,19 @@ def train_pcn(
 
 
 def train_bpn(
-      model,
-      use_skips,
-      X_input,
-      Y_target,
-      width,
-      gamma_0,
-      param_type,
-      optim_id,
-      param_lr,
-      n_train_iters,
-      loss_id,
-      save_dir,
-      store_grads=False
+    model,
+    use_skips,
+    X_input,
+    Y_target,
+    width,
+    gamma_0,
+    param_type,
+    optim_id,
+    param_lr,
+    n_train_iters,
+    loss_id,
+    save_dir,
+    store_grads=False,
 ):
     os.makedirs(save_dir, exist_ok=True)
 
@@ -228,11 +224,13 @@ def train_bpn(
     opt_state = optim.init(eqx.filter(model, eqx.is_array))
 
     if loss_id == "mse":
+
         @eqx.filter_jit
         def loss_fn(model, x, y):
             y_pred = jax.vmap(model)(x)
             return 0.5 * jnp.mean(jnp.sum((y - y_pred) ** 2, axis=1))
     else:
+
         @eqx.filter_jit
         def loss_fn(model, x, y):
             y_pred = jax.vmap(model)(x)
@@ -242,9 +240,7 @@ def train_bpn(
     def make_step(model, optim, opt_state, x, y):
         loss, grads = eqx.filter_value_and_grad(loss_fn)(model, x, y)
         updates, opt_state = optim.update(
-            updates=grads,
-            state=opt_state,
-            params=eqx.filter(model, eqx.is_array)
+            updates=grads, state=opt_state, params=eqx.filter(model, eqx.is_array)
         )
         model = eqx.apply_updates(model, updates)
         return model, opt_state, loss, grads
@@ -285,36 +281,57 @@ if __name__ == "__main__":
     parser.add_argument("--results_dir", type=str, default="results")
 
     # Dataset parameters
-    parser.add_argument("--dataset", type=str, default="toy", choices=["toy", "Fashion-MNIST", "CIFAR10"])
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        default="toy",
+        choices=["toy", "Fashion-MNIST", "CIFAR10"],
+    )
     parser.add_argument("--input_dim", type=int, default=40)
-    parser.add_argument("--n_samples", type=int, default=5) # 20)
+    parser.add_argument("--n_samples", type=int, default=5)  # 20)
 
     # Model parameters
-    parser.add_argument("--act_fn", type=str, default="linear", choices=["linear", "tanh", "relu"])
-    parser.add_argument("--param_types", type=str, nargs='+', default=["mupc"], choices=["mupc", "sp", "my-mup"])
-    parser.add_argument("--use_skips", nargs='+', default=[False])
+    parser.add_argument(
+        "--act_fn", type=str, default="linear", choices=["linear", "tanh", "relu"]
+    )
+    parser.add_argument(
+        "--param_types",
+        type=str,
+        nargs="+",
+        default=["mupc"],
+        choices=["mupc", "sp", "my-mup"],
+    )
+    parser.add_argument("--use_skips", nargs="+", default=[False])
 
     # Training parameters
     parser.add_argument("--param_optim", type=str, default="gd")
     parser.add_argument("--param_lr", type=float, default=0.05)
-    parser.add_argument("--gamma_0s", type=float, nargs='+', default=[1])
-    parser.add_argument("--n_train_iters", type=int, default=20) # 100)
+    parser.add_argument("--gamma_0s", type=float, nargs="+", default=[1])
+    parser.add_argument("--n_train_iters", type=int, default=20)  # 100)
     parser.add_argument("--loss_id", type=str, default="mse", choices=["mse", "ce"])
     parser.add_argument("--n_fixed_point_steps", type=int, default=10)
 
     # Inference parameters
     parser.add_argument("--param_lr_pc", type=float, default=0.5)
-    parser.add_argument("--infer_mode", type=str, default="closed_form", choices=["optim", "closed_form"])
+    parser.add_argument(
+        "--infer_mode",
+        type=str,
+        default="closed_form",
+        choices=["optim", "closed_form"],
+    )
     parser.add_argument("--n_infer_iters", type=int, default=5)
-    parser.add_argument("--activity_lrs", type=float, nargs='+', default=[0.05])
+    parser.add_argument("--activity_lrs", type=float, nargs="+", default=[0.05])
 
     # Loop parameters
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--n_seeds", type=int, default=1)
-    parser.add_argument("--n_hiddens", type=int, nargs='+', default=[5])
-    parser.add_argument("--widths", type=int, nargs='+',
+    parser.add_argument("--n_hiddens", type=int, nargs="+", default=[5])
+    parser.add_argument(
+        "--widths",
+        type=int,
+        nargs="+",
         # default=[8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192]
-        default=[128, 512] #, 2048] #, 8192]
+        default=[128, 512],  # , 2048] #, 8192]
     )
 
     # DMFT theory parameters (shared by BP and PC)
@@ -409,15 +426,17 @@ if __name__ == "__main__":
 
     # PC DMFT inverts (K*T*P) matrices; float64 helps stability.
     # Also needed for large width & depth computation of s(theta).
-    if (
-        not args.skip_theory
-        or (len(args.n_hiddens) > 1 and len(args.widths) > 1)
-    ):
+    if not args.skip_theory or (len(args.n_hiddens) > 1 and len(args.widths) > 1):
         jax.config.update("jax_enable_x64", True)
 
     os.makedirs(args.results_dir, exist_ok=True)
     use_nonlin_theory = args.act_fn != "linear"
-    if use_nonlin_theory and args.act_fn == "relu" and not args.pc_only and not args.skip_theory:
+    if (
+        use_nonlin_theory
+        and args.act_fn == "relu"
+        and not args.pc_only
+        and not args.skip_theory
+    ):
         raise ValueError(
             "Nonlinear BP DMFT (solve_kernels_nonlin) supports only "
             "'tanh' (and softplus in the solver API). Use --act_fn tanh, "
@@ -434,9 +453,7 @@ if __name__ == "__main__":
 
         # --- Setup Dataset ---
         if args.dataset == "toy":
-            X, y = create_toy_dataset(
-                key=data_key, D=args.input_dim, P=args.n_samples
-            )
+            X, y = create_toy_dataset(key=data_key, D=args.input_dim, P=args.n_samples)
             input_dim = args.input_dim
             output_dim = 1
         else:
@@ -470,9 +487,7 @@ if __name__ == "__main__":
                     for param_type in args.param_types:
                         print(f"\n\t\t\t\tparam_type = {param_type}")
 
-                        width_keys = jax.random.split(
-                            model_key, len(args.widths)
-                        )
+                        width_keys = jax.random.split(model_key, len(args.widths))
 
                         for activity_lr in args.activity_lrs:
                             print(f"\n\t\t\t\t\tactivity_lr = {activity_lr}")
@@ -505,9 +520,7 @@ if __name__ == "__main__":
                                         all_G=all_G,
                                         eta=args.param_lr,
                                     )
-                                    dmft_loss = 0.5 * jnp.mean(
-                                        Delta_theory**2, axis=1
-                                    )
+                                    dmft_loss = 0.5 * jnp.mean(Delta_theory**2, axis=1)
                                 else:
                                     print("\t\t\t\t\tCalculating BP Theory...\n")
                                     all_H, all_G, _, _ = solve_kernels(
@@ -517,14 +530,14 @@ if __name__ == "__main__":
                                         eta=args.param_lr,
                                         gamma=gamma_0,
                                         T=args.n_train_iters,
-                                        num_steps=args.n_fixed_point_steps
+                                        num_steps=args.n_fixed_point_steps,
                                     )
                                     Delta_theory = get_Delta(
                                         all_H=all_H,
                                         all_G=all_G,
                                         Kx=Kx,
                                         y=y,
-                                        eta=args.param_lr
+                                        eta=args.param_lr,
                                     )
                                     dmft_loss = 0.5 * jnp.mean(
                                         jnp.sum(Delta_theory**2, axis=2), axis=1
@@ -532,7 +545,7 @@ if __name__ == "__main__":
                                 # np.save(f"{args.results_dir}/all_H_{gamma_0}_gamma_0.npy", all_H)
                                 # np.save(f"{args.results_dir}/all_G_{gamma_0}_gamma_0.npy", all_G)
                                 # np.save(
-                                #     f"{args.results_dir}/dmft_loss_{gamma_0}_gamma_0.npy", 
+                                #     f"{args.results_dir}/dmft_loss_{gamma_0}_gamma_0.npy",
                                 #     dmft_loss
                                 # )
 
@@ -540,9 +553,7 @@ if __name__ == "__main__":
                                     all_H=all_H,
                                     all_G=all_G,
                                     dmft_loss=dmft_loss,
-                                    plots_dir=os.path.join(
-                                        args.results_dir, "plots"
-                                    ),
+                                    plots_dir=os.path.join(args.results_dir, "plots"),
                                     gamma_0=gamma_0,
                                     n_hidden=n_hidden,
                                 )
@@ -602,9 +613,7 @@ if __name__ == "__main__":
                                         store_grads=False,
                                         loss_id=loss_id,
                                     )
-                                    bp_losses = np.load(
-                                        f"{bp_save_dir}/losses.npy"
-                                    )
+                                    bp_losses = np.load(f"{bp_save_dir}/losses.npy")
                                     for t, loss in enumerate(
                                         np.asarray(bp_losses).flatten(), start=1
                                     ):
@@ -625,9 +634,7 @@ if __name__ == "__main__":
                                         else jnp.zeros(args.n_train_iters)
                                     ),
                                     finite_df=finite_bp_df,
-                                    plots_dir=os.path.join(
-                                        args.results_dir, "plots"
-                                    ),
+                                    plots_dir=os.path.join(args.results_dir, "plots"),
                                     gamma_0=gamma_0,
                                     n_hidden=n_hidden,
                                     skip_theory=args.skip_theory,
@@ -709,10 +716,7 @@ if __name__ == "__main__":
                                     f"{float(pc_diagnostics['equation_residual']):.3e} "
                                     f"after {pc_diagnostics['iterations']} iters\n"
                                 )
-                                suffix = (
-                                    f"{gamma_0}_gamma_0_"
-                                    f"{activity_lr}_activity_lr"
-                                )
+                                suffix = f"{gamma_0}_gamma_0_{activity_lr}_activity_lr"
                                 # np.save(
                                 #     f"{args.results_dir}/all_Ch_{suffix}.npy",
                                 #     np.array(all_Ch, dtype=object),
@@ -729,9 +733,7 @@ if __name__ == "__main__":
                                     all_Ch=all_Ch,
                                     all_Cdelta=all_Cdelta,
                                     pc_dmft_loss=pc_dmft_loss,
-                                    plots_dir=os.path.join(
-                                        args.results_dir, "plots"
-                                    ),
+                                    plots_dir=os.path.join(args.results_dir, "plots"),
                                     num_inference_steps=K_inf,
                                     num_training_steps=T_train,
                                     num_samples=P,
@@ -841,9 +843,7 @@ if __name__ == "__main__":
                                     store_grads=args.compute_cos_sims,
                                     loss_id=loss_id,
                                 )
-                                losses = np.load(
-                                    f"{pc_save_dir}/train_losses.npy"
-                                )
+                                losses = np.load(f"{pc_save_dir}/train_losses.npy")
                                 for t, loss in enumerate(
                                     np.asarray(losses).flatten(), start=1
                                 ):
@@ -906,9 +906,7 @@ if __name__ == "__main__":
                             if args.compute_cos_sims and cos_sims_by_width:
                                 plot_grad_cosine_similarities(
                                     similarities_by_width=cos_sims_by_width,
-                                    plots_dir=os.path.join(
-                                        args.results_dir, "plots"
-                                    ),
+                                    plots_dir=os.path.join(args.results_dir, "plots"),
                                     gamma_0=gamma_0,
                                     n_hidden=n_hidden,
                                     activity_lr=activity_lr,
@@ -923,9 +921,7 @@ if __name__ == "__main__":
                                     else jnp.zeros(T_train)
                                 ),
                                 finite_df=finite_pc_df,
-                                plots_dir=os.path.join(
-                                    args.results_dir, "plots"
-                                ),
+                                plots_dir=os.path.join(args.results_dir, "plots"),
                                 gamma_0=gamma_0,
                                 n_hidden=n_hidden,
                                 activity_lr=activity_lr,
@@ -1018,9 +1014,7 @@ if __name__ == "__main__":
                                         else jnp.zeros(T_train)
                                     ),
                                     finite_df=finite_pc_theory_df,
-                                    plots_dir=os.path.join(
-                                        args.results_dir, "plots"
-                                    ),
+                                    plots_dir=os.path.join(args.results_dir, "plots"),
                                     gamma_0=gamma_0,
                                     n_hidden=n_hidden,
                                     activity_lr=activity_lr,

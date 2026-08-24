@@ -1,39 +1,37 @@
+import argparse
 import os
 import pickle
-import argparse
-import numpy as np
-
-import jax
-import jax.random as jr
-import jax.numpy as jnp
-from jax.tree_util import tree_map
 
 import equinox as eqx
+import jax
+import jax.numpy as jnp
+import jax.random as jr
 import jpc
+import numpy as np
 import optax
-from optimistix import rms_norm
-
 from experiments.datasets import get_dataloaders
-from experiments.mupc_paper.utils import (
-    setup_experiment,
-    set_seed,
-    init_weights,
-    compute_param_l2_norms,
-    compute_param_spectral_norms,
-    compute_hessian_eigens,
-    compute_cond_num
-)
 from experiments.mupc_paper.plotting import (
-    plot_loss,
-    plot_loss_and_accuracy,
-    plot_n_infer_iters,
-    plot_norms,
     plot_energies,
     plot_hessian_eigenvalues_during_training,
+    plot_loss,
+    plot_loss_and_accuracy,
     plot_max_min_eigenvals,
     plot_max_min_eigenvals_2_axes,
-    plot_metric_stats
+    plot_metric_stats,
+    plot_n_infer_iters,
+    plot_norms,
 )
+from experiments.mupc_paper.utils import (
+    compute_cond_num,
+    compute_hessian_eigens,
+    compute_param_l2_norms,
+    compute_param_spectral_norms,
+    init_weights,
+    set_seed,
+    setup_experiment,
+)
+from jax.tree_util import tree_map
+from optimistix import rms_norm
 
 
 def evaluate(params, test_loader, param_type):
@@ -47,7 +45,7 @@ def evaluate(params, test_loader, param_type):
             output=label_batch,
             input=img_batch,
             skip_model=skip_model,
-            param_type=param_type
+            param_type=param_type,
         )
         avg_test_loss += test_loss
         avg_test_acc += test_acc
@@ -56,28 +54,28 @@ def evaluate(params, test_loader, param_type):
 
 
 def train_mlp(
-        seed,
-        dataset,
-        width,
-        n_hidden,
-        act_fn,
-        use_skips,
-        weight_init,
-        param_type,
-        param_optim_id,
-        param_lr,
-        batch_size,
-        max_infer_iters,
-        activity_optim_id,
-        activity_lr,
-        activity_decay,
-        weight_decay,
-        spectral_penalty,
-        max_epochs,
-        test_every,
-        compute_activity_vec,
-        compute_hessian,
-        save_dir
+    seed,
+    dataset,
+    width,
+    n_hidden,
+    act_fn,
+    use_skips,
+    weight_init,
+    param_type,
+    param_optim_id,
+    param_lr,
+    batch_size,
+    max_infer_iters,
+    activity_optim_id,
+    activity_lr,
+    activity_decay,
+    weight_decay,
+    spectral_penalty,
+    max_epochs,
+    test_every,
+    compute_activity_vec,
+    compute_hessian,
+    save_dir,
 ):
     set_seed(seed)
     key = jax.random.PRNGKey(seed)
@@ -95,15 +93,12 @@ def train_mlp(
         output_dim=d_out,
         act_fn=act_fn,
         use_bias=False,
-        param_type=param_type
+        param_type=param_type,
     )
     if weight_init == "orthogonal":
         gain = 1.05 if (weight_init == "orthogonal" and act_fn == "tanh") else 1
         model = init_weights(
-            key=keys[1],
-            model=model,
-            init_fn_id=weight_init,
-            gain=gain
+            key=keys[1], model=model, init_fn_id=weight_init, gain=gain
         )
     skip_model = jpc.make_skip_model(model) if use_skips else None
 
@@ -115,12 +110,12 @@ def train_mlp(
     else:
         raise ValueError("Invalid param optim id. Options are 'sgd' and 'adam'.")
 
-    param_opt_state = param_optim.init(
-        (eqx.filter(model, eqx.is_array), skip_model)
+    param_opt_state = param_optim.init((eqx.filter(model, eqx.is_array), skip_model))
+    activity_optim = (
+        optax.sgd(activity_lr)
+        if (activity_optim_id == "gd")
+        else optax.adam(activity_lr)
     )
-    activity_optim = optax.sgd(activity_lr) if (
-            activity_optim_id == "gd"
-    ) else optax.adam(activity_lr)
 
     # data
     train_loader, test_loader = get_dataloaders(dataset, batch_size)
@@ -167,7 +162,7 @@ def train_mlp(
                 model=model,
                 input=img_batch,
                 skip_model=skip_model,
-                param_type=param_type
+                param_type=param_type,
             )
             activity_opt_state = activity_optim.init(activities)
             train_loss = jpc.mse_loss(activities[-1], label_batch)
@@ -192,7 +187,7 @@ def train_mlp(
                         y=label_batch,
                         use_skips=use_skips,
                         param_type=param_type,
-                        activity_decay=activity_decay
+                        activity_decay=activity_decay,
                     )
                     theory_energies = jpc.pc_energy_fn(
                         params=(model, skip_model),
@@ -203,24 +198,24 @@ def train_mlp(
                         activity_decay=activity_decay,
                         weight_decay=weight_decay,
                         spectral_penalty=spectral_penalty,
-                        record_layers=True
+                        record_layers=True,
                     )
                     train_theory_activities[0] = [
                         a for l, a in enumerate(theory_activities) if l in layer_idxs
                     ]
-                    train_theory_energies[0] = np.array([
-                        e for l, e in enumerate(reversed(theory_energies)) if l in layer_idxs
-                    ])
+                    train_theory_energies[0] = np.array(
+                        [
+                            e
+                            for l, e in enumerate(reversed(theory_energies))
+                            if l in layer_idxs
+                        ]
+                    )
 
                 param_l2_norms[0] = compute_param_l2_norms(
-                    model=model,
-                    act_fn=act_fn,
-                    layer_idxs=layer_idxs
+                    model=model, act_fn=act_fn, layer_idxs=layer_idxs
                 )
                 param_spectral_norms[0] = compute_param_spectral_norms(
-                    model=model,
-                    act_fn=act_fn,
-                    layer_idxs=layer_idxs
+                    model=model, act_fn=act_fn, layer_idxs=layer_idxs
                 )
                 if compute_hessian:
                     eigenvals, _ = compute_hessian_eigens(
@@ -231,7 +226,7 @@ def train_mlp(
                         param_type=param_type,
                         activity_decay=activity_decay,
                         weight_decay=weight_decay,
-                        spectral_penalty=spectral_penalty
+                        spectral_penalty=spectral_penalty,
                     )
                     hessian_eigenvals[0] = eigenvals
                     max_min_hess_eigenvals[:, 0] = np.array(
@@ -250,15 +245,15 @@ def train_mlp(
                     param_type=param_type,
                     activity_decay=activity_decay,
                     weight_decay=weight_decay,
-                    spectral_penalty=spectral_penalty
+                    spectral_penalty=spectral_penalty,
                 )
                 activities = activity_update_result["activities"]
                 activity_opt_state = activity_update_result["opt_state"]
                 activity_grads = activity_update_result["grads"]
                 if rms_norm(activity_grads) < 1e-3 + 1e-3 * rms_norm(activity_grads):
-                    n_infer_iters[global_batch_id] = t            
-                    #break
-                
+                    n_infer_iters[global_batch_id] = t
+                    # break
+
                 if global_batch_id == 0 or global_batch_id % test_every == 0:
                     num_energies = jpc.pc_energy_fn(
                         params=(model, skip_model),
@@ -269,14 +264,20 @@ def train_mlp(
                         activity_decay=activity_decay,
                         weight_decay=weight_decay,
                         spectral_penalty=spectral_penalty,
-                        record_layers=True
+                        record_layers=True,
                     )
-                    test_iter = 0 if (
-                            global_batch_id == 0
-                    ) else int(global_batch_id / test_every)
-                    train_num_energies[test_iter] = np.array([
-                        e for l, e in enumerate(reversed(num_energies)) if l in layer_idxs
-                    ])
+                    test_iter = (
+                        0
+                        if (global_batch_id == 0)
+                        else int(global_batch_id / test_every)
+                    )
+                    train_num_energies[test_iter] = np.array(
+                        [
+                            e
+                            for l, e in enumerate(reversed(num_energies))
+                            if l in layer_idxs
+                        ]
+                    )
 
                 i = 0
                 for l, act in enumerate(activities):
@@ -292,7 +293,7 @@ def train_mlp(
                 if compute_activity_vec:
                     mean_activity_vec[global_batch_id, t] = jnp.concatenate(
                         [activities[i].mean(axis=0) for i in range(len(activities))],
-                        axis=0
+                        axis=0,
                     )
 
             # update parameters
@@ -306,21 +307,17 @@ def train_mlp(
                 param_type=param_type,
                 activity_decay=activity_decay,
                 weight_decay=weight_decay,
-                spectral_penalty=spectral_penalty
+                spectral_penalty=spectral_penalty,
             )
             model = param_update_result["model"]
             skip_model = param_update_result["skip_model"]
             param_opt_state = param_update_result["opt_state"]
 
             param_l2_norms[global_batch_id + 1] = compute_param_l2_norms(
-                model=model,
-                act_fn=act_fn,
-                layer_idxs=layer_idxs
+                model=model, act_fn=act_fn, layer_idxs=layer_idxs
             )
             param_spectral_norms[global_batch_id + 1] = compute_param_spectral_norms(
-                model=model,
-                act_fn=act_fn,
-                layer_idxs=layer_idxs
+                model=model, act_fn=act_fn, layer_idxs=layer_idxs
             )
             train_losses.append(train_loss)
             global_batch_id += 1
@@ -332,7 +329,7 @@ def train_mlp(
                 avg_test_loss, avg_test_acc = evaluate(
                     params=(model, skip_model),
                     test_loader=test_loader,
-                    param_type=param_type
+                    param_type=param_type,
                 )
                 test_losses.append(avg_test_loss)
                 test_accs.append(avg_test_acc)
@@ -348,7 +345,7 @@ def train_mlp(
                         param_type=param_type,
                         activity_decay=activity_decay,
                         weight_decay=weight_decay,
-                        spectral_penalty=spectral_penalty
+                        spectral_penalty=spectral_penalty,
                     )
                     hessian_eigenvals[test_iter] = eigenvals
                     max_min_hess_eigenvals[:, test_iter] = np.array(
@@ -361,7 +358,7 @@ def train_mlp(
                         y=label_batch,
                         use_skips=use_skips,
                         param_type=param_type,
-                        activity_decay=activity_decay
+                        activity_decay=activity_decay,
                     )
                     theory_energies = jpc.pc_energy_fn(
                         params=(model, skip_model),
@@ -372,27 +369,29 @@ def train_mlp(
                         activity_decay=activity_decay,
                         weight_decay=weight_decay,
                         spectral_penalty=spectral_penalty,
-                        record_layers=True
+                        record_layers=True,
                     )
                     train_theory_activities[global_batch_id] = [
                         a for l, a in enumerate(theory_activities) if l in layer_idxs
                     ]
-                    train_theory_energies[test_iter] = np.array([
-                        e for l, e in enumerate(reversed(theory_energies)) if l in layer_idxs
-                    ])
+                    train_theory_energies[test_iter] = np.array(
+                        [
+                            e
+                            for l, e in enumerate(reversed(theory_energies))
+                            if l in layer_idxs
+                        ]
+                    )
 
             if np.isinf(train_loss) or np.isnan(train_loss):
                 has_diverged = True
                 break
-            
+
             if global_batch_id >= test_every and avg_test_acc < 15:
                 no_learning = True
                 break
-        
+
         if has_diverged:
-            print(
-                f"Stopping training because of diverging loss: {train_loss}"
-            )
+            print(f"Stopping training because of diverging loss: {train_loss}")
             break
 
         if no_learning:
@@ -400,16 +399,18 @@ def train_mlp(
                 f"Stopping training because of chance accuracy (no learning): {avg_test_acc}"
             )
             break
-    
-    cond_nums = [compute_cond_num(eig) for eig in hessian_eigenvals] if (
-        compute_hessian
-    ) else None
+
+    cond_nums = (
+        [compute_cond_num(eig) for eig in hessian_eigenvals]
+        if (compute_hessian)
+        else None
+    )
 
     plot_loss(
         loss=train_losses,
         yaxis_title="Train loss",
         xaxis_title="Iteration",
-        save_path=f"{save_dir}/train_losses.pdf"
+        save_path=f"{save_dir}/train_losses.pdf",
     )
     plot_loss_and_accuracy(
         loss=test_losses,
@@ -417,78 +418,77 @@ def train_mlp(
         mode="test",
         xaxis_title="Training iteration",
         save_path=f"{save_dir}/test_losses_and_accs.pdf",
-        test_every=test_every
+        test_every=test_every,
     )
     plot_n_infer_iters(
-        n_infer_iters=n_infer_iters,
-        save_path=f"{save_dir}/n_infer_iters.pdf"
+        n_infer_iters=n_infer_iters, save_path=f"{save_dir}/n_infer_iters.pdf"
     )
     plot_norms(
         norms=param_l2_norms,
         norm_type="param_l2",
-        save_path=f"{save_dir}/param_l2_norms.pdf"
+        save_path=f"{save_dir}/param_l2_norms.pdf",
     )
     plot_norms(
         norms=param_spectral_norms,
         norm_type="param_spectral",
-        save_path=f"{save_dir}/param_spectral_norms.pdf"
+        save_path=f"{save_dir}/param_spectral_norms.pdf",
     )
     plot_energies(
         energies=train_num_energies.T,
         test_every=test_every,
         save_path=f"{save_dir}/energies.pdf",
         theory_energies=train_theory_energies.T if act_fn == "linear" else None,
-        log=False
+        log=False,
     )
     plot_energies(
         energies=train_num_energies.T,
         test_every=test_every,
         save_path=f"{save_dir}/log_energies.pdf",
         theory_energies=train_theory_energies.T if act_fn == "linear" else None,
-        log=True
+        log=True,
     )
     if compute_hessian:
         plot_hessian_eigenvalues_during_training(
             eigenvals=[e for i, e in enumerate(hessian_eigenvals) if i % 2 == 0],
             test_every=200,
-            save_path=f"{save_dir}/hessian_eigenvals.pdf"
+            save_path=f"{save_dir}/hessian_eigenvals.pdf",
         )
         plot_max_min_eigenvals(
             max_min_eigenvals=max_min_hess_eigenvals,
             test_every=test_every,
-            save_path=f"{save_dir}/max_min_eigenvals.pdf"
+            save_path=f"{save_dir}/max_min_eigenvals.pdf",
         )
         plot_max_min_eigenvals_2_axes(
             max_min_eigenvals=max_min_hess_eigenvals,
             test_every=test_every,
-            save_path=f"{save_dir}/max_min_eigenvals_2_axes.pdf"
+            save_path=f"{save_dir}/max_min_eigenvals_2_axes.pdf",
         )
     if act_fn != "linear":
-        #last_T = np.argmin(activity_l2_norms[-1, :, 0]) - 1
-        #first_T = np.argmin(activity_l2_norms[0, :, 0]) - 1
-        #if first_T > 0:
+        # last_T = np.argmin(activity_l2_norms[-1, :, 0]) - 1
+        # first_T = np.argmin(activity_l2_norms[0, :, 0]) - 1
+        # if first_T > 0:
         plot_norms(
             norms=activity_l2_norms[0],  #:first_T]
             norm_type="activity",
-            save_path=f"{save_dir}/activity_l2_norms_at_init.pdf"
+            save_path=f"{save_dir}/activity_l2_norms_at_init.pdf",
         )
         plot_norms(
             norms=activity_l2_norms[0],  #:first_T]
             norm_type="activity",
             save_path=f"{save_dir}/log_activity_l2_norms_at_init.pdf",
-            log=True
+            log=True,
         )
-        #if last_T > 0:
+        # if last_T > 0:
         plot_norms(
             norms=activity_l2_norms[-1],  #:last_T],
             norm_type="activity",
-            save_path=f"{save_dir}/activity_l2_norms_last_train_iter.pdf"
+            save_path=f"{save_dir}/activity_l2_norms_last_train_iter.pdf",
         )
         plot_norms(
             norms=activity_l2_norms[-1],  #:last_T],
             norm_type="activity",
             save_path=f"{save_dir}/log_activity_l2_norms_last_train_iter.pdf",
-            log=True
+            log=True,
         )
 
     np.save(f"{save_dir}/batch_train_losses.npy", train_losses)
@@ -527,28 +527,28 @@ def train_mlp(
             norm_type="activity",
             save_path=f"{save_dir}/theory_activity_l2_norms_at_init.pdf",
             theory_norms=theory_activity_l2_norms[0],
-            log=False
+            log=False,
         )
         plot_norms(
             norms=activity_l2_norms[0],
             norm_type="activity",
             save_path=f"{save_dir}/log_theory_activity_l2_norms_at_init.pdf",
             theory_norms=theory_activity_l2_norms[0],
-            log=True
+            log=True,
         )
         plot_norms(
             norms=activity_l2_norms[-1],
             norm_type="activity",
             save_path=f"{save_dir}/theory_activity_l2_norms_last_train_iter.pdf",
             theory_norms=theory_activity_l2_norms[-1],
-            log=False
+            log=False,
         )
         plot_norms(
             norms=activity_l2_norms[-1],
             norm_type="activity",
             save_path=f"{save_dir}/log_theory_activity_l2_norms_last_train_iter.pdf",
             theory_norms=theory_activity_l2_norms[-1],
-            log=True
+            log=True,
         )
 
     return test_accs, cond_nums
@@ -557,28 +557,42 @@ def train_mlp(
 if __name__ == "__main__":
     device = jax.devices()[0]
     print(f"device: {device}")
-    
+
     # higher precision for more accurate inversion of the activity Hessian
     jax.config.update("jax_enable_x64", True)
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--results_dir", type=str, default="pcn_results")
-    parser.add_argument("--datasets", type=str, nargs='+', default=["MNIST"])  # , "Fashion-MNIST"]
-    parser.add_argument("--widths", type=int, nargs='+', default=[128])
-    parser.add_argument("--n_hiddens", type=int, nargs='+', default=[8])
-    parser.add_argument("--act_fns", type=str, nargs='+', default=["linear", "tanh", "relu"])  # , "tanh", "relu"]
-    parser.add_argument("--use_skips", type=int, nargs='+', default=[True])  
-    parser.add_argument("--weight_inits", type=str, nargs='+', default=["standard_gauss"])  # "one_over_N", "standard_gauss", "orthogonal"]
-    parser.add_argument("--param_types", type=str, nargs='+', default=["mupc"])  # , "ntp", "sp"]
-    parser.add_argument("--param_lrs", type=float, nargs='+', default=[1e-1])
+    parser.add_argument(
+        "--datasets", type=str, nargs="+", default=["MNIST"]
+    )  # , "Fashion-MNIST"]
+    parser.add_argument("--widths", type=int, nargs="+", default=[128])
+    parser.add_argument("--n_hiddens", type=int, nargs="+", default=[8])
+    parser.add_argument(
+        "--act_fns", type=str, nargs="+", default=["linear", "tanh", "relu"]
+    )  # , "tanh", "relu"]
+    parser.add_argument("--use_skips", type=int, nargs="+", default=[True])
+    parser.add_argument(
+        "--weight_inits", type=str, nargs="+", default=["standard_gauss"]
+    )  # "one_over_N", "standard_gauss", "orthogonal"]
+    parser.add_argument(
+        "--param_types", type=str, nargs="+", default=["mupc"]
+    )  # , "ntp", "sp"]
+    parser.add_argument("--param_lrs", type=float, nargs="+", default=[1e-1])
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--max_infer_iters", type=int, default=8)
-    parser.add_argument("--param_optim_ids", type=str, nargs='+', default=["adam"])  # , "sgd"]
-    parser.add_argument("--activity_optim_ids", type=str, nargs='+', default=["gd"])  # , "adam"]
-    parser.add_argument("--activity_lrs", type=float, nargs='+', default=[5e-1])  # 5e-1, 1e-1,
-    parser.add_argument("--activity_decays", type=float, nargs='+', default=[0])
-    parser.add_argument("--weight_decays", type=float, nargs='+', default=[0])
-    parser.add_argument("--spectral_penalties", type=float, nargs='+', default=[0])
+    parser.add_argument(
+        "--param_optim_ids", type=str, nargs="+", default=["adam"]
+    )  # , "sgd"]
+    parser.add_argument(
+        "--activity_optim_ids", type=str, nargs="+", default=["gd"]
+    )  # , "adam"]
+    parser.add_argument(
+        "--activity_lrs", type=float, nargs="+", default=[5e-1]
+    )  # 5e-1, 1e-1,
+    parser.add_argument("--activity_decays", type=float, nargs="+", default=[0])
+    parser.add_argument("--weight_decays", type=float, nargs="+", default=[0])
+    parser.add_argument("--spectral_penalties", type=float, nargs="+", default=[0])
     parser.add_argument("--max_epochs", type=int, default=1)
     parser.add_argument("--test_every", type=int, default=300)
     parser.add_argument("--compute_activity_vec", type=bool, default=False)
@@ -595,15 +609,34 @@ if __name__ == "__main__":
                             for param_type in args.param_types:
                                 for param_optim_id in args.param_optim_ids:
                                     for param_lr in args.param_lrs:
-                                        for activity_optim_id in args.activity_optim_ids:
+                                        for (
+                                            activity_optim_id
+                                        ) in args.activity_optim_ids:
                                             for activity_lr in args.activity_lrs:
-                                                for activity_decay in args.activity_decays:
-                                                    for weight_decay in args.weight_decays:
-                                                        for spectral_penalty in args.spectral_penalties:
-
-                                                            test_accs_seeds = [[] for _ in range(args.n_seeds)]
-                                                            cond_nums_seeds = [[] for _ in range(args.n_seeds)]
-                                                            for seed in range(args.n_seeds):
+                                                for (
+                                                    activity_decay
+                                                ) in args.activity_decays:
+                                                    for (
+                                                        weight_decay
+                                                    ) in args.weight_decays:
+                                                        for (
+                                                            spectral_penalty
+                                                        ) in args.spectral_penalties:
+                                                            test_accs_seeds = [
+                                                                []
+                                                                for _ in range(
+                                                                    args.n_seeds
+                                                                )
+                                                            ]
+                                                            cond_nums_seeds = [
+                                                                []
+                                                                for _ in range(
+                                                                    args.n_seeds
+                                                                )
+                                                            ]
+                                                            for seed in range(
+                                                                args.n_seeds
+                                                            ):
                                                                 save_dir = setup_experiment(
                                                                     results_dir=args.results_dir,
                                                                     dataset=dataset,
@@ -623,45 +656,51 @@ if __name__ == "__main__":
                                                                     weight_decay=weight_decay,
                                                                     spectral_penalty=spectral_penalty,
                                                                     max_epochs=args.max_epochs,
-                                                                    seed=seed
-                                                                )
-                                                                test_accs, cond_nums = train_mlp(
                                                                     seed=seed,
-                                                                    dataset=dataset,
-                                                                    width=width,
-                                                                    n_hidden=n_hidden,
-                                                                    act_fn=act_fn,
-                                                                    use_skips=use_skips,
-                                                                    weight_init=weight_init,
-                                                                    param_type=param_type,
-                                                                    param_optim_id=param_optim_id,
-                                                                    param_lr=param_lr,
-                                                                    batch_size=args.batch_size,
-                                                                    max_infer_iters=args.max_infer_iters,
-                                                                    activity_optim_id=activity_optim_id,
-                                                                    activity_lr=activity_lr,
-                                                                    activity_decay=activity_decay,
-                                                                    weight_decay=weight_decay,
-                                                                    spectral_penalty=spectral_penalty,
-                                                                    max_epochs=args.max_epochs,
-                                                                    test_every=args.test_every,
-                                                                    compute_activity_vec=args.compute_activity_vec,
-                                                                    compute_hessian=args.compute_hessian,
-                                                                    save_dir=save_dir
                                                                 )
-                                                                test_accs_seeds[seed] = test_accs
-                                                                cond_nums_seeds[seed] = cond_nums
+                                                                test_accs, cond_nums = (
+                                                                    train_mlp(
+                                                                        seed=seed,
+                                                                        dataset=dataset,
+                                                                        width=width,
+                                                                        n_hidden=n_hidden,
+                                                                        act_fn=act_fn,
+                                                                        use_skips=use_skips,
+                                                                        weight_init=weight_init,
+                                                                        param_type=param_type,
+                                                                        param_optim_id=param_optim_id,
+                                                                        param_lr=param_lr,
+                                                                        batch_size=args.batch_size,
+                                                                        max_infer_iters=args.max_infer_iters,
+                                                                        activity_optim_id=activity_optim_id,
+                                                                        activity_lr=activity_lr,
+                                                                        activity_decay=activity_decay,
+                                                                        weight_decay=weight_decay,
+                                                                        spectral_penalty=spectral_penalty,
+                                                                        max_epochs=args.max_epochs,
+                                                                        test_every=args.test_every,
+                                                                        compute_activity_vec=args.compute_activity_vec,
+                                                                        compute_hessian=args.compute_hessian,
+                                                                        save_dir=save_dir,
+                                                                    )
+                                                                )
+                                                                test_accs_seeds[
+                                                                    seed
+                                                                ] = test_accs
+                                                                cond_nums_seeds[
+                                                                    seed
+                                                                ] = cond_nums
 
                                                             plot_metric_stats(
                                                                 metric=test_accs_seeds,
                                                                 metric_id="test_acc",
                                                                 test_every=args.test_every,
-                                                                save_path=f"{save_dir[:-1]}/test_accs.pdf"
+                                                                save_path=f"{save_dir[:-1]}/test_accs.pdf",
                                                             )
                                                             if args.compute_hessian:
                                                                 plot_metric_stats(
                                                                     metric=cond_nums_seeds,
                                                                     metric_id="cond_num",
                                                                     test_every=args.test_every,
-                                                                    save_path=f"{save_dir[:-1]}/cond_nums.pdf"
+                                                                    save_path=f"{save_dir[:-1]}/cond_nums.pdf",
                                                                 )

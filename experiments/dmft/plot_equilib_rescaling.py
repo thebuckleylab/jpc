@@ -6,8 +6,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import numpy as np
-
 from experiments.dmft.test_equilib_energy import main as run_equilib_energy
+
 
 plt.rcParams.update(
     {
@@ -42,9 +42,7 @@ def plot_rescaling_per_width(
     widths = np.asarray(widths)
     cmap = plt.get_cmap("viridis")
     n_curves = len(rescalings_by_config)
-    colors = [
-        cmap(0.35 + 0.55 * i / max(n_curves - 1, 1)) for i in range(n_curves)
-    ]
+    colors = [cmap(0.35 + 0.55 * i / max(n_curves - 1, 1)) for i in range(n_curves)]
 
     fig, ax = plt.subplots(figsize=FIG_SIZE)
     for i, (label, values) in enumerate(rescalings_by_config.items()):
@@ -60,7 +58,7 @@ def plot_rescaling_per_width(
             label=label,
         )
 
-    theory = (1.0 + 1.0 / depth) / (gamma ** 2 * widths.astype(float))
+    theory = (1.0 + 1.0 / depth) / (gamma**2 * widths.astype(float))
     ax.plot(
         widths,
         theory,
@@ -73,7 +71,9 @@ def plot_rescaling_per_width(
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     ax.set_xlabel(r"$N$", fontsize=FONT_SIZES["label"], labelpad=LABEL_PAD)
-    ax.set_ylabel(r"$s(\boldsymbol{\theta})$", fontsize=FONT_SIZES["label"], labelpad=LABEL_PAD)
+    ax.set_ylabel(
+        r"$s(\boldsymbol{\theta})$", fontsize=FONT_SIZES["label"], labelpad=LABEL_PAD
+    )
     ax.set_xscale("log", base=2)
     ax.set_yscale("log")
     ax.xaxis.set_major_formatter(mticker.LogFormatterMathtext(base=2))
@@ -94,7 +94,9 @@ if __name__ == "__main__":
     # Model parameters
     parser.add_argument("--input_dim", type=int, default=16)
     parser.add_argument("--depth", type=int, default=2)
-    parser.add_argument("--param_types", type=str, nargs="+", default=["mupc"], choices=["mupc", "sp"])
+    parser.add_argument(
+        "--param_types", type=str, nargs="+", default=["mupc"], choices=["mupc", "sp"]
+    )
 
     # Data parameters
     parser.add_argument("--batch_size", type=int, default=1)
@@ -106,7 +108,9 @@ if __name__ == "__main__":
     parser.add_argument("--n_infer_iters", type=int, default=50)
 
     # Loop parameters
-    parser.add_argument("--widths", type=int, nargs="+", default=[32, 64, 128, 256, 512, 1024])
+    parser.add_argument(
+        "--widths", type=int, nargs="+", default=[32, 64, 128, 256, 512, 1024]
+    )
 
     # Tolerance parameters
     parser.add_argument("--rtol", type=float, default=1e-2)

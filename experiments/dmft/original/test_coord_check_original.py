@@ -12,12 +12,11 @@ import os
 
 import jax.numpy as jnp
 import jax.random as jr
+import jpc
 import matplotlib.pyplot as plt
 import numpy as np
 import optax
 import seaborn as sns
-
-import jpc
 from experiments.mupc_paper.utils import (
     compute_param_l2_norms,
     compute_param_spectral_norms,
@@ -358,9 +357,7 @@ if __name__ == "__main__":
     parser.add_argument("--activity_lrs", type=float, nargs="+", default=[5e-1])
     parser.add_argument("--n_infer_iters", type=int, default=50)
     parser.add_argument("--n_checks", type=int, default=5)
-    parser.add_argument(
-        "--optimizer", type=str, default="sgd", choices=["sgd", "adam"]
-    )
+    parser.add_argument("--optimizer", type=str, default="sgd", choices=["sgd", "adam"])
     parser.add_argument("--lr", type=float, default=0.1)
     parser.add_argument(
         "--update_mode",

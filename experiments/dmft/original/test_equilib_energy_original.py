@@ -5,14 +5,13 @@ import argparse
 import equinox as eqx
 import jax.numpy as jnp
 import jax.random as jr
+import jpc
+import optax
+from experiments.limits_paper.utils import flatten_grads, MLP
 from jax import vmap
 from jax.tree_util import tree_map
 
-import jpc
-import optax
-from experiments.limits_paper.utils import MLP, flatten_grads
 
-  
 def compute_cosine_similarity(a, b):
     a = jnp.asarray(a).reshape(-1)
     b = jnp.asarray(b).reshape(-1)
@@ -64,17 +63,16 @@ def main(args):
     bp_loss = jpc.mse_loss(bp_preds, y_target)
 
     output_energy_scaling = (
-        args.gamma ** 2 * args.width * args.depth 
-        if args.param_type == "mupc" else 1.0
+        args.gamma**2 * args.width * args.depth if args.param_type == "mupc" else 1.0
     )
 
     theory_energy = jpc.linear_equilib_energy(
-        params, 
-        x, 
-        y, 
+        params,
+        x,
+        y,
         param_type=args.param_type,
-        gamma=args.gamma, 
-        output_energy_scaling=output_energy_scaling
+        gamma=args.gamma,
+        output_energy_scaling=output_energy_scaling,
     )
     activities = jpc.init_activities_with_ffwd(
         model=model,
@@ -117,12 +115,12 @@ def main(args):
         return 0.5 * jnp.mean(jnp.sum((y_batch - y_pred) ** 2, axis=1))
 
     pc_grads_theory = jpc.compute_linear_equilib_energy_grads(
-        params, 
-        x, 
-        y, 
+        params,
+        x,
+        y,
         param_type=args.param_type,
-        gamma=args.gamma, 
-        output_energy_scaling=output_energy_scaling
+        gamma=args.gamma,
+        output_energy_scaling=output_energy_scaling,
     )
     pc_grads_numerical = jpc.compute_pc_param_grads(
         params=(model, None),
@@ -141,8 +139,10 @@ def main(args):
     cos_sim_theory = compute_cosine_similarity(pc_theory_flat, bp_flat)
     cos_sim_numerical = compute_cosine_similarity(pc_numerical_flat, bp_flat)
 
-    print(f"width={args.width}, gamma={args.gamma}, param_type={args.param_type}, "
-          f"activity_lr={args.activity_lr}, output_energy_scaling={output_energy_scaling}")
+    print(
+        f"width={args.width}, gamma={args.gamma}, param_type={args.param_type}, "
+        f"activity_lr={args.activity_lr}, output_energy_scaling={output_energy_scaling}"
+    )
     print(f"theory energy:    {float(theory_energy):.8f}")
     print(f"numerical energy: {float(numerical_energy):.8f}")
     print(f"relative error:   {float(rel_err):.2e}")
@@ -163,7 +163,9 @@ if __name__ == "__main__":
     # Model parameters
     parser.add_argument("--input_dim", type=int, default=16)
     parser.add_argument("--depth", type=int, default=2)
-    parser.add_argument("--param_types", type=str, nargs="+", default=["mupc"], choices=["mupc", "sp"])
+    parser.add_argument(
+        "--param_types", type=str, nargs="+", default=["mupc"], choices=["mupc", "sp"]
+    )
 
     # Data parameters
     parser.add_argument("--batch_size", type=int, default=1)

@@ -104,6 +104,7 @@ from typing import Dict, List, Optional, Tuple
 import jax
 import jax.numpy as jnp
 
+
 Array = jax.Array
 
 
@@ -392,13 +393,9 @@ def solve_hidden_pc_layer(
     T_h_xi = T_xi[:n]
     T_delta_xi = T_xi[n:]
 
-    Ch = (
-        T_h_chi @ Ch_minus @ T_h_chi.T
-        + T_h_xi @ Cdelta_plus @ T_h_xi.T
-    )
+    Ch = T_h_chi @ Ch_minus @ T_h_chi.T + T_h_xi @ Cdelta_plus @ T_h_xi.T
     Cdelta = (
-        T_delta_chi @ Ch_minus @ T_delta_chi.T
-        + T_delta_xi @ Cdelta_plus @ T_delta_xi.T
+        T_delta_chi @ Ch_minus @ T_delta_chi.T + T_delta_xi @ Cdelta_plus @ T_delta_xi.T
     )
 
     Rh = T_h_xi * Rh_mask
@@ -509,7 +506,9 @@ def _solve_pc_kernels_reference(
     sigma: float = 1.0,
     tolerance: Optional[float] = None,
     cdelta_init_eps: float = 1e-2,
-) -> Tuple[List[Array], List[Array], List[Array], List[Array], Array, Array, Array, dict]:
+) -> Tuple[
+    List[Array], List[Array], List[Array], List[Array], Array, Array, Array, dict
+]:
     """Reference fixed-point solver using the full 2n x 2n block system."""
     if not (0.0 < damping <= 1.0):
         raise ValueError("damping must lie in (0,1].")
@@ -536,9 +535,7 @@ def _solve_pc_kernels_reference(
     all_Ch = [sigma ** (2 * (l + 1)) * Ch0 for l in range(depth)]
     # Section 12: C^Delta_(0) = eps I (not a replicated output Gram).
     eps_eye = cdelta_init_eps * jnp.eye(n, dtype=dtype)
-    all_Cdelta = [
-        delta_projector @ eps_eye @ delta_projector for _ in range(depth)
-    ]
+    all_Cdelta = [delta_projector @ eps_eye @ delta_projector for _ in range(depth)]
 
     all_Rh = [jnp.zeros((n, n), dtype=dtype) for _ in range(depth)]
     all_Rdelta = [jnp.zeros((n, n), dtype=dtype) for _ in range(depth)]
@@ -955,7 +952,9 @@ def _solve_pc_kernels_optimised(
     check_equations: bool = True,
     return_layer_diagnostics: bool = True,
     return_operators: bool = True,
-) -> Tuple[List[Array], List[Array], List[Array], List[Array], Array, Array, Array, dict]:
+) -> Tuple[
+    List[Array], List[Array], List[Array], List[Array], Array, Array, Array, dict
+]:
     """Optimised fixed-point solver (reduced Delta system + jitted sweep).
 
     Drop-in replacement for the reference backend: same equations, same
@@ -1155,7 +1154,9 @@ def solve_pc_kernels(
     check_equations: bool = True,
     return_layer_diagnostics: bool = True,
     return_operators: bool = True,
-) -> Tuple[List[Array], List[Array], List[Array], List[Array], Array, Array, Array, dict]:
+) -> Tuple[
+    List[Array], List[Array], List[Array], List[Array], Array, Array, Array, dict
+]:
     """Solve the boundary-conditioned linear PC DMFT by fixed-point iteration.
 
     Hidden layers use the exact block equations with Delta_0=0. Responses
