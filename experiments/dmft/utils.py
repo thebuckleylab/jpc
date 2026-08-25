@@ -26,6 +26,39 @@ def create_toy_dataset(key, D, P):
     return X, y
 
 
+def cosine_similarity(a, b, axis=None, eps=1e-8):
+    """
+    Computes cosine similarity between two vectors/matrices/kernels.
+
+    Args:
+        a: jnp.ndarray, input array (vector, matrix, or kernel).
+        b: jnp.ndarray, same shape as a.
+        axis: Axis or axes along which to compute similarity. 
+            If None, uses the last axis for vectors and (0, 1) for 2D matrices/kernels (unless a/b are 1D).
+        eps: Small epsilon to prevent division by zero.
+
+    Returns:
+        Cosine similarity as a float or array, depending on axis.
+        Values are in the range [-1, 1].
+    """
+    # Flatten for 1D vectors
+    if a.ndim == 1 or b.ndim == 1:
+        num = jnp.dot(a, b)
+        denom = jnp.linalg.norm(a) * jnp.linalg.norm(b) + eps
+        return num / denom
+
+    # Default to last axis (for batches of vectors), or (0,1) for 2D kernels
+    if axis is None:
+        axis = -1 if a.ndim == 2 else (0, 1) if a.ndim == 2 else None
+
+    # Compute numerator and denominator
+    num = jnp.sum(a * b, axis=axis)
+    denom = (
+        jnp.linalg.norm(a, axis=axis) * jnp.linalg.norm(b, axis=axis) + eps
+    )
+    return num / denom
+
+
 class MLP(LimitsMLP):
     def __init__(
             self,

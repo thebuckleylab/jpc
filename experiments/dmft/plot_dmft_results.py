@@ -3,6 +3,7 @@ import os
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
 
 def _to_numpy(arr):
@@ -236,6 +237,7 @@ def plot_pc_theory_vs_finite_loss(
     gamma_0=None,
     n_hidden=None,
     activity_lr=None,
+    n_infer_iters=None,
     update_mode=None,
     skip_theory=False,
 ):
@@ -260,6 +262,8 @@ def plot_pc_theory_vs_finite_loss(
         plots_dir = os.path.join(plots_dir, f"gamma_{gamma_0}")
     if activity_lr is not None:
         plots_dir = os.path.join(plots_dir, f"activity_lr_{activity_lr}")
+    if n_infer_iters is not None:
+        plots_dir = os.path.join(plots_dir, f"{n_infer_iters}_n_infer_iters")
     plots_dir = os.path.join(plots_dir, "pc")
     os.makedirs(plots_dir, exist_ok=True)
 
@@ -312,6 +316,8 @@ def plot_pc_theory_vs_finite_loss(
         title += f", $\\gamma_0={gamma_0}$"
     if activity_lr is not None:
         title += f", activity lr$={activity_lr}$"
+    if n_infer_iters is not None:
+        title += f", $K={n_infer_iters}$"
     plt.title(title)
     plt.legend()
     plt.grid(True, alpha=0.4)
@@ -321,6 +327,267 @@ def plot_pc_theory_vs_finite_loss(
     plt.close()
     print(f"PC loss plot saved to {save_path}")
     return save_path
+
+
+_SWEEP_META_COLS = (
+    "n_hidden",
+    "gamma_0",
+    "activity_lr",
+    "n_infer_iters",
+    "param_type",
+    "use_skips",
+)
+
+_SWEEP_VALUE_LABEL = {
+    "n_hidden": lambda v: f"$H={int(v)}$",
+    "gamma_0": lambda v: f"$\\gamma_0={v}$",
+    "n_infer_iters": lambda v: f"$K={int(v)}$",
+}
+
+_SWEEP_AXIS_TITLE = {
+    "n_hidden": r"$H$",
+    "gamma_0": r"$\gamma_0$",
+    "n_infer_iters": r"$K$",
+}
+
+_SWEEP_FILENAME = {
+    "n_hidden": "pc_loss_vs_n_hidden",
+    "gamma_0": "pc_loss_vs_gamma_0",
+    "n_infer_iters": "pc_loss_vs_n_infer_iters",
+}
+
+
+def _pc_loss_plots_dir(
+    plots_dir,
+    n_hidden=None,
+    gamma_0=None,
+    activity_lr=None,
+    n_infer_iters=None,
+):
+    if n_hidden is not None:
+        plots_dir = os.path.join(plots_dir, f"{n_hidden}_n_hidden")
+    if gamma_0 is not None:
+        plots_dir = os.path.join(plots_dir, f"gamma_{gamma_0}")
+    if activity_lr is not None:
+        plots_dir = os.path.join(plots_dir, f"activity_lr_{activity_lr}")
+    if n_infer_iters is not None:
+        plots_dir = os.path.join(plots_dir, f"{n_infer_iters}_n_infer_iters")
+    plots_dir = os.path.join(plots_dir, "pc")
+    os.makedirs(plots_dir, exist_ok=True)
+    return plots_dir
+
+
+def _mask_equal(df, col, value):
+    """Boolean mask comparing ``df[col]`` to ``value``, with NA-safe equality."""
+    series = df[col]
+    if value is None or (isinstance(value, float) and np.isnan(value)):
+        return series.isna()
+    return series == value
+
+
+def plot_pc_param_sweep_loss(
+    theory_df,
+    finite_df,
+    plots_dir,
+    swept_col,
+    skip_theory=False,
+    plot_closed_form=False,
+):
+    """Overlay theory and finite-size losses for every value of ``swept_col``.
+
+    Finite curves use only the largest recorded width. Theory is dashed; finite
+    infer is solid. If ``plot_closed_form`` is True, closed-form finite updates
+    are added: one curve per swept value, except for ``n_infer_iters`` where
+    closed-form is independent of ``K`` so a single extra curve is drawn.
+    """
+    if swept_col not in _SWEEP_VALUE_LABEL:
+        raise ValueError(
+            f"swept_col must be one of {list(_SWEEP_VALUE_LABEL)}, got {swept_col!r}"
+        )
+
+    group_cols = [c for c in _SWEEP_META_COLS if c != swept_col]
+    frames = []
+    if theory_df is not None and len(theory_df):
+        frames.append(theory_df[group_cols])
+    if finite_df is not None and len(finite_df):
+        infer_df = finite_df[finite_df["infer_mode"] == "infer"]
+        if len(infer_df):
+            frames.append(infer_df[group_cols])
+        elif len(finite_df):
+            frames.append(finite_df[group_cols])
+    if not frames:
+        return []
+
+    groups = pd.concat(frames, ignore_index=True).drop_duplicates()
+    save_paths = []
+    value_label = _SWEEP_VALUE_LABEL[swept_col]
+    axis_title = _SWEEP_AXIS_TITLE[swept_col]
+    filename = _SWEEP_FILENAME[swept_col]
+
+    for _, group in groups.iterrows():
+        def _in_group(df):
+            mask = pd.Series(True, index=df.index)
+            for col in group_cols:
+                mask &= _mask_equal(df, col, group[col])
+            return df.loc[mask]
+
+        g_theory = (
+            _in_group(theory_df)
+            if theory_df is not None and len(theory_df)
+            else theory_df
+        )
+        g_finite = (
+            _in_group(finite_df)
+            if finite_df is not None and len(finite_df)
+            else finite_df
+        )
+
+        infer_finite = (
+            g_finite[g_finite["infer_mode"] == "infer"]
+            if g_finite is not None and len(g_finite)
+            else g_finite
+        )
+        closed_finite = (
+            g_finite[g_finite["infer_mode"] == "closed_form"]
+            if g_finite is not None and len(g_finite)
+            else g_finite
+        )
+
+        swept_values = []
+        for source in (g_theory, infer_finite):
+            if source is not None and len(source) and swept_col in source.columns:
+                swept_values.extend(source[swept_col].dropna().unique().tolist())
+        # Preserve numeric order while keeping first-seen type.
+        swept_values = sorted(set(swept_values), key=lambda v: (float(v), str(v)))
+        if not swept_values:
+            continue
+
+        max_width = None
+        if infer_finite is not None and len(infer_finite):
+            max_width = int(infer_finite["width"].max())
+        elif closed_finite is not None and len(closed_finite):
+            max_width = int(closed_finite["width"].max())
+
+        cmap = plt.get_cmap("viridis")
+        colors = [
+            cmap(i / max(1, len(swept_values) - 1))
+            for i in range(len(swept_values))
+        ]
+
+        plt.figure(figsize=(8, 6))
+        plot_theory = (
+            (not skip_theory)
+            and g_theory is not None
+            and len(g_theory)
+        )
+        for value, color in zip(swept_values, colors):
+            label = value_label(value)
+            if plot_theory:
+                sub_th = g_theory[g_theory[swept_col] == value].sort_values("t")
+                if len(sub_th):
+                    y = np.asarray(sub_th["loss"])
+                    if not np.allclose(y, 0.0):
+                        _warn_if_nonfinite(f"pc_dmft_loss[{swept_col}={value}]", y)
+                        plt.plot(
+                            sub_th["t"],
+                            y,
+                            color=color,
+                            linestyle="--",
+                            linewidth=2.0,
+                            label=f"theory, {label}",
+                        )
+            if infer_finite is not None and len(infer_finite):
+                sub_fi = infer_finite[
+                    (infer_finite[swept_col] == value)
+                    & (infer_finite["width"] == max_width)
+                ].sort_values("t")
+                if len(sub_fi):
+                    plt.plot(
+                        sub_fi["t"],
+                        sub_fi["loss"],
+                        color=color,
+                        linestyle="-",
+                        marker="o",
+                        markersize=4,
+                        alpha=0.85,
+                        label=f"finite infer, {label}",
+                    )
+            if (
+                plot_closed_form
+                and swept_col != "n_infer_iters"
+                and closed_finite is not None
+                and len(closed_finite)
+            ):
+                sub_cf = closed_finite[
+                    (closed_finite[swept_col] == value)
+                    & (closed_finite["width"] == max_width)
+                ].sort_values("t")
+                if len(sub_cf):
+                    plt.plot(
+                        sub_cf["t"],
+                        sub_cf["loss"],
+                        color=color,
+                        linestyle=":",
+                        marker="s",
+                        markersize=4,
+                        alpha=0.85,
+                        label=f"finite closed-form, {label}",
+                    )
+
+        if (
+            plot_closed_form
+            and swept_col == "n_infer_iters"
+            and closed_finite is not None
+            and len(closed_finite)
+        ):
+            cf_width = (
+                int(closed_finite["width"].max())
+                if max_width is None
+                else max_width
+            )
+            sub_cf = closed_finite[closed_finite["width"] == cf_width].sort_values(
+                "t"
+            )
+            # Closed-form does not depend on K; keep a single curve.
+            sub_cf = sub_cf.drop_duplicates(subset=["t"], keep="first")
+            if len(sub_cf):
+                plt.plot(
+                    sub_cf["t"],
+                    sub_cf["loss"],
+                    color="black",
+                    linestyle="-.",
+                    linewidth=2.2,
+                    label=f"finite closed-form ($N={cf_width}$)",
+                )
+
+        plt.xlabel("$t$")
+        plt.ylabel("PC training loss (MSE)")
+        title = f"PC theory vs finite-size vs {axis_title}"
+        if skip_theory or not plot_theory:
+            title = f"PC finite-size vs {axis_title}"
+        if max_width is not None:
+            title += f" ($N={max_width}$)"
+        plt.title(title)
+        plt.legend(fontsize=8, ncol=1)
+        plt.grid(True, alpha=0.4)
+        plt.tight_layout()
+
+        out_dir = _pc_loss_plots_dir(
+            plots_dir,
+            n_hidden=group["n_hidden"] if swept_col != "n_hidden" else None,
+            gamma_0=group["gamma_0"] if swept_col != "gamma_0" else None,
+            activity_lr=group["activity_lr"],
+            n_infer_iters=(
+                group["n_infer_iters"] if swept_col != "n_infer_iters" else None
+            ),
+        )
+        save_path = os.path.join(out_dir, f"{filename}.png")
+        plt.savefig(save_path, bbox_inches="tight")
+        plt.close()
+        print(f"PC sweep loss plot saved to {save_path}")
+        save_paths.append(save_path)
+
+    return save_paths
 
 
 def plot_bp_theory_vs_finite_loss(
