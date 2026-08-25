@@ -5,21 +5,22 @@ import pandas as pd
 
 import jpc
 import equinox as eqx
-import optax
 
 import os
 import argparse
-from pathlib import Path
 from experiments.datasets import get_dataloaders
 from experiments.mupc_paper.utils import set_seed
-from utils import (
+from experiments.limits_paper.utils import (
     setup_pc_experiment,
     setup_bp_experiment,
-    configure_param_optim,
-    create_toy_dataset,
-    flatten_grads,
     compute_grad_cosine_similarities,
+)
+from experiments.dmft.utils import (
+    create_toy_dataset,
     MLP,
+    cleanup_experiment_dirs,
+    train_bpn,
+    train_pcn,
 )
 from theory_utils import solve_kernels, solve_kernels_nonlin, get_Delta, solve_Delta
 from theory_pc_utils import solve_pc_kernels
@@ -33,260 +34,13 @@ from plot_dmft_results import (
 )
 
 
-def _output_energy_scaling(param_type: str, gamma_0: float, width: int) -> float:
-    """Match ``test_coord_check.get_coord_data`` µPC output-energy scaling."""
-    return (gamma_0 ** 2) * width if param_type == "mupc" else 1.0
-
-
-def _cleanup_experiment_dirs(results_dir: str):
-    """Remove finite-sim result trees (``*_input_dim``), keeping plot pngs."""
-    import shutil
-
-    removed = []
-    root = Path(results_dir)
-    if not root.exists():
-        return removed
-    for path in sorted(root.glob("*_input_dim")):
-        if path.is_dir():
-            shutil.rmtree(path)
-            removed.append(str(path))
-    return removed
-
-
-def train_pcn(
-      model,
-      use_skips,
-      X_input,
-      Y_target,
-      width,
-      gamma_0,
-      param_type,
-      infer_mode,
-      n_infer_iters,
-      activity_lr,
-      param_optim_id,
-      param_lr,
-      n_train_iters,
-      loss_id,
-      save_dir,
-      store_grads=False
-):
-    """Train a PC network.
-
-    Parameter / activity updates follow the finite-size convention used by
-    ``get_coord_data``: plain ``param_lr`` with
-    ``output_energy_scaling = gamma^2 * width`` for µPC (rather than baking the
-    width factor into the optimiser learning rate).
-    """
-    os.makedirs(save_dir, exist_ok=True)
-
-    depth = len(model)
-    skip_model = jpc.make_skip_model(depth) if use_skips else None
-    output_energy_scaling = _output_energy_scaling(param_type, gamma_0, width)
-
-    # Optimisers (plain lr; µPC width/gamma scaling via output_energy_scaling)
-    batch_size = X_input.shape[0]
-    activity_optim = optax.sgd(activity_lr * batch_size)
-    if param_optim_id == "gd":
-        param_optim = optax.sgd(param_lr)
-    elif param_optim_id == "adam":
-        param_optim = optax.adam(param_lr)
-    else:
-        raise ValueError(f"Invalid optimiser: {param_optim_id}")
-    param_opt_state = param_optim.init(
-        (eqx.filter(model, eqx.is_array), skip_model)
-    )
-
-    num_energies, theory_energies = [], []
-    train_losses = []
-    loss_rescalings = []
-    pc_grads = [] if store_grads else None
-
-    for _ in range(n_train_iters):
-
-        # Record supervised loss on the current feedforward prediction *before*
-        # the parameter update, matching get_coord_data / DMFT step indexing.
-        activities = jpc.init_activities_with_ffwd(
-            model=model,
-            input=X_input,
-            skip_model=skip_model,
-            param_type=param_type,
-            gamma=gamma_0
-        )
-        if loss_id == "mse":
-            train_loss = jpc.mse_loss(activities[-1], Y_target)
-        else:
-            train_loss = jpc.cross_entropy_loss(activities[-1], Y_target)
-        train_losses.append(train_loss)
-
-        if infer_mode == "closed_form":
-            equilib_energy, S = jpc.linear_equilib_energy(
-                params=(model, skip_model),
-                x=X_input,
-                y=Y_target,
-                param_type=param_type,
-                gamma=gamma_0,
-                return_rescaling=True,
-                output_energy_scaling=output_energy_scaling,
-            )
-            theory_energies.append(equilib_energy)
-            loss_rescaling = jnp.linalg.norm(S, ord=2) if Y_target.ndim > 1 else S
-            loss_rescalings.append(loss_rescaling)
-
-        # inference
-        if infer_mode == "optim":
-            activity_opt_state = activity_optim.init(activities)
-            for _ in range(n_infer_iters):
-                activity_update_result = jpc.update_pc_activities(
-                    params=(model, skip_model),
-                    activities=activities,
-                    optim=activity_optim,
-                    opt_state=activity_opt_state,
-                    output=Y_target,
-                    input=X_input,
-                    param_type=param_type,
-                    gamma=gamma_0,
-                    loss_id=loss_id,
-                    output_energy_scaling=output_energy_scaling,
-                )
-                activities = activity_update_result["activities"]
-                activity_opt_state = activity_update_result["opt_state"]
-                energy = activity_update_result["energy"]
-
-            num_energies.append(energy)
-
-            param_update_result = jpc.update_pc_params(
-                params=(model, skip_model),
-                activities=activities,
-                optim=param_optim,
-                opt_state=param_opt_state,
-                output=Y_target,
-                input=X_input,
-                param_type=param_type,
-                gamma=gamma_0,
-                loss_id=loss_id,
-                output_energy_scaling=output_energy_scaling,
-            )
-
-        else:
-            # learning with closed form energy
-            param_update_result = jpc.update_linear_equilib_energy_params(
-                params=(model, skip_model),
-                optim=param_optim,
-                opt_state=param_opt_state,
-                y=Y_target,
-                x=X_input,
-                param_type=param_type,
-                gamma=gamma_0,
-                output_energy_scaling=output_energy_scaling,
-            )
-
-        model = param_update_result["model"]
-        skip_model = param_update_result["skip_model"]
-        param_opt_state = param_update_result["opt_state"]
-        grads = param_update_result["grads"]
-
-        if pc_grads is not None:
-            flat_grads = flatten_grads(grads)
-            # Convert JAX array to numpy immediately to free memory
-            pc_grads.append(np.array(flat_grads))
-            del flat_grads, grads
-
-    energies = (
-        jnp.array(theory_energies)
-        if infer_mode == "closed_form"
-        else jnp.array(num_energies)
-    )
-    np.save(f"{save_dir}/energies.npy", energies)
-    np.save(f"{save_dir}/train_losses.npy", np.array(train_losses))
-    np.save(f"{save_dir}/loss_rescalings.npy", loss_rescalings)
-
-    return pc_grads
-
-
-def train_bpn(
-      model,
-      use_skips,
-      X_input,
-      Y_target,
-      width,
-      gamma_0,
-      param_type,
-      optim_id,
-      param_lr,
-      n_train_iters,
-      loss_id,
-      save_dir,
-      store_grads=False
-):
-    os.makedirs(save_dir, exist_ok=True)
-
-    # Optimiser
-    optim = configure_param_optim(
-        optim_id, param_type, use_skips, param_lr, width, model.L, gamma_0
-    )
-    opt_state = optim.init(eqx.filter(model, eqx.is_array))
-
-    if loss_id == "mse":
-        @eqx.filter_jit
-        def loss_fn(model, x, y):
-            y_pred = jax.vmap(model)(x)
-            return 0.5 * jnp.mean(jnp.sum((y - y_pred) ** 2, axis=1))
-    else:
-        @eqx.filter_jit
-        def loss_fn(model, x, y):
-            y_pred = jax.vmap(model)(x)
-            return jpc.cross_entropy_loss(y_pred, y)
-
-    @eqx.filter_jit
-    def make_step(model, optim, opt_state, x, y):
-        loss, grads = eqx.filter_value_and_grad(loss_fn)(model, x, y)
-        updates, opt_state = optim.update(
-            updates=grads,
-            state=opt_state,
-            params=eqx.filter(model, eqx.is_array)
-        )
-        model = eqx.apply_updates(model, updates)
-        return model, opt_state, loss, grads
-
-    losses = []
-    bp_grads = [] if store_grads else None
-
-    for _ in range(n_train_iters):
-        # Record loss before the parameter update to match get_Delta / DMFT
-        # step indexing (pre-update residual).
-        if loss_id == "mse":
-            y_pred = jax.vmap(model)(X_input)
-            train_loss = float(
-                0.5 * jnp.mean(jnp.sum((Y_target - y_pred) ** 2, axis=1))
-            )
-        else:
-            y_pred = jax.vmap(model)(X_input)
-            train_loss = float(jpc.cross_entropy_loss(y_pred, Y_target))
-        losses.append(train_loss)
-
-        model, opt_state, _, grads = make_step(
-            model, optim, opt_state, X_input, Y_target
-        )
-
-        if bp_grads is not None:
-            flat_grads = flatten_grads(grads)
-            # Convert JAX array to numpy immediately to free memory
-            bp_grads.append(np.array(flat_grads))
-            del flat_grads, grads
-
-    np.save(f"{save_dir}/losses.npy", losses)
-
-    return bp_grads
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--results_dir", type=str, default="results")
 
     # Dataset parameters
     parser.add_argument("--dataset", type=str, default="toy", choices=["toy", "Fashion-MNIST", "CIFAR10"])
-    parser.add_argument("--input_dim", type=int, default=40)
+    parser.add_argument("--input_dim", type=int, default=20) # 40)
     parser.add_argument("--n_samples", type=int, default=5) # 20)
 
     # Model parameters
@@ -304,7 +58,7 @@ if __name__ == "__main__":
 
     # Inference parameters
     parser.add_argument("--param_lr_pc", type=float, default=0.5)
-    parser.add_argument("--infer_mode", type=str, default="closed_form", choices=["optim", "closed_form"])
+    parser.add_argument("--infer_mode", type=str, default="optim", choices=["optim", "closed_form"])
     parser.add_argument("--n_infer_iters", type=int, default=5)
     parser.add_argument("--activity_lrs", type=float, nargs='+', default=[0.05])
 
@@ -344,7 +98,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--bp_damping",
         type=float,
-        default=0.8,
+        default=1.0,
         help="Kernel mixing factor for nonlinear BP DMFT fixed-point updates.",
     )
 
@@ -385,7 +139,7 @@ if __name__ == "__main__":
         "--jacobian_batch_size",
         type=int,
         default=25,
-        help="Batch size for nonlinear PC Jacobian samples.",
+        help="Batch size for nonlinear PC Jacobian samples. Batch size fixed at 50 for BP",
     )
     parser.add_argument(
         "--pc_only",
@@ -1029,7 +783,7 @@ if __name__ == "__main__":
                                 )
 
     if args.cleanup_npy:
-        removed_dirs = _cleanup_experiment_dirs(args.results_dir)
+        removed_dirs = cleanup_experiment_dirs(args.results_dir)
         if removed_dirs:
             print(
                 f"\nRemoved {len(removed_dirs)} experiment dir(s) "
@@ -1039,6 +793,7 @@ if __name__ == "__main__":
                 print(f"  - {d}")
         else:
             print(f"\nNo *_input_dim dirs to remove under {args.results_dir}.")
+
 
 ### DEFAULT PARAMETERS ###
 # CUDA_VISIBLE_DEVICES=1 python train.py --n_samples 5 --n_fixed_point_steps 10 --n_train_iters 20 --param_lr 0.05 --param_lr_pc 0.5 --activity_lrs 0.05 --n_infer_iters 5 --n_hiddens 5 --pc_damping 1.0 --gamma_0s 1
@@ -1066,6 +821,9 @@ if __name__ == "__main__":
 # CUDA_VISIBLE_DEVICES=1 python train.py --n_samples 5 --n_fixed_point_steps 10 --n_train_iters 10 --param_lr 0.5 --param_lr_pc 5.0 --activity_lrs 0.2 --n_infer_iters 10 --n_hiddens 5 --pc_damping 1.0 --gamma_0s 1 --act_fn tanh --skip_theory
 # CUDA_VISIBLE_DEVICES=1 python train.py --n_samples 3 --n_fixed_point_steps 10 --n_train_iters 10 --param_lr 0.5 --param_lr_pc 2.0 --activity_lrs 0.2 --n_infer_iters 5 --n_hiddens 3 --pc_damping 1.0 --gamma_0s 1 --act_fn tanh --skip_theory
 
-# Theory + Empirics
-# CUDA_VISIBLE_DEVICES=1 python train.py --n_samples 5 --n_fixed_point_steps 10 --n_train_iters 10 --param_lr 0.5 --param_lr_pc 5.0 --activity_lrs 0.2 --n_infer_iters 10 --n_hiddens 5 --bp_damping 0.8 --pc_damping 0.5 --gamma_0s 1 --act_fn tanh --num_mc_samples 500
-# CUDA_VISIBLE_DEVICES=1 python train.py --n_samples 3 --n_fixed_point_steps 10 --n_train_iters 10 --param_lr 0.5 --param_lr_pc 2.0 --activity_lrs 0.2 --n_infer_iters 5 --n_hiddens 3 --bp_damping 0.8 --pc_damping 0.5 --gamma_0s 1 --act_fn tanh --num_mc_samples 500
+### THEORY + EMPIRICS ###
+# CUDA_VISIBLE_DEVICES=1 python train.py --n_samples 5 --n_fixed_point_steps 10 --n_train_iters 10 --param_lr 0.5 --param_lr_pc 5.0 --activity_lrs 0.2 --n_infer_iters 10 --n_hiddens 5 --bp_damping 0.5 --pc_damping 0.5 --gamma_0s 1 --act_fn tanh --num_mc_samples 1000
+# CUDA_VISIBLE_DEVICES=1 python train.py --n_samples 3 --n_fixed_point_steps 10 --n_train_iters 5 --param_lr 0.2 --param_lr_pc 0.5 --activity_lrs 0.2 --n_infer_iters 3 --n_hiddens 3 --bp_damping 0.5 --pc_damping 0.5 --gamma_0s 1 --act_fn tanh --num_mc_samples 500
+
+
+# CUDA_VISIBLE_DEVICES=1 python train.py --n_samples 5 --n_fixed_point_steps 10 --n_train_iters 20 --param_lr 0.2 --param_lr_pc 0.5 --activity_lrs 0.2 --n_infer_iters 5 --n_hiddens 3 --bp_damping 0.5 --pc_damping 0.5 --gamma_0s 1 --act_fn tanh --num_mc_samples 2000 --widths 128 512 2048 8192
