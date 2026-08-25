@@ -416,6 +416,7 @@ if __name__ == "__main__":
                                         eta=args.param_lr_pc,
                                         gamma=gamma_0,
                                         beta_h=activity_lr,
+                                        hidden_energy_scaling=n_hidden + 1,
                                         num_training_steps=T_train,
                                         num_inference_steps=K_inf,
                                         num_fixed_point_steps=args.n_fixed_point_steps,
@@ -449,6 +450,7 @@ if __name__ == "__main__":
                                         eta=args.param_lr_pc,
                                         gamma=gamma_0,
                                         beta_h=activity_lr,
+                                        hidden_energy_scaling=n_hidden + 1,
                                         num_training_steps=T_train,
                                         num_inference_steps=K_inf,
                                         num_fixed_point_steps=args.n_fixed_point_steps,
@@ -804,6 +806,8 @@ if __name__ == "__main__":
 ### WORKING PARAMETERS (with damping) ###
 # CUDA_VISIBLE_DEVICES=1 python train.py --n_samples 5 --n_fixed_point_steps 60 --n_train_iters 20 --param_lr 0.1 --param_lr_pc 0.5 --activity_lrs 0.05 --n_infer_iters 10 --n_hiddens 5 --pc_damping 0.3 --gamma_0s 1
 
+# CUDA_VISIBLE_DEVICES=1 python train.py --n_samples 20 --n_fixed_point_steps 10 --n_train_iters 20 --param_lr 0.05 --param_lr_pc 0.5 --activity_lrs 0.01 --n_infer_iters 5 --widths 2048 --n_hiddens 3 6--pc_damping 0.2 --gamma_0s 1
+
 # (To properly optimise for gamma 2 later)
 # CUDA_VISIBLE_DEVICES=1 python train.py --n_samples 5 --n_fixed_point_steps 100 --n_train_iters 20 --param_lr 0.05 --param_lr_pc 0.1 --activity_lrs 0.05 --n_infer_iters 10 --n_hiddens 3 --pc_damping 0.1 --gamma_0s 2
 
@@ -827,3 +831,4 @@ if __name__ == "__main__":
 
 
 # CUDA_VISIBLE_DEVICES=1 python train.py --n_samples 5 --n_fixed_point_steps 10 --n_train_iters 20 --param_lr 0.2 --param_lr_pc 0.5 --activity_lrs 0.2 --n_infer_iters 5 --n_hiddens 3 --bp_damping 0.5 --pc_damping 0.5 --gamma_0s 1 --act_fn tanh --num_mc_samples 2000 --widths 128 512 2048 8192
+

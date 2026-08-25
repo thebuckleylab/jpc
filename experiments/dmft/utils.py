@@ -100,9 +100,16 @@ class MLP(LimitsMLP):
         object.__setattr__(self, "layers", layers)
 
 
-def get_output_energy_scaling(param_type: str, gamma_0: float, width: int) -> float:
-    """Match ``test_coord_check.get_coord_data`` µPC output-energy scaling."""
-    return (gamma_0 ** 2) * width if param_type == "mupc" else 1.0
+def get_output_energy_scaling(
+    param_type: str, gamma_0: float, width: int, depth: int
+) -> float:
+    """µPC output precision λ = γ² N L (SP: 1)."""
+    return (gamma_0 ** 2) * width * depth if param_type == "mupc" else 1.0
+
+
+def get_hidden_energy_scaling(param_type: str, depth: int) -> float:
+    """µPC hidden precision κ = L (SP: 1)."""
+    return float(depth) if param_type == "mupc" else 1.0
 
 
 def cleanup_experiment_dirs(results_dir: str):
@@ -140,16 +147,20 @@ def train_pcn(
 
     Parameter / activity updates follow the finite-size convention used by
     ``get_coord_data``: plain ``param_lr`` with
-    ``output_energy_scaling = gamma^2 * width`` for µPC (rather than baking the
-    width factor into the optimiser learning rate).
+    ``output_energy_scaling = gamma^2 * width * depth`` and
+    ``hidden_energy_scaling = depth`` for µPC (rather than baking the
+    width/depth factor into the optimiser learning rate).
     """
     os.makedirs(save_dir, exist_ok=True)
 
     depth = len(model)
     skip_model = jpc.make_skip_model(depth) if use_skips else None
-    output_energy_scaling = get_output_energy_scaling(param_type, gamma_0, width)
+    output_energy_scaling = get_output_energy_scaling(
+        param_type, gamma_0, width, depth
+    )
+    hidden_energy_scaling = get_hidden_energy_scaling(param_type, depth)
 
-    # Optimisers (plain lr; µPC width/gamma scaling via output_energy_scaling)
+    # Optimisers (plain lr; µPC width/gamma/depth scaling via energy terms)
     batch_size = X_input.shape[0]
     activity_optim = optax.sgd(activity_lr * batch_size)
     if param_optim_id == "gd":
@@ -193,6 +204,7 @@ def train_pcn(
                 gamma=gamma_0,
                 return_rescaling=True,
                 output_energy_scaling=output_energy_scaling,
+                hidden_energy_scaling=hidden_energy_scaling,
             )
             theory_energies.append(equilib_energy)
             loss_rescaling = jnp.linalg.norm(S, ord=2) if Y_target.ndim > 1 else S
@@ -213,6 +225,7 @@ def train_pcn(
                     gamma=gamma_0,
                     loss_id=loss_id,
                     output_energy_scaling=output_energy_scaling,
+                    hidden_energy_scaling=hidden_energy_scaling,
                 )
                 activities = activity_update_result["activities"]
                 activity_opt_state = activity_update_result["opt_state"]
@@ -231,6 +244,7 @@ def train_pcn(
                 gamma=gamma_0,
                 loss_id=loss_id,
                 output_energy_scaling=output_energy_scaling,
+                hidden_energy_scaling=hidden_energy_scaling,
             )
 
         else:
@@ -244,6 +258,7 @@ def train_pcn(
                 param_type=param_type,
                 gamma=gamma_0,
                 output_energy_scaling=output_energy_scaling,
+                hidden_energy_scaling=hidden_energy_scaling,
             )
 
         model = param_update_result["model"]

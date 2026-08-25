@@ -36,6 +36,7 @@ def solve_inference(
         activity_decay: Scalar = 0.,
         gamma: Optional[Scalar] = None,
         output_energy_scaling: Optional[Scalar] = None,
+        hidden_energy_scaling: Optional[Scalar] = None,
         record_iters: bool = False,
         record_every: int = None
 ) -> PyTree[Array]:
@@ -91,6 +92,8 @@ def solve_inference(
         term. Note that this equals the precision
         (inverse covariance) of the generative distribution at the output layer.
         Defaults to `None` (equivalent to a scaling of 1).
+    - `hidden_energy_scaling`: Optional multiplier for every non-output layer
+        energy (hidden precision κ). Defaults to `None` (equivalent to 1).
     - `record_iters`: If `True`, returns all integration steps.
     - `record_every`: int determining the sampling frequency of the integration
         steps.
@@ -124,6 +127,7 @@ def solve_inference(
             activity_decay,
             gamma,
             output_energy_scaling,
+            hidden_energy_scaling,
             stepsize_controller
         ),
         stepsize_controller=stepsize_controller,
