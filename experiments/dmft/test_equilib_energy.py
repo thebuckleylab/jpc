@@ -64,8 +64,11 @@ def main(args):
     bp_loss = jpc.mse_loss(bp_preds, y_target)
 
     output_energy_scaling = (
-        args.gamma ** 2 * args.width # * args.depth 
+        args.gamma ** 2 * args.width * args.depth
         if args.param_type == "mupc" else 1.0
+    )
+    hidden_energy_scaling = (
+        float(args.depth) if args.param_type == "mupc" else 1.0
     )
 
     theory_energy = jpc.linear_equilib_energy(
@@ -74,7 +77,8 @@ def main(args):
         y, 
         param_type=args.param_type,
         gamma=args.gamma, 
-        output_energy_scaling=output_energy_scaling
+        output_energy_scaling=output_energy_scaling,
+        hidden_energy_scaling=hidden_energy_scaling,
     )
     activities = jpc.init_activities_with_ffwd(
         model=model,
@@ -94,6 +98,7 @@ def main(args):
             param_type=args.param_type,
             gamma=args.gamma,
             output_energy_scaling=output_energy_scaling,
+            hidden_energy_scaling=hidden_energy_scaling,
         )
         activities = activity_update_result["activities"]
         activity_opt_state = activity_update_result["opt_state"]
@@ -105,6 +110,7 @@ def main(args):
         param_type=args.param_type,
         gamma=args.gamma,
         output_energy_scaling=output_energy_scaling,
+        hidden_energy_scaling=hidden_energy_scaling,
     )
     rescaling = float(S[0, 0])
     # print(f"S[0,0]:                   {float(S[0, 0]):.8e}")
@@ -125,7 +131,8 @@ def main(args):
         y, 
         param_type=args.param_type,
         gamma=args.gamma, 
-        output_energy_scaling=output_energy_scaling
+        output_energy_scaling=output_energy_scaling,
+        hidden_energy_scaling=hidden_energy_scaling,
     )
     pc_grads_numerical = jpc.compute_pc_param_grads(
         params=(model, None),
@@ -135,6 +142,7 @@ def main(args):
         param_type=args.param_type,
         gamma=args.gamma,
         output_energy_scaling=output_energy_scaling,
+        hidden_energy_scaling=hidden_energy_scaling,
     )
     _, bp_grads = eqx.filter_value_and_grad(bp_loss_fn)(bp_model, x, y_target)
     # bp_grads = tree_map(lambda g: g * (output_energy_scaling/2), bp_grads)

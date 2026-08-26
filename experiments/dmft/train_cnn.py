@@ -31,7 +31,7 @@ if str(_CNN_DIR) not in sys.path:
 
 from model import ResNet  # noqa: E402
 from optim import configure_cnn_param_optim  # noqa: E402
-from utils import (  # noqa: E402
+from experiments.limits_paper.cnn.utils import (
     load_cifar10_batch,
     load_imagenet_batch,
     load_tinyimagenet_batch,

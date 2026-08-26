@@ -34,8 +34,12 @@ Sample (data) indices are suppressed above; every kernel carries an extra
 
 Maximal-update (muP / muPC) conventions, matching ``train.py``: the readout is
 ``f = W_L phi(h^{L-1}) / (gamma N)`` and the output energy carries a factor
-``gamma^2 N``. Consequently the top-layer residual entering the last hidden
-layer is ``Delta^L = gamma (y - f)``, i.e. ``C^{Delta,L} = gamma^2 C^{Delta,top}``,
+``gamma^2 N L``, with every hidden-layer energy scaled by the hidden precision
+``kappa = L`` (``L = depth + 1``). Relative to the older theory that used
+``lambda = gamma^2 N`` and ``kappa = 1``, this multiplies the whole energy by
+``L``, which is absorbed into ``eta → η L`` and ``beta_h → β_h L`` (see
+``resolve_pc_energy_rates``). The top-layer residual entering the last hidden
+layer remains ``Delta^L = gamma (y - f)``, i.e. ``C^{Delta,L} = gamma^2 C^{Delta,top}``,
 while every hidden-layer memory kernel carries ``eta / P`` with no extra gamma.
 Weights are initialised with unit variance, as in ``jpc.make_mlp`` for
 ``param_type="mupc"``.
@@ -66,6 +70,7 @@ from theory_pc_utils import (
     make_input_covariance,
     make_response_causality_masks,
     relative_change,
+    resolve_pc_energy_rates,
     solve_pc_output_boundary,
     symmetrise,
 )
@@ -403,6 +408,7 @@ def solve_pc_kernels_nonlin(
     cdelta_init_eps: float = 1e-2,
     resample_fields: bool = False,
     seed: int = 0,
+    hidden_energy_scaling: Optional[float] = None,
 ) -> Tuple[List[Array], List[Array], List[Array], List[Array], Array, Array, Array, dict]:
     """Solve the non-linear PC DMFT by sampled fixed-point iteration.
 
@@ -420,6 +426,10 @@ def solve_pc_kernels_nonlin(
     - `gamma`: muP richness scale; enters only through
       ``C^{Delta,L} = gamma^2 C^{Delta,top}``.
     - `beta_h`: inference (activity) learning rate.
+    - `hidden_energy_scaling`: hidden precision κ. ``None`` (default) uses
+      ``depth + 1``, matching finite ``train_pcn`` (κ = L). This rescales
+      ``eta`` and ``beta_h``; see ``resolve_pc_energy_rates``. Pass ``1``
+      for the old unscaled theory.
 
     **Other arguments:**
 
@@ -456,6 +466,10 @@ def solve_pc_kernels_nonlin(
         raise ValueError("cdelta_init_eps must be non-negative.")
     if jacobian_batch_size < 1:
         raise ValueError("jacobian_batch_size must be at least one.")
+
+    eta, beta_h, kappa = resolve_pc_energy_rates(
+        eta, beta_h, depth, hidden_energy_scaling
+    )
 
     P = Kx.shape[0]
     T = num_training_steps
@@ -626,6 +640,7 @@ def solve_pc_kernels_nonlin(
         "fixed_point_history": jnp.asarray(residual_history),
         "equation_history": jnp.asarray(equation_history),
         "beta_h": beta_h,
+        "hidden_energy_scaling": kappa,
         "nonlinearity": nonlinearity,
         "beta": beta,
         "num_mc_samples": num_mc_samples,

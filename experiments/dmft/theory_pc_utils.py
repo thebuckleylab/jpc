@@ -94,6 +94,11 @@ Together these cut the flop count by ~3x, shrink the factorisation by
 Flattening convention throughout:
     compound index = (k, t, mu)
 with k the slowest block index.
+
+Finite-size μPC scales every hidden energy by κ = L and the output energy by
+λ = γ² N L (L = n_hidden + 1). That overall factor is absorbed into the
+DMFT rates ``eta`` and ``beta_h`` via ``resolve_pc_energy_rates`` (default
+κ = depth + 1). Pass ``hidden_energy_scaling=1`` for the old unscaled theory.
 """
 
 from __future__ import annotations
@@ -109,6 +114,34 @@ Array = jax.Array
 
 def _state_size(K: int, T: int, P: int) -> int:
     return (K + 1) * T * P
+
+
+def resolve_pc_energy_rates(
+    eta: float,
+    beta_h: float,
+    depth: int,
+    hidden_energy_scaling: Optional[float] = None,
+) -> Tuple[float, float, float]:
+    """Map finite-size μPC energy scalings onto DMFT learning / inference rates.
+
+    Finite ``train_pcn`` uses hidden precision κ = L on every non-output energy
+    and output precision λ = γ² N L, with L = n_hidden + 1 = ``depth + 1``.
+    Relative to the previous theory (κ = 1, λ = γ² N) this multiplies the
+    whole energy by κ, so all parameter and activity gradients scale by κ.
+    That is equivalent to ``eta → ηκ`` and ``beta_h → β_h κ``, while the
+    last-hidden residual kernel stays ``C^{Delta,L} = γ² C^{Delta,top}``.
+
+    ``hidden_energy_scaling is None`` defaults to κ = ``depth + 1``.
+    Pass ``1.0`` to recover the old (unscaled hidden energy) theory.
+    """
+    kappa = (
+        float(depth + 1)
+        if hidden_energy_scaling is None
+        else float(hidden_energy_scaling)
+    )
+    if kappa <= 0.0:
+        raise ValueError("hidden_energy_scaling must be positive.")
+    return eta * kappa, beta_h * kappa, kappa
 
 
 # ---------------------------------------------------------------------------
@@ -509,8 +542,12 @@ def _solve_pc_kernels_reference(
     sigma: float = 1.0,
     tolerance: Optional[float] = None,
     cdelta_init_eps: float = 1e-2,
+    hidden_energy_scaling: Optional[float] = None,
 ) -> Tuple[List[Array], List[Array], List[Array], List[Array], Array, Array, Array, dict]:
     """Reference fixed-point solver using the full 2n x 2n block system."""
+    eta, beta_h, kappa = resolve_pc_energy_rates(
+        eta, beta_h, depth, hidden_energy_scaling
+    )
     if not (0.0 < damping <= 1.0):
         raise ValueError("damping must lie in (0,1].")
     if Kx.ndim != 2 or Kx.shape[0] != Kx.shape[1]:
@@ -672,6 +709,7 @@ def _solve_pc_kernels_reference(
         "S": S,
         "E0": E0,
         "beta_h": beta_h,
+        "hidden_energy_scaling": kappa,
         "cdelta_init_eps": cdelta_init_eps,
         "Rh_causality_mask": Rh_mask,
         "Rdelta_causality_mask": Rdelta_mask,
@@ -955,6 +993,7 @@ def _solve_pc_kernels_optimised(
     check_equations: bool = True,
     return_layer_diagnostics: bool = True,
     return_operators: bool = True,
+    hidden_energy_scaling: Optional[float] = None,
 ) -> Tuple[List[Array], List[Array], List[Array], List[Array], Array, Array, Array, dict]:
     """Optimised fixed-point solver (reduced Delta system + jitted sweep).
 
@@ -992,6 +1031,9 @@ def _solve_pc_kernels_optimised(
     (it is a residual for a better-conditioned system, hence typically
     smaller).
     """
+    eta, beta_h, kappa = resolve_pc_energy_rates(
+        eta, beta_h, depth, hidden_energy_scaling
+    )
     if not (0.0 < damping <= 1.0):
         raise ValueError("damping must lie in (0,1].")
     if Kx.ndim != 2 or Kx.shape[0] != Kx.shape[1]:
@@ -1090,6 +1132,7 @@ def _solve_pc_kernels_optimised(
         "fixed_point_history": jnp.asarray(residual_history),
         "equation_history": jnp.asarray(equation_history),
         "beta_h": beta_h,
+        "hidden_energy_scaling": kappa,
         "cdelta_init_eps": cdelta_init_eps,
         "R_delta_top": _apply_causal_mask(
             top_result["R_delta_top"], mask_d_kt, K + 1, T, P
@@ -1155,6 +1198,7 @@ def solve_pc_kernels(
     check_equations: bool = True,
     return_layer_diagnostics: bool = True,
     return_operators: bool = True,
+    hidden_energy_scaling: Optional[float] = None,
 ) -> Tuple[List[Array], List[Array], List[Array], List[Array], Array, Array, Array, dict]:
     """Solve the boundary-conditioned linear PC DMFT by fixed-point iteration.
 
@@ -1166,6 +1210,11 @@ def solve_pc_kernels(
     via solve_pc_output_boundary and enters the last hidden layer as
     C^{Delta,ell+1} = gamma^2 C^{Delta,top}. The top residual response is
     not fed back: R^{Delta,ell+1} = 0 for the last hidden layer.
+
+    Finite-size μPC scales every hidden energy by κ = L and the output
+    energy by λ = γ² N L (``L = depth + 1``). That overall factor is
+    absorbed into ``eta`` and ``beta_h``; see ``resolve_pc_energy_rates``.
+    Pass ``hidden_energy_scaling=1`` for the old unscaled theory.
 
     Error kernels are initialised to eps * I (projected to Delta_0=0), matching
     the algorithm text. Initialising from a replicated output Gram matrix
@@ -1195,6 +1244,7 @@ def solve_pc_kernels(
         sigma=sigma,
         tolerance=tolerance,
         cdelta_init_eps=cdelta_init_eps,
+        hidden_energy_scaling=hidden_energy_scaling,
     )
     if backend == "reference":
         return _solve_pc_kernels_reference(**common)
