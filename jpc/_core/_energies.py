@@ -7,6 +7,14 @@ import jax.numpy as jnp
 from jax.nn import log_softmax
 from jaxtyping import PyTree, ArrayLike, Scalar, Array
 from typing import Tuple, Callable, Optional
+from ._bregman import (
+    bregman_from_preact,
+    check_bregman_act_fn,
+    _bregman_model,
+    _check_output_loss,
+    _hidden_states,
+    _output_energy,
+)
 from ._errors import _check_param_type
 
 
@@ -874,6 +882,72 @@ def pdm_energy_fn(
             total_energy += lateral_energy
     
     return total_energy
+
+
+def bregman_pc_energy_fn(
+    params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
+    activities: PyTree[ArrayLike],
+    y: Optional[ArrayLike],
+    *,
+    x: ArrayLike,
+    act_fn: str = "tanh",
+    loss: str = "mse",
+    record_layers: bool = False,
+) -> Scalar | Array:
+    r"""Computes the activation-matched Bregman PC energy
+
+    $$
+    \mathcal{F}_{\mathrm{B}}
+    = \sum_{\ell=1}^{L-1} D_{\Psi}\bigl(\mathbf{z}^\ell, \phi(\mathbf{a}^\ell)\bigr)
+    + \mathcal{L}(\mathbf{a}^L, \mathbf{y})
+    $$
+
+    with \(\mathbf{z}^\ell = \phi(\mathbf{u}^\ell)\), \(\mathbf{a}^\ell = \mathbf{W}^\ell \mathbf{z}^{\ell-1}\),
+    and output activity clamped to \(\mathbf{y}\). The matching potential satisfies
+    \(\nabla \Psi(\mathbf{z}) = \phi^{-1}(\mathbf{z})\), so neither inference nor
+    learning requires an explicit \(\phi'\).
+
+    !!! warning
+
+        `model` must be a list of linear layers with a `.weight` (e.g.
+        `eqx.nn.Linear`). Do **not** pass models from
+        [`jpc.make_mlp()`](https://thebuckleylab.github.io/jpc/api/Utils/#jpc.make_mlp),
+        which bake \(\phi\) into each layer; the activation is applied separately
+        via `act_fn`. `skip_model` must be `None`.
+
+    **Main arguments:**
+
+    - `params`: Tuple `(model, skip_model)` where `model` is a list of linear
+        layers (hidden maps plus a linear readout). `skip_model` must be `None`.
+    - `activities`: Dual hidden states \(\{\mathbf{u}^\ell\}_{\ell=1}^{L-1}\)
+        (one per hidden layer, i.e. `len(model) - 1`).
+    - `y`: Clamped output / target. If `None`, only hidden Bregman terms are
+        returned.
+
+    **Other arguments:**
+
+    - `x`: Clamped input.
+    - `act_fn`: Hidden activation (`"tanh"` or `"sigmoid"`).
+    - `loss`: Output loss (`"mse"`, `"ce"`, or `"bregman"`).
+    - `record_layers`: If `True`, returns per-layer energies.
+
+    **Returns:**
+
+    Total or layer-wise energy, averaged over the batch.
+    """
+    check_bregman_act_fn(act_fn)
+    _check_output_loss(loss)
+    model = _bregman_model(params)
+    zs, preacts, logits = _hidden_states(model, activities, x, act_fn)
+    terms = [
+        jnp.mean(jnp.sum(bregman_from_preact(act_fn, z, a), axis=-1))
+        for z, a in zip(zs[1:], preacts)
+    ]
+    if y is not None:
+        terms.append(_output_energy(logits, y, act_fn, loss))
+    if record_layers:
+        return jnp.array(terms)
+    return jnp.sum(jnp.array(terms))
 
 
 def _get_param_scalings(

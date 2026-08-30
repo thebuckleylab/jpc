@@ -5,7 +5,8 @@ import jax.numpy as jnp
 import equinox as eqx
 from ._energies import _get_param_scalings
 from jaxtyping import PyTree, ArrayLike, Array, PRNGKeyArray, Scalar
-from typing import Callable, Optional
+from typing import Callable, Optional, Sequence, Tuple
+from ._bregman import bregman_phi, check_bregman_act_fn, _check_bregman_model
 from ._errors import _check_param_type
 
 
@@ -189,3 +190,49 @@ def init_epc_errors(
     for l in range(start_l, n_layers + 1):
         errors.append(jnp.zeros(shape=(batch_size, layer_sizes[l])))
     return errors
+
+
+@eqx.filter_jit
+def init_bregman_pc_activities(
+    model: Sequence,
+    input: ArrayLike,
+    *,
+    act_fn: str = "tanh",
+) -> Tuple[Array, ...]:
+    r"""Initialises Bregman PC dual states with a feedforward pass
+    $\{ u^\ell = W^\ell z^{\ell-1} \}_{\ell=1}^{L-1}$ where $z^0 = x$ and
+    $z^\ell = \phi(u^\ell)$. This initialisation has zero hidden Bregman energy.
+
+    !!! warning
+
+        Unlike [`jpc.init_activities_with_ffwd()`](https://thebuckleylab.github.io/jpc/api/Initialisation/#jpc.init_activities_with_ffwd),
+        this does **not** accept models from
+        [`jpc.make_mlp()`](https://thebuckleylab.github.io/jpc/api/Utils/#jpc.make_mlp),
+        which bake $\phi$ into each layer. Pass a list of linear layers
+        (e.g. `eqx.nn.Linear`) and the activation via `act_fn`.
+
+    **Main arguments:**
+
+    - `model`: List of callable linear layers (hidden maps plus a linear
+        readout). Must have at least two layers.
+    - `input`: Clamped input $\mathbf{z}_0 = \mathbf{x}$.
+
+    **Other arguments:**
+
+    - `act_fn`: Hidden activation (`"tanh"` or `"sigmoid"`). Defaults to
+        `"tanh"`.
+
+    **Returns:**
+
+    Tuple of dual hidden states $\{u^\ell\}_{\ell=1}^{L-1}$.
+
+    """
+    check_bregman_act_fn(act_fn)
+    _check_bregman_model(model)
+    z = jnp.asarray(input)
+    us = []
+    for layer in model[:-1]:
+        u = vmap(layer)(z)
+        us.append(u)
+        z = bregman_phi(act_fn, u)
+    return tuple(us)

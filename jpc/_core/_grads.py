@@ -13,7 +13,14 @@ from ._energies import (
     bpc_energy_fn, 
     epc_energy_fn,
     pdm_energy_fn, 
+    bregman_pc_energy_fn,
     _pdm_single_layer_energy
+)
+from ._bregman import (
+    bregman_pc_prediction_errors,
+    _bregman_model,
+    _hidden_states,
+    _linear_weight,
 )
 
 
@@ -165,6 +172,74 @@ def compute_pc_activity_grad(
         output_energy_scaling=output_energy_scaling,
     )
     return energy, dFdzs
+
+
+def compute_bregman_pc_activity_grad(
+    params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
+    activities: PyTree[ArrayLike],
+    y: ArrayLike,
+    *,
+    x: ArrayLike,
+    act_fn: str = "tanh",
+    loss: str = "mse",
+) -> Tuple[Array, PyTree[Array]]:
+    """Computes the Bregman PC energy and the mirror-descent residual
+    $\\nabla_{\\mathbf{z}} \\mathcal{F}_{\\mathrm{B}}$ (no explicit $\\phi'$).
+
+    Euler steps on this residual implement
+    $\\mathrm{d}\\mathbf{u}/\\mathrm{d}t = -\\mathbf{u} + \\mathbf{a} + W^\\top \\varepsilon$.
+    Autodiff through $\\phi(\\mathbf{u})$ is intentionally not used.
+
+    !!! note
+
+        These residuals are **not** divided by batch size, unlike autodiff of
+        [`jpc.bregman_pc_energy_fn()`](https://thebuckleylab.github.io/jpc/api/Energy%20functions/#jpc.bregman_pc_energy_fn)
+        (a batch mean) and unlike
+        [`jpc.compute_pc_activity_grad()`](https://thebuckleylab.github.io/jpc/api/Gradients/#jpc.compute_pc_activity_grad).
+        Autodiff of the energy with respect to $\\mathbf{u}$ equals
+        $\\phi'(\\mathbf{u})$ times the residual over $B$. Optax steps on this
+        residual implement mirror descent on $\\mathbf{u}$; to match standard-PC
+        activity step sizes, multiply the standard-PC activity learning rate by
+        $B$.
+
+    !!! warning
+
+        `model` must be a list of linear layers with a `.weight`. Do not pass
+        [`jpc.make_mlp()`](https://thebuckleylab.github.io/jpc/api/Utils/#jpc.make_mlp)
+        models, which bake $\\phi$ into each layer. `skip_model` must be `None`.
+
+    **Main arguments:**
+
+    - `params`: Tuple `(model, skip_model)` of linear layers. `skip_model` must
+        be `None`.
+    - `activities`: Dual hidden states $\\{\\mathbf{u}^\\ell\\}$ (one per hidden
+        layer).
+    - `y`: Clamped output / target.
+
+    **Other arguments:**
+
+    - `x`: Clamped input.
+    - `act_fn`: Hidden activation (`"tanh"` or `"sigmoid"`).
+    - `loss`: Output loss (`"mse"`, `"ce"`, or `"bregman"`).
+
+    **Returns:**
+
+    Energy and activity residuals with the same pytree structure as `activities`.
+    """
+    energy = bregman_pc_energy_fn(
+        params, activities, y, x=x, act_fn=act_fn, loss=loss
+    )
+    model = _bregman_model(params)
+    _, preacts, _ = _hidden_states(model, activities, x, act_fn)
+    errs = bregman_pc_prediction_errors(
+        params, activities, y, x=x, act_fn=act_fn, loss=loss
+    )
+    grads = []
+    for i, u in enumerate(activities):
+        local = u - preacts[i]
+        top_down = errs[i + 1] @ _linear_weight(model[i + 1])
+        grads.append(local - top_down)
+    return energy, type(activities)(grads)
 
 
 def compute_bpc_activity_grad(
@@ -496,6 +571,51 @@ def compute_pc_param_grads(
         activity_decay=activity_decay,
         gamma=gamma,
         output_energy_scaling=output_energy_scaling,
+    )
+
+
+def compute_bregman_pc_param_grads(
+    params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
+    activities: PyTree[ArrayLike],
+    y: ArrayLike,
+    *,
+    x: ArrayLike,
+    act_fn: str = "tanh",
+    loss: str = "mse",
+) -> Tuple[PyTree[Array], PyTree[Array]]:
+    """Computes $\\nabla_\\theta \\mathcal{F}_{\\mathrm{B}}$. Matching removes $\\phi'$
+    from the weight gradient, so autodiff of the Bregman energy is valid.
+
+    !!! warning
+
+        `model` must be a list of linear layers with a `.weight`. Do not pass
+        [`jpc.make_mlp()`](https://thebuckleylab.github.io/jpc/api/Utils/#jpc.make_mlp)
+        models, which bake $\\phi$ into each layer. `skip_model` must be `None`.
+
+    **Main arguments:**
+
+    - `params`: Tuple `(model, skip_model)` of linear layers. `skip_model` must
+        be `None`.
+    - `activities`: Dual hidden states $\\{\\mathbf{u}^\\ell\\}$.
+    - `y`: Clamped output / target.
+
+    **Other arguments:**
+
+    - `x`: Clamped input.
+    - `act_fn`: Hidden activation (`"tanh"` or `"sigmoid"`).
+    - `loss`: Output loss (`"mse"`, `"ce"`, or `"bregman"`).
+
+    **Returns:**
+
+    Parameter gradients with the same pytree structure as `params`.
+    """
+    return filter_grad(bregman_pc_energy_fn)(
+        params,
+        activities,
+        y,
+        x=x,
+        act_fn=act_fn,
+        loss=loss,
     )
 
 

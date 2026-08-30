@@ -9,6 +9,8 @@ from ._grads import (
     compute_pc_param_grads, 
     compute_bpc_activity_grad, 
     compute_bpc_param_grads,
+    compute_bregman_pc_activity_grad,
+    compute_bregman_pc_param_grads,
     compute_epc_error_grad,
     compute_epc_param_grads,
     compute_pdm_activity_grad,
@@ -200,6 +202,139 @@ def update_pc_params(
         "skip_model": skip_model,
         "grads": grads,
         "opt_state": opt_state
+    }
+
+
+@eqx.filter_jit
+def update_bregman_pc_activities(
+    params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
+    activities: PyTree[ArrayLike],
+    optim: GradientTransformation | GradientTransformationExtraArgs,
+    opt_state: OptState,
+    output: ArrayLike,
+    *,
+    input: ArrayLike,
+    act_fn: str = "tanh",
+    loss: str = "mse",
+) -> Dict:
+    """Updates dual hidden states of a Bregman PC network (mirror descent, no ``phi'``).
+
+    Euler steps implement
+    ``du/dt = -u + a + W^T eps``. See
+    [`jpc.compute_bregman_pc_activity_grad()`](https://thebuckleylab.github.io/jpc/api/Gradients/#jpc.compute_bregman_pc_activity_grad)
+    for the residual (not divided by batch size).
+
+    !!! warning
+
+        `model` must be a list of linear layers with a `.weight`. Do not pass
+        [`jpc.make_mlp()`](https://thebuckleylab.github.io/jpc/api/Utils/#jpc.make_mlp)
+        models, which bake ``phi`` into each layer. `skip_model` must be `None`.
+
+    **Main arguments:**
+
+    - `params`: Tuple `(model, skip_model)` of linear layers. `skip_model` must
+        be `None`.
+    - `activities`: Dual hidden states.
+    - `optim`: optax optimiser, e.g. `optax.sgd()`.
+    - `opt_state`: State of optax optimiser.
+    - `output`: Clamped output / target.
+
+    **Other arguments:**
+
+    - `input`: Clamped input.
+    - `act_fn`: Hidden activation (`"tanh"` or `"sigmoid"`).
+    - `loss`: Output loss (`"mse"`, `"ce"`, or `"bregman"`).
+
+    **Returns:**
+
+    Dictionary with energy, updated activities, activity residuals, and optimiser state.
+    """
+    energy, grads = compute_bregman_pc_activity_grad(
+        params=params,
+        activities=activities,
+        y=output,
+        x=input,
+        act_fn=act_fn,
+        loss=loss,
+    )
+    updates, opt_state = optim.update(
+        updates=grads,
+        state=opt_state,
+        params=activities,
+    )
+    activities = eqx.apply_updates(
+        model=activities,
+        updates=updates,
+    )
+    return {
+        "energy": energy,
+        "activities": activities,
+        "grads": grads,
+        "opt_state": opt_state,
+    }
+
+
+@eqx.filter_jit
+def update_bregman_pc_params(
+    params: Tuple[PyTree[Callable], Optional[PyTree[Callable]]],
+    activities: PyTree[ArrayLike],
+    optim: GradientTransformation | GradientTransformationExtraArgs,
+    opt_state: OptState,
+    output: ArrayLike,
+    *,
+    input: ArrayLike,
+    act_fn: str = "tanh",
+    loss: str = "mse",
+) -> Dict:
+    """Updates weights of a Bregman PC network (no ``phi'`` in the gradient).
+
+    !!! warning
+
+        `model` must be a list of linear layers with a `.weight`. Do not pass
+        [`jpc.make_mlp()`](https://thebuckleylab.github.io/jpc/api/Utils/#jpc.make_mlp)
+        models, which bake ``phi`` into each layer. `skip_model` must be `None`.
+
+    **Main arguments:**
+
+    - `params`: Tuple `(model, skip_model)` of linear layers. `skip_model` must
+        be `None`.
+    - `activities`: Dual hidden states at (approximate) equilibrium.
+    - `optim`: optax optimiser, e.g. `optax.sgd()`.
+    - `opt_state`: State of optax optimiser.
+    - `output`: Clamped output / target.
+
+    **Other arguments:**
+
+    - `input`: Clamped input.
+    - `act_fn`: Hidden activation (`"tanh"` or `"sigmoid"`).
+    - `loss`: Output loss (`"mse"`, `"ce"`, or `"bregman"`).
+
+    **Returns:**
+
+    Dictionary with updated model, skip model, parameter gradients, and optimiser state.
+    """
+    grads = compute_bregman_pc_param_grads(
+        params=params,
+        activities=activities,
+        y=output,
+        x=input,
+        act_fn=act_fn,
+        loss=loss,
+    )
+    updates, opt_state = optim.update(
+        updates=grads,
+        state=opt_state,
+        params=params,
+    )
+    model, skip_model = eqx.apply_updates(
+        model=params,
+        updates=updates,
+    )
+    return {
+        "model": model,
+        "skip_model": skip_model,
+        "grads": grads,
+        "opt_state": opt_state,
     }
 
 
