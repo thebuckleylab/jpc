@@ -22,6 +22,14 @@ to solve the PC inference or activity dynamics.
 
 ---
 
+::: jpc.update_bregman_pc_activities
+
+---
+
+::: jpc.update_bregman_pc_params
+
+---
+
 ::: jpc.update_epc_errors
 
 ---
