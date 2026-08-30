@@ -35,6 +35,7 @@ def update_pc_activities(
     activity_decay: Scalar = 0.,
     gamma: Optional[Scalar] = None,
     output_energy_scaling: Optional[Scalar] = None,
+    hidden_energy_scaling: Optional[Scalar] = None,
 ) -> Dict:
     """Updates activities of a predictive coding network with a given 
     [optax](https://github.com/google-deepmind/optax) optimiser.
@@ -75,6 +76,8 @@ def update_pc_activities(
         term. Note that this equals the precision
         (inverse covariance) of the generative distribution at the output layer.
         Defaults to `None` (equivalent to a scaling of 1).
+    - `hidden_energy_scaling`: Optional multiplier for every non-output layer
+        energy (hidden precision κ). Defaults to `None` (equivalent to 1).
 
     **Returns:**
 
@@ -94,6 +97,7 @@ def update_pc_activities(
         activity_decay=activity_decay,
         gamma=gamma,
         output_energy_scaling=output_energy_scaling,
+        hidden_energy_scaling=hidden_energy_scaling,
     )
     updates, opt_state = optim.update(
         updates=grads,
@@ -127,7 +131,8 @@ def update_pc_params(
     spectral_penalty: Scalar = 0.,
     activity_decay: Scalar = 0.,
     gamma: Optional[Scalar] = None,
-    output_energy_scaling: Optional[Scalar] = None
+    output_energy_scaling: Optional[Scalar] = None,
+    hidden_energy_scaling: Optional[Scalar] = None
 ) -> Dict:
     """Updates parameters of a predictive coding network with a given 
     [optax](https://github.com/google-deepmind/optax) optimiser.
@@ -168,6 +173,8 @@ def update_pc_params(
         term. Note that this equals the precision
         (inverse covariance) of the generative distribution at the output layer.
         Defaults to `None` (equivalent to a scaling of 1).
+    - `hidden_energy_scaling`: Optional multiplier for every non-output layer
+        energy (hidden precision κ). Defaults to `None` (equivalent to 1).
 
     **Returns:**
 
@@ -186,7 +193,8 @@ def update_pc_params(
         spectral_penalty=spectral_penalty,
         activity_decay=activity_decay,
         gamma=gamma,
-        output_energy_scaling=output_energy_scaling
+        output_energy_scaling=output_energy_scaling,
+        hidden_energy_scaling=hidden_energy_scaling,
     )
     updates, opt_state = optim.update(
         updates=grads,

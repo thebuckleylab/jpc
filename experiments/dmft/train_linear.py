@@ -117,6 +117,7 @@ def train_pc(
     param_type,
     gamma,
     output_energy_scaling,
+    hidden_energy_scaling=1.0,
     infer_mode,
     n_infer_iters,
     activity_lr,
@@ -152,6 +153,7 @@ def train_pc(
                 param_type=param_type,
                 gamma=gamma,
                 output_energy_scaling=output_energy_scaling,
+                hidden_energy_scaling=hidden_energy_scaling,
             )
             energies.append(float(energy))
             param_update = jpc.update_linear_equilib_energy_params(
@@ -163,6 +165,7 @@ def train_pc(
                 param_type=param_type,
                 gamma=gamma,
                 output_energy_scaling=output_energy_scaling,
+                hidden_energy_scaling=hidden_energy_scaling,
             )
         else:
             activities = jpc.init_activities_with_ffwd(
@@ -183,6 +186,7 @@ def train_pc(
                     param_type=param_type,
                     gamma=gamma,
                     output_energy_scaling=output_energy_scaling,
+                    hidden_energy_scaling=hidden_energy_scaling,
                 )
                 activities = activity_update["activities"]
                 activity_opt_state = activity_update["opt_state"]
@@ -198,6 +202,7 @@ def train_pc(
                 param_type=param_type,
                 gamma=gamma,
                 output_energy_scaling=output_energy_scaling,
+                hidden_energy_scaling=hidden_energy_scaling,
             )
 
         model = param_update["model"]
@@ -262,6 +267,9 @@ def run(args):
     output_energy_scaling = get_output_energy_scaling(
         args.param_type, args.gamma, args.width, args.depth
     )
+    hidden_energy_scaling = (
+        float(args.depth) if args.param_type == "mupc" else 1.0
+    )
     pc_model, bp_model = make_models(
         model_key,
         args.input_dim,
@@ -301,6 +309,7 @@ def run(args):
         param_type=args.param_type,
         gamma=args.gamma,
         output_energy_scaling=output_energy_scaling,
+        hidden_energy_scaling=hidden_energy_scaling,
         infer_mode=args.infer_mode,
         n_infer_iters=args.n_infer_iters,
         activity_lr=args.activity_lr,

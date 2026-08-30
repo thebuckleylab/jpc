@@ -143,6 +143,7 @@ def _record_rescaling(
     param_type: str,
     gamma: float,
     output_energy_scaling: float,
+    hidden_energy_scaling: float = 1.0,
 ):
     """Append the scalar equilibrated-energy rescaling ``S[0, 0]``."""
     S = jpc.compute_linear_equilib_rescaling(
@@ -151,6 +152,7 @@ def _record_rescaling(
         param_type=param_type,
         gamma=gamma,
         output_energy_scaling=output_energy_scaling,
+        hidden_energy_scaling=hidden_energy_scaling,
     )
     records.append(
         {
@@ -287,8 +289,10 @@ def get_coord_data(
             param_opt_state = param_optim.init(params)
 
             output_energy_scaling = (
-                # gamma**2 * width * len(model) if param_type == "mupc" else 1.0
-                gamma**2 * width if param_type == "mupc" else 1.0
+                gamma**2 * width * len(model) if param_type == "mupc" else 1.0
+            )
+            hidden_energy_scaling = (
+                float(len(model)) if param_type == "mupc" else 1.0
             )
 
             for t, (x, y) in enumerate(dataloader, start=1):
@@ -323,6 +327,7 @@ def get_coord_data(
                         param_type=param_type,
                         gamma=gamma,
                         output_energy_scaling=output_energy_scaling,
+                        hidden_energy_scaling=hidden_energy_scaling,
                     )
 
                 if record_loss:
@@ -340,6 +345,7 @@ def get_coord_data(
                         param_type=param_type,
                         gamma=gamma,
                         output_energy_scaling=output_energy_scaling,
+                        hidden_energy_scaling=hidden_energy_scaling,
                     )
                 else:
                     batch_size = int(x.shape[0])
@@ -357,6 +363,7 @@ def get_coord_data(
                             param_type=param_type,
                             gamma=gamma,
                             output_energy_scaling=output_energy_scaling,
+                            hidden_energy_scaling=hidden_energy_scaling,
                         )
                         activities = result["activities"]
                         activity_opt_state = result["opt_state"]
@@ -376,6 +383,7 @@ def get_coord_data(
                         param_type=param_type,
                         gamma=gamma,
                         output_energy_scaling=output_energy_scaling,
+                        hidden_energy_scaling=hidden_energy_scaling,
                     )
 
                 model = param_result["model"]

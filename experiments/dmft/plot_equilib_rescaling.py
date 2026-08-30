@@ -36,8 +36,9 @@ def plot_rescaling_per_width(
     """Plot the equilibrated-energy rescaling ``s`` as a function of width N.
 
     ``rescalings_by_config`` maps a legend label to a list of rescaling values,
-    one per width in ``widths``. The theory reference is the one-hidden-layer
-    closed form ``s = (1 + 1/L) / (gamma^2 N)`` (using ``E||w||^2 = N``).
+    one per width in ``widths``. With hidden precision κ = L and output
+    precision λ = γ² N L the infinite-width init value is
+    ``s = 1 / (gamma^2 N)`` (using ``E||w||^2 = N``), independent of depth.
     """
     widths = np.asarray(widths)
     cmap = plt.get_cmap("viridis")
@@ -60,14 +61,17 @@ def plot_rescaling_per_width(
             label=label,
         )
 
-    theory = (1.0 + 1.0 / depth) / (gamma ** 2 * widths.astype(float))
+    # s = 1/λ + ((L-1)/L)/(γ² N) = 1/(γ² N) when λ = γ² N L and κ = L.
+    theory = (
+        1.0 / depth + (depth - 1) / depth
+    ) / (gamma ** 2 * widths.astype(float))
     ax.plot(
         widths,
         theory,
         "--",
         linewidth=LINE_WIDTH,
         color="black",
-        label=r"Theory $(1 + 1/L)/(\gamma^2 N)$",
+        label=r"Theory $1/(\gamma^2 N)$",
     )
 
     ax.spines["top"].set_visible(False)

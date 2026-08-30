@@ -32,6 +32,7 @@ def pc_energy_fn(
     record_layers: bool = False,
     gamma: Optional[Scalar] = None,
     output_energy_scaling: Optional[Scalar] = None,
+    hidden_energy_scaling: Optional[Scalar] = None,
 ) -> Scalar | Array:
     r"""Computes the PC energy for a neural network of the form
 
@@ -81,6 +82,9 @@ def pc_energy_fn(
         term. Note that this equals the precision
         (inverse covariance) of the generative distribution at the output layer.
         Defaults to `None` (equivalent to a scaling of 1).
+    - `hidden_energy_scaling`: Optional multiplier for every non-output layer
+        energy (hidden precision κ). Defaults to `None` (equivalent to 1).
+        For depth-μPC this is the number of layers $L$.
 
     **Returns:**
 
@@ -107,6 +111,7 @@ def pc_energy_fn(
     )
 
     output_scale = 1. if output_energy_scaling is None else output_energy_scaling
+    hidden_scale = 1. if hidden_energy_scaling is None else hidden_energy_scaling
 
     if loss == "mse":
         eL = y - scalings[-1] * vmap(model[-1])(activities[-2])
@@ -124,14 +129,14 @@ def pc_energy_fn(
         if skip_model[net_l] is not None:
             err -= vmap(skip_model[net_l])(activities[act_l - 1])
 
-        energies.append(0.5 * sum(err ** 2))
+        energies.append(0.5 * hidden_scale * sum(err ** 2))
 
     if x is not None:
         e1 = activities[0] - scalings[0] * vmap(model[0])(x)
     else:
         e1 = activities[1] - vmap(model[0])(activities[0])
 
-    energies.append(0.5 * sum(e1 ** 2))
+    energies.append(0.5 * hidden_scale * sum(e1 ** 2))
 
     weight_reg = 0.
     if weight_decay > 0.:
