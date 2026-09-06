@@ -21,6 +21,29 @@ from experiments.limits_paper.utils import MLP as LimitsMLP
 from experiments.limits_paper.utils import configure_param_optim, flatten_grads
 
 
+def mlp_adam_lr(param_lr, param_type, use_skips, width, depth):
+    """Adam LR matching ``configure_param_optim`` (BP and, here, PC)."""
+    if param_type == "sp":
+        return param_lr
+    if use_skips:
+        return param_lr / (np.sqrt(width) * np.sqrt(depth))
+    return param_lr / np.sqrt(width)
+
+
+def bp_gd_style_lr(param_lr, param_type, gamma_0, width):
+    """BP GD / SGD+momentum LR: µP bakes ``γ² N`` into the optimiser."""
+    if param_type == "sp":
+        return param_lr
+    return param_lr * (gamma_0 ** 2) * width
+
+
+def make_sgd_param_optim(learning_rate, param_optim_id, momentum=0.9):
+    """Vanilla GD or SGD+momentum. No Adam-style ``1/√N`` rescaling."""
+    if param_optim_id == "sgd_momentum":
+        return optax.sgd(learning_rate, momentum=momentum)
+    return optax.sgd(learning_rate)
+
+
 def create_toy_dataset(key, D, P):
     X = jr.normal(key, (D, P))
     y = jnp.where(jnp.arange(P) < P//2, 1.0, -1.0)
@@ -671,15 +694,17 @@ def train_pcn(
       h_k0_steps=None,
       X_eval=None,
       h_k0_eval_callback=None,
+      momentum=0.9,
 ):
     """Train a PC network.
 
     Parameter / activity updates follow the finite-size convention used by
-    ``get_coord_data``: plain ``param_lr`` with
+    ``get_coord_data``: GD and SGD+momentum use plain ``param_lr`` with
     ``output_energy_scaling = gamma^2 * width * depth`` and
-    ``hidden_energy_scaling = depth`` for µPC (rather than baking the
-    width/depth factor into the optimiser learning rate).
-    Note that depth includes the output layer here, as opposed to depth in theory_utils.py
+    ``hidden_energy_scaling = depth`` for µPC (scale lives in the energy).
+    Adam divides the PC LR the same way as BP (``1/√N``, or ``1/√(N L)``
+    with MLP skips). Note that depth includes the output layer here, as
+    opposed to depth in theory_utils.py.
 
     Returns ``(pc_grads, model, skip_model)``. ``pc_grads`` is ``None``
     unless ``store_grads`` is True. If ``h_k0_steps`` is a list, each
@@ -700,13 +725,18 @@ def train_pcn(
     )
     hidden_energy_scaling = get_hidden_energy_scaling(param_type, depth)
 
-    # Optimisers (plain lr; µPC width/gamma/depth scaling via energy terms)
+    # GD / SGD+momentum: plain lr; µPC width/gamma/depth live in the energy.
+    # Adam: divide like BP (``1/√N``, or ``1/√(N L)`` with skips).
     batch_size = X_input.shape[0]
     activity_optim = optax.sgd(activity_lr * batch_size)
-    if param_optim_id == "gd":
-        param_optim = optax.sgd(param_lr)
+    if param_optim_id in ("gd", "sgd_momentum"):
+        param_optim = make_sgd_param_optim(
+            param_lr, param_optim_id, momentum
+        )
     elif param_optim_id == "adam":
-        param_optim = optax.adam(param_lr)
+        param_optim = optax.adam(
+            mlp_adam_lr(param_lr, param_type, use_skips, width, depth)
+        )
     else:
         raise ValueError(f"Invalid optimiser: {param_optim_id}")
     param_opt_state = param_optim.init(
@@ -873,8 +903,13 @@ def train_bpn(
       h_k0_steps=None,
       X_eval=None,
       h_k0_eval_callback=None,
+      momentum=0.9,
 ):
     """Train a finite-width BP MLP.
+
+    GD and SGD+momentum bake ``γ² N`` into the optimiser for µP (no
+    Adam-style ``1/√N`` rescaling). Adam uses ``configure_param_optim``
+    (``1/√N``, or ``1/√(N L)`` with MLP skips).
 
     If ``h_k0_steps`` is a list, each training step appends the hidden
     pre-activations ``h^l`` (see ``bp_hidden_preactivations``), *before*
@@ -889,10 +924,16 @@ def train_bpn(
     if h_k0_eval_callback is not None and X_eval is None:
         raise ValueError("h_k0_eval_callback requires X_eval")
 
-    # Optimiser
-    optim = configure_param_optim(
-        optim_id, param_type, use_skips, param_lr, width, model.L, gamma_0
-    )
+    if optim_id == "sgd_momentum":
+        optim = make_sgd_param_optim(
+            bp_gd_style_lr(param_lr, param_type, gamma_0, width),
+            optim_id,
+            momentum,
+        )
+    else:
+        optim = configure_param_optim(
+            optim_id, param_type, use_skips, param_lr, width, model.L, gamma_0
+        )
     opt_state = optim.init(eqx.filter(model, eqx.is_array))
 
     if loss_id == "mse":

@@ -9,8 +9,11 @@ If any of ``--n_hidden``, ``--width``, ``--batch_size``, ``--n_res_blocks``,
 is given as a list, runs a Cartesian hyperparameter sweep. Backprop and PC
 are trained separately: shared architecture/batch axes apply to both,
 ``--param_lr`` is BP-only, and ``--param_lr_pc`` / ``--activity_lr`` /
-``--n_infer_iters`` are PC-only. Configs are ranked by mean final test
-accuracy across ``--n_seeds``. Sweep runs are stored under
+``--n_infer_iters`` are PC-only. ``--pc_infer_mode closed_form`` skips
+activity GD and updates PC parameters from the linear equilibrium
+energy (requires ``--act_fn linear``, ``--loss_id mse``, and
+``--arch mlp``). Configs are ranked by mean final test accuracy across
+``--n_seeds``. Sweep runs are stored under
 ``hp_sweep/{bp|pc}/key=value/.../seed=N`` with a compact
 ``sweep_summary.json``.
 
@@ -668,6 +671,10 @@ def evaluate_train(bp_model, args, *, pc_model=None, skip_model=None, jpc_kw=Non
     )
 
 
+def pc_closed_form(args):
+    return getattr(args, "pc_infer_mode", "infer") == "closed_form"
+
+
 def pc_infer_and_update(
     model,
     skip_model,
@@ -682,6 +689,36 @@ def pc_infer_and_update(
     hidden_energy_scaling,
 ):
     params = (model, skip_model)
+    if pc_closed_form(args):
+        energy = jpc.linear_equilib_energy(
+            params=params,
+            x=x,
+            y=y,
+            output_energy_scaling=output_energy_scaling,
+            hidden_energy_scaling=hidden_energy_scaling,
+            **jpc_kw,
+        )
+        energy = float(energy)
+        if not np.isfinite(energy):
+            return model, skip_model, param_opt_state, energy, False
+        param_result = jpc.update_linear_equilib_energy_params(
+            params=params,
+            optim=param_optim,
+            opt_state=param_opt_state,
+            x=x,
+            y=y,
+            output_energy_scaling=output_energy_scaling,
+            hidden_energy_scaling=hidden_energy_scaling,
+            **jpc_kw,
+        )
+        return (
+            param_result["model"],
+            param_result["skip_model"],
+            param_result["opt_state"],
+            energy,
+            True,
+        )
+
     activities = jpc.init_activities_with_ffwd(
         model=model,
         input=x,
@@ -780,8 +817,14 @@ def setup_save_dir(args, seed_tag=None):
         f"{args.param_lr_pc}_param_lr_pc",
         f"{args.batch_size}_batch_size",
         f"{args.n_epochs}_n_epochs",
-        f"{args.n_infer_iters}_n_infer_iters",
-        f"{args.activity_lr}_activity_lr",
+        *(
+            [f"{args.pc_infer_mode}_pc_infer_mode"]
+            if pc_closed_form(args)
+            else [
+                f"{args.n_infer_iters}_n_infer_iters",
+                f"{args.activity_lr}_activity_lr",
+            ]
+        ),
         f"{args.use_skips}_use_skips",
         f"{args.skip_pc}_skip_pc",
         f"{getattr(args, 'skip_bp', False)}_skip_bp",
@@ -1337,7 +1380,11 @@ def run_benchmark(args, save_dir=None):
         pc_param_optim, pc_opt_state = make_pc_param_optim(
             pc_model, skip_model, args, depth
         )
-        activity_optim = optax.sgd(args.activity_lr * args.batch_size)
+        activity_optim = (
+            None
+            if pc_closed_form(args)
+            else optax.sgd(args.activity_lr * args.batch_size)
+        )
     else:
         pc_param_optim = pc_opt_state = activity_optim = None
     if not args.skip_bp:
@@ -1367,7 +1414,8 @@ def run_benchmark(args, save_dir=None):
         f"Benchmark {args.dataset} ({args.arch}), width={args.width}, "
         f"L={depth}, γ={args.gamma}, λ={output_energy_scaling}, "
         f"κ={hidden_energy_scaling}, optim={args.param_optim}, "
-        f"lr_bp={args.param_lr}, lr_pc={args.param_lr_pc}{skip_note}"
+        f"lr_bp={args.param_lr}, lr_pc={args.param_lr_pc}, "
+        f"pc_infer={getattr(args, 'pc_infer_mode', 'infer')}{skip_note}"
     )
 
     history = {
@@ -1835,18 +1883,37 @@ def parse_args():
     parser.add_argument("--log_every", type=int, default=100)
 
     parser.add_argument(
+        "--pc_infer_mode",
+        type=str,
+        default="infer",
+        choices=["infer", "optim", "closed_form"],
+        help=(
+            "PC inference mode. 'infer' / 'optim' (default) run "
+            "--n_infer_iters steps of activity GD each training step. "
+            "'closed_form' updates PC parameters from the linear "
+            "equilibrium energy (requires --act_fn linear, --loss_id mse, "
+            "and --arch mlp). Activity LR / n_infer_iters are unused."
+        ),
+    )
+    parser.add_argument(
         "--activity_lr",
         type=float,
         nargs="+",
         default=[0.3],
-        help="PC activity learning rate. Pass multiple values to sweep PC only.",
+        help=(
+            "PC activity learning rate. Pass multiple values to sweep PC only. "
+            "Unused with --pc_infer_mode closed_form."
+        ),
     )
     parser.add_argument(
         "--n_infer_iters",
         type=int,
         nargs="+",
         default=[10],
-        help="PC inference steps. Pass multiple values to sweep PC only.",
+        help=(
+            "PC inference steps. Pass multiple values to sweep PC only. "
+            "Unused with --pc_infer_mode closed_form."
+        ),
     )
     parser.add_argument(
         "--keep_npy",
@@ -1900,6 +1967,13 @@ SWEEP_ALL_KEYS = (
 )
 SWEEP_BP_ONLY = ("param_lr",)
 SWEEP_PC_ONLY = ("param_lr_pc", "activity_lr", "n_infer_iters")
+SWEEP_PC_CLOSED_FORM = ("param_lr_pc",)
+
+
+def pc_only_sweep_keys(args):
+    if pc_closed_form(args):
+        return SWEEP_PC_CLOSED_FORM
+    return SWEEP_PC_ONLY
 
 
 def _as_values(args, key):
@@ -1930,16 +2004,16 @@ def shared_sweep_keys(arch):
     return keys
 
 
-def active_sweep_keys(arch):
+def active_sweep_keys(args):
     return (
-        shared_sweep_keys(arch)
+        shared_sweep_keys(args.arch)
         + list(SWEEP_BP_ONLY)
-        + list(SWEEP_PC_ONLY)
+        + list(pc_only_sweep_keys(args))
     )
 
 
 def is_hp_sweep(args):
-    return any(len(_as_values(args, key)) > 1 for key in active_sweep_keys(args.arch))
+    return any(len(_as_values(args, key)) > 1 for key in active_sweep_keys(args))
 
 
 def cartesian_grid(args, keys):
@@ -2177,6 +2251,7 @@ def _fixed_training_args(args):
         "param_type",
         "gamma",
         "param_optim",
+        "pc_infer_mode",
         "use_skips",
         "n_mini_per_epoch",
     ]
@@ -2253,12 +2328,19 @@ def warn_unused_arch_sweep_axes(args):
         print(
             "Warning: --n_hidden is unused for CNN; extra values are ignored."
         )
+    if pc_closed_form(args):
+        for key in ("activity_lr", "n_infer_iters"):
+            if len(_as_values(args, key)) > 1:
+                print(
+                    f"Warning: --{key} is unused with --pc_infer_mode "
+                    "closed_form; extra values are ignored."
+                )
 
 
 def run_hp_sweep(args):
     shared_keys = shared_sweep_keys(args.arch)
     bp_keys = shared_keys + list(SWEEP_BP_ONLY)
-    pc_keys = shared_keys + list(SWEEP_PC_ONLY)
+    pc_keys = shared_keys + list(pc_only_sweep_keys(args))
     do_bp = not args.skip_bp
     do_pc = not args.skip_pc
     bp_grid = cartesian_grid(args, bp_keys) if do_bp else []
@@ -2375,6 +2457,19 @@ if __name__ == "__main__":
         raise SystemExit("--n_mini_per_epoch must be >= 1")
     if args.skip_pc and args.skip_bp:
         raise SystemExit("Cannot use --skip_pc and --skip_bp together")
+    if args.pc_infer_mode == "closed_form":
+        if args.act_fn != "linear":
+            raise SystemExit(
+                "--pc_infer_mode closed_form requires --act_fn linear"
+            )
+        if args.loss_id != "mse":
+            raise SystemExit(
+                "--pc_infer_mode closed_form requires --loss_id mse"
+            )
+        if args.arch != "mlp":
+            raise SystemExit(
+                "--pc_infer_mode closed_form requires --arch mlp"
+            )
 
     warn_unused_arch_sweep_axes(args)
     if is_hp_sweep(args):
@@ -2401,12 +2496,13 @@ if __name__ == "__main__":
 # python train_benchmark.py --dataset ImageNet --n_epochs 1 --batch_size 64 --width 256 --n_res_blocks 3 --n_hidden 3 --param_lr 0.01 --param_lr_pc 0.1 --activity_lr 0.1 --n_infer_iters 50 --param_optim adam --act_fn relu
 
 # # Hyperparameter sweep (BP and PC independently; rank by mean final test acc)
-# python train_benchmark.py --dataset MNIST --n_epochs 5 --n_seeds 3 \
-#   --width 256 --n_hidden 3 --batch_size 64 \
-#   --param_lr 0.001 0.01 0.1 \
-#   --param_lr_pc 0.01 0.1 \
-#   --activity_lr 0.05 0.1 \
-#   --n_infer_iters 50 100
+# python train_benchmark.py --dataset MNIST --n_epochs 10 --n_seeds 2 \
+#   --width 256 --n_hidden 2 --batch_size 64 \
+#   --param_lr 0.001 0.003 0.01 0.03 0.1 0.3 1.0 \
+#   --param_lr_pc 0.01 0.03 0.1 0.3 1.0 3.0 \
+#   --activity_lr 0.01 0.03 0.1 0.3 \
+#   --n_infer_iters 50 200 500 \
+#   --param_optim adam --act_fn relu \
 #   --results_dir results_sweep
 
 # # CNN sweep including residual-block depth
@@ -2420,3 +2516,6 @@ if __name__ == "__main__":
 ### Testing MLP on MNIST
 # python train_benchmark.py --dataset MNIST --n_epochs 10 --batch_size 64 --width 256 --n_hidden 2 --param_lr 0.01 --param_lr_pc 0.01 --activity_lr 0.1 --n_infer_iters 100 --param_optim adam --act_fn tanh --log_steps
 # python train_benchmark.py --dataset MNIST --n_epochs 10 --batch_size 64 --width 256 --n_hidden 3 --param_lr 0.01 --param_lr_pc 0.02 --activity_lr 0.05 --n_infer_iters 200 --param_optim adam --act_fn relu
+
+# Linear MLP, MSE, closed-form PC equilibrium
+# python train_benchmark.py --dataset MNIST --n_epochs 10 --batch_size 64 --width 256 --n_hidden 2 --param_lr 0.01 --param_lr_pc 0.01 --param_optim adam --act_fn linear --loss_id mse --pc_infer_mode closed_form

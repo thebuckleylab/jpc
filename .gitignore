@@ -1,7 +1,7 @@
 **/.ipynb_checkpoints
 **/data/
 **/datasets/
-**/results_sweep/
+**/results_sweep*/
 **/untracked/
 examples/data/
 *.egg-info/

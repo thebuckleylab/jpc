@@ -832,6 +832,7 @@ def _train_finite_bp(
     X_eval=None,
     phi_fn=None,
     collect_eval_kernels=False,
+    momentum=0.9,
 ):
     """Run one finite-width BP training job.
 
@@ -912,6 +913,7 @@ def _train_finite_bp(
         h_k0_steps=h_k0_steps,
         X_eval=X_eval,
         h_k0_eval_callback=h_k0_eval_callback,
+        momentum=momentum,
     )
     losses = np.load(f"{save_dir}/losses.npy")
     h_k0_traj = np.stack(h_k0_steps, axis=1) if collect_h_k0 else None
@@ -940,11 +942,39 @@ if __name__ == "__main__":
     parser.add_argument("--loss_id", type=str, default="mse", choices=["mse", "ce"])
 
     # BP training parameters
-    parser.add_argument("--param_lr", type=float, default=0.05)
-    parser.add_argument("--param_optim", type=str, default="gd", choices=["gd", "adam"])
+    parser.add_argument(
+        "--param_lr",
+        type=float,
+        default=0.05,
+        help=(
+            "Backprop parameter learning rate "
+            "(Adam: divided by √N, or √(N L) with skips; "
+            "GD / SGD+momentum: µP bakes γ² N into the optimiser)."
+        ),
+    )
+    parser.add_argument(
+        "--param_optim",
+        type=str,
+        default="gd",
+        choices=["gd", "adam", "sgd_momentum"],
+    )
+    parser.add_argument(
+        "--momentum",
+        type=float,
+        default=0.9,
+        help="Momentum for --param_optim sgd_momentum (ignored otherwise).",
+    )
 
     # PC training / inference parameters
-    parser.add_argument("--param_lr_pc", type=float, default=0.5)
+    parser.add_argument(
+        "--param_lr_pc",
+        type=float,
+        default=0.5,
+        help=(
+            "PC parameter learning rate (Adam: divided like BP; "
+            "GD / SGD+momentum: used as-is)."
+        ),
+    )
     parser.add_argument(
         "--pc_infer_mode",
         type=str,
@@ -1211,6 +1241,7 @@ if __name__ == "__main__":
             param_lr=args.param_lr_pc,
             gamma_0=args.gamma_0,
             param_optim_id=args.param_optim,
+            momentum=args.momentum,
             n_train_iters=T_train,
             infer_mode=infer_mode,
             n_infer_iters=args.n_infer_iters,
@@ -1251,6 +1282,7 @@ if __name__ == "__main__":
             param_lr=args.param_lr,
             gamma_0=args.gamma_0,
             param_optim_id=args.param_optim,
+            momentum=args.momentum,
             n_train_iters=T_train,
             width=width,
             loss_id=loss_id,
