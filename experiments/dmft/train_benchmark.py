@@ -4,6 +4,17 @@ Trains a predictive-coding network and a backprop network on the **same**
 minibatches (augment once, then both update) for ``--n_epochs`` passes over
 the training set, then overlays train/test loss and accuracy.
 
+``--fixed_subset`` freezes one unaugmented train batch and one held-out
+test batch, both of size ``--batch_size`` (sampled with ``--seed``, like
+``analyse_alignment.py``). Every epoch is one GD step on the train
+subset. Train metrics use that subset; test metrics use the equal-sized
+held-out subset.
+
+``tiny-CIFAR10`` is the alignment binary task: grayscale CIFAR-10,
+classes 0 vs 1, labels ``{-1, +1}``, MLP, MSE. Without ``--fixed_subset``
+it uses all 10k two-class train images; with it, ``--batch_size`` (even)
+examples, balanced.
+
 If any of ``--n_hidden``, ``--width``, ``--batch_size``, ``--n_res_blocks``,
 ``--param_lr``, ``--param_lr_pc``, ``--activity_lr``, or ``--n_infer_iters``
 is given as a list, runs a Cartesian hyperparameter sweep. Backprop and PC
@@ -31,8 +42,8 @@ in the energy); BP bakes ``γ² N`` into the optimiser. No Adam-style
 CNN residual blocks still use the per-parameter Adam tree from
 ``configure_cnn_param_optim``. ImageNet is streamed from Hugging Face.
 
-Default architecture: MLP for MNIST / Fashion-MNIST, CNN otherwise.
-Override with ``--arch``.
+Default architecture: MLP for MNIST / Fashion-MNIST / tiny-CIFAR10,
+CNN otherwise. Override with ``--arch``.
 """
 
 from __future__ import annotations
@@ -56,7 +67,7 @@ import jax.random as jr
 import equinox as eqx
 import optax
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, TensorDataset
 
 import jpc
 
@@ -66,8 +77,10 @@ from experiments.datasets import (
     TinyImageNet,
 )
 from experiments.dmft.utils import (
+    CIFAR_GRAY_DIM,
     MLP,
     copy_mlp_linear_params,
+    create_tiny_cifar10_dataset,
     get_hidden_energy_scaling,
     get_output_energy_scaling,
 )
@@ -94,6 +107,9 @@ DATASET_ALIASES = {
     "tiny-imagenet": "TinyImageNet",
     "tiny_imagenet": "TinyImageNet",
     "imagenet": "ImageNet",
+    "tiny-cifar10": "tiny-CIFAR10",
+    "tinycifar10": "tiny-CIFAR10",
+    "tiny_cifar10": "tiny-CIFAR10",
 }
 
 DATASET_SPECS = {
@@ -104,6 +120,9 @@ DATASET_SPECS = {
     "CIFAR10": dict(
         in_channels=3, input_size=32, n_classes=10, flatten_dim=3072
     ),
+    "tiny-CIFAR10": dict(
+        in_channels=1, input_size=32, n_classes=1, flatten_dim=CIFAR_GRAY_DIM
+    ),
     "TinyImageNet": dict(
         in_channels=3, input_size=64, n_classes=200, flatten_dim=12288
     ),
@@ -112,7 +131,9 @@ DATASET_SPECS = {
     ),
 }
 
-MLP_DATASETS = {"MNIST", "Fashion-MNIST"}
+MLP_DATASETS = {"MNIST", "Fashion-MNIST", "tiny-CIFAR10"}
+TINY_CIFAR10_TRAIN_SIZE = 10_000
+TINY_CIFAR10_TEST_SIZE = 2_000
 IMAGENET_TRAIN_SIZE = 1_281_167
 IMAGENET_VAL_SIZE = 50_000
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
@@ -127,7 +148,7 @@ def normalize_dataset_id(name):
         return name
     raise ValueError(
         f"Unknown dataset '{name}'. Options: MNIST, Fashion-MNIST, "
-        "CIFAR10, TinyImageNet, ImageNet."
+        "CIFAR10, tiny-CIFAR10, TinyImageNet, ImageNet."
     )
 
 
@@ -177,7 +198,13 @@ def supervised_loss(preds, y, loss_id):
 
 
 def accuracy_pct(preds, y):
-    return jpc.compute_accuracy(y, preds)
+    y = jnp.asarray(y)
+    preds = jnp.asarray(preds)
+    if y.ndim == 1 or y.shape[-1] == 1:
+        y = y.reshape(-1)
+        preds = preds.reshape(-1)
+        return float(jnp.mean(jnp.sign(preds) == jnp.sign(y)) * 100.0)
+    return float(jpc.compute_accuracy(y, preds))
 
 
 def _to_numpy_batch(x, y):
@@ -321,6 +348,162 @@ def iter_imagenet_hf(
         )
 
 
+def _targets_2d(y):
+    y = jnp.asarray(y, dtype=jnp.float32)
+    if y.ndim == 1:
+        return y[:, None]
+    return y
+
+
+def _tiny_cifar_xy(key, n_samples, train):
+    X, y = create_tiny_cifar10_dataset(
+        key=key, D=CIFAR_GRAY_DIM, P=n_samples, train=train
+    )
+    return jnp.asarray(X.T, dtype=jnp.float32), _targets_2d(y)
+
+
+def _loader_from_xy(x, y, batch_size, *, shuffle, drop_last, seed=0):
+    dataset = TensorDataset(
+        torch.from_numpy(np.array(x, copy=True)),
+        torch.from_numpy(np.array(y, copy=True)),
+    )
+    kwargs = dict(
+        dataset=dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        drop_last=drop_last,
+    )
+    if shuffle:
+        gen = torch.Generator()
+        gen.manual_seed(int(seed))
+        kwargs["generator"] = gen
+    return DataLoader(**kwargs)
+
+
+def _materialize_subset(dataset, n, seed, arch, dataset_id=None):
+    if n > len(dataset):
+        raise ValueError(
+            f"--fixed_subset requested {n} examples but the dataset has "
+            f"{len(dataset)}"
+        )
+    gen = torch.Generator()
+    gen.manual_seed(int(seed))
+    indices = torch.randperm(len(dataset), generator=gen)[:n].tolist()
+    xs, ys = [], []
+    for idx in indices:
+        x, y = dataset[idx]
+        xs.append(x)
+        ys.append(y)
+    x = torch.stack([torch.as_tensor(item) for item in xs])
+    y = torch.stack([torch.as_tensor(item) for item in ys])
+    if dataset_id == "CIFAR10":
+        x = (x - 0.5) / 0.5
+    return to_jax_batch(x, y, arch)
+
+
+def _unaugmented_train_dataset(dataset_id, flatten):
+    """Train split with deterministic (eval-style) transforms."""
+    if dataset_id in ("MNIST", "Fashion-MNIST"):
+        return get_dataset(
+            id=dataset_id, train=True, normalise=True, flatten=flatten
+        )
+    if dataset_id == "CIFAR10":
+        return get_dataset(
+            id=dataset_id, train=True, normalise=False, flatten=flatten
+        )
+    if dataset_id == "TinyImageNet":
+        dataset = TinyImageNet(split="train")
+        dataset.transform = dataset._make_transform("val")
+        return dataset
+    raise ValueError(f"No unaugmented train set for '{dataset_id}'")
+
+
+def _test_dataset(dataset_id, flatten):
+    if dataset_id == "TinyImageNet":
+        return TinyImageNet(split="val")
+    return get_dataset(
+        id=dataset_id, train=False, normalise=True, flatten=flatten
+    )
+
+
+def _imagenet_fixed_batch(split, n, seed):
+    raw = iter_imagenet_hf(
+        split=split,
+        batch_size=n,
+        seed=seed,
+        n_examples=n,
+        train=False,
+        drop_last=False,
+    )
+    return next(raw)
+
+
+def prepare_data(args):
+    """Attach loaders and optional frozen train/test batches on ``args``."""
+    args._fixed_train_batch = None
+    args._fixed_test_batch = None
+    args._train_loader = None
+    args._test_loader = None
+    flatten = args.arch == "mlp"
+    n = int(args.batch_size)
+
+    if args.dataset == "tiny-CIFAR10":
+        data_key = jr.PRNGKey(args.seed)
+        train_key, test_key = jr.split(data_key)
+        if uses_fixed_subset(args):
+            if n % 2 != 0:
+                raise ValueError(
+                    "tiny-CIFAR10 --fixed_subset needs an even --batch_size "
+                    f"(got {n}) so the two classes stay balanced"
+                )
+            args._fixed_train_batch = _tiny_cifar_xy(train_key, n, train=True)
+            args._fixed_test_batch = _tiny_cifar_xy(test_key, n, train=False)
+            return
+        x_train, y_train = _tiny_cifar_xy(
+            train_key, TINY_CIFAR10_TRAIN_SIZE, train=True
+        )
+        x_test, y_test = _tiny_cifar_xy(
+            test_key, TINY_CIFAR10_TEST_SIZE, train=False
+        )
+        args._train_loader = _loader_from_xy(
+            x_train,
+            y_train,
+            n,
+            shuffle=True,
+            drop_last=True,
+            seed=args.seed,
+        )
+        args._test_loader = _loader_from_xy(
+            x_test, y_test, n, shuffle=False, drop_last=False
+        )
+        return
+
+    if args.dataset == "ImageNet":
+        if uses_fixed_subset(args):
+            args._fixed_train_batch = _imagenet_fixed_batch(
+                "train", n, args.seed
+            )
+            args._fixed_test_batch = _imagenet_fixed_batch(
+                "val", n, args.seed + 1
+            )
+        return
+
+    if uses_fixed_subset(args):
+        train_data = _unaugmented_train_dataset(args.dataset, flatten)
+        test_data = _test_dataset(args.dataset, flatten)
+        args._fixed_train_batch = _materialize_subset(
+            train_data, n, args.seed, args.arch, args.dataset
+        )
+        args._fixed_test_batch = _materialize_subset(
+            test_data, n, args.seed + 1, args.arch, args.dataset
+        )
+        return
+
+    args._train_loader, args._test_loader = make_torch_loaders(
+        args.dataset, n, flatten, args.seed
+    )
+
+
 def make_torch_loaders(dataset_id, batch_size, flatten, seed):
     gen = torch.Generator()
     gen.manual_seed(int(seed))
@@ -368,7 +551,14 @@ def _iter_prepared(raw_batches, arch):
         yield to_jax_batch(x, y, arch)
 
 
+def _iter_fixed_batch(batch):
+    x, y = batch
+    yield x, y
+
+
 def iter_train_batches(args, epoch):
+    if getattr(args, "_fixed_train_batch", None) is not None:
+        return _iter_fixed_batch(args._fixed_train_batch)
     if args.dataset == "ImageNet":
         raw = iter_imagenet_hf(
             split="train",
@@ -385,6 +575,8 @@ def iter_train_batches(args, epoch):
 
 def iter_eval_train_batches(args):
     """Training-set batches for eval; does not consume the shuffled train loader."""
+    if getattr(args, "_fixed_train_batch", None) is not None:
+        return _iter_fixed_batch(args._fixed_train_batch)
     if args.dataset == "ImageNet":
         raw = iter_imagenet_hf(
             split="train",
@@ -405,6 +597,8 @@ def iter_eval_train_batches(args):
 
 
 def iter_test_batches(args):
+    if getattr(args, "_fixed_test_batch", None) is not None:
+        return _iter_fixed_batch(args._fixed_test_batch)
     if args.dataset == "ImageNet":
         raw = iter_imagenet_hf(
             split="val",
@@ -579,7 +773,13 @@ def bp_batch_metrics(model, x, y, loss_id):
     return float(supervised_loss(preds, y, loss_id)), float(accuracy_pct(preds, y))
 
 
+def uses_fixed_subset(args):
+    return bool(getattr(args, "fixed_subset", False))
+
+
 def n_train_batches(args):
+    if uses_fixed_subset(args):
+        return 1
     if args.dataset == "ImageNet":
         return IMAGENET_TRAIN_SIZE // args.batch_size
     return len(args._train_loader)
@@ -665,6 +865,39 @@ def evaluate_train(bp_model, args, *, pc_model=None, skip_model=None, jpc_kw=Non
         iter_eval_train_batches(args),
         args,
         bp_model=bp_model,
+        pc_model=pc_model,
+        skip_model=skip_model,
+        jpc_kw=jpc_kw,
+    )
+
+
+def current_train_metrics(
+    args,
+    *,
+    bp_model,
+    pc_model,
+    skip_model,
+    jpc_kw,
+    skip_pc,
+    skip_bp,
+    nan_metrics,
+):
+    """Feedforward train loss/acc of the current weights (frozen subset if set)."""
+    if skip_pc:
+        _, bp_train = evaluate_train(bp_model, args)
+        return nan_metrics, bp_train
+    if skip_bp:
+        pc_train, _ = evaluate_train(
+            None,
+            args,
+            pc_model=pc_model,
+            skip_model=skip_model,
+            jpc_kw=jpc_kw,
+        )
+        return pc_train, nan_metrics
+    return evaluate_train(
+        bp_model,
+        args,
         pc_model=pc_model,
         skip_model=skip_model,
         jpc_kw=jpc_kw,
@@ -816,6 +1049,11 @@ def setup_save_dir(args, seed_tag=None):
         f"{args.param_lr}_param_lr",
         f"{args.param_lr_pc}_param_lr_pc",
         f"{args.batch_size}_batch_size",
+        *(
+            [f"{args.fixed_subset}_fixed_subset"]
+            if uses_fixed_subset(args)
+            else []
+        ),
         f"{args.n_epochs}_n_epochs",
         *(
             [f"{args.pc_infer_mode}_pc_infer_mode"]
@@ -1367,13 +1605,7 @@ def run_benchmark(args, save_dir=None):
     hidden_energy_scaling = get_hidden_energy_scaling(args.param_type, depth)
     jpc_kw = pc_jpc_kwargs(args)
 
-    if args.dataset != "ImageNet":
-        flatten = args.arch == "mlp"
-        args._train_loader, args._test_loader = make_torch_loaders(
-            args.dataset, args.batch_size, flatten, args.seed
-        )
-    else:
-        args._train_loader = args._test_loader = None
+    prepare_data(args)
 
     pc_model, bp_model, skip_model = make_models(key, args, spec)
     if not args.skip_pc:
@@ -1417,6 +1649,12 @@ def run_benchmark(args, save_dir=None):
         f"lr_bp={args.param_lr}, lr_pc={args.param_lr_pc}, "
         f"pc_infer={getattr(args, 'pc_infer_mode', 'infer')}{skip_note}"
     )
+    if uses_fixed_subset(args):
+        print(
+            f"Fixed subset: {args.batch_size} frozen unaugmented train "
+            f"examples and {args.batch_size} held-out test examples "
+            "(one GD step per epoch; metrics use these subsets)"
+        )
 
     history = {
         "epoch_eval": [],
@@ -1617,6 +1855,17 @@ def run_benchmark(args, save_dir=None):
                     if args.skip_pc
                     else evaluate_pc(pc_model, args, skip_model, jpc_kw)
                 )
+                if uses_fixed_subset(args) and at_epoch_end:
+                    pc_train_mini, bp_train_mini = current_train_metrics(
+                        args,
+                        bp_model=bp_model,
+                        pc_model=pc_model,
+                        skip_model=skip_model,
+                        jpc_kw=jpc_kw,
+                        skip_pc=args.skip_pc,
+                        skip_bp=args.skip_bp,
+                        nan_metrics=nan_metrics,
+                    )
                 _append_mini_point(
                     history,
                     frac,
@@ -1627,16 +1876,19 @@ def run_benchmark(args, save_dir=None):
                     **point_kw,
                 )
                 if at_epoch_end:
-                    bp_train_epoch = (
-                        (bp_loss_sum / n_batches, bp_acc_sum / n_batches)
-                        if not args.skip_bp
-                        else nan_metrics
-                    )
-                    pc_train_epoch = (
-                        (pc_loss_sum / n_batches, pc_acc_sum / n_batches)
-                        if not args.skip_pc
-                        else nan_metrics
-                    )
+                    bp_train_epoch = bp_train_mini
+                    pc_train_epoch = pc_train_mini
+                    if not uses_fixed_subset(args):
+                        bp_train_epoch = (
+                            (bp_loss_sum / n_batches, bp_acc_sum / n_batches)
+                            if not args.skip_bp
+                            else nan_metrics
+                        )
+                        pc_train_epoch = (
+                            (pc_loss_sum / n_batches, pc_acc_sum / n_batches)
+                            if not args.skip_pc
+                            else nan_metrics
+                        )
                     _append_epoch_point(
                         history,
                         epoch,
@@ -1707,6 +1959,18 @@ def run_benchmark(args, save_dir=None):
                 if args.skip_pc
                 else evaluate_pc(pc_model, args, skip_model, jpc_kw)
             )
+            if uses_fixed_subset(args):
+                pc_train_epoch, bp_train_epoch = current_train_metrics(
+                    args,
+                    bp_model=bp_model,
+                    pc_model=pc_model,
+                    skip_model=skip_model,
+                    jpc_kw=jpc_kw,
+                    skip_pc=args.skip_pc,
+                    skip_bp=args.skip_bp,
+                    nan_metrics=nan_metrics,
+                )
+                pc_train_mini, bp_train_mini = pc_train_epoch, bp_train_epoch
             _append_mini_point(
                 history,
                 frac,
@@ -1770,7 +2034,7 @@ def parse_args():
         "--dataset",
         type=str,
         default="MNIST",
-        help="MNIST, Fashion-MNIST, CIFAR10, TinyImageNet, or ImageNet.",
+        help="MNIST, Fashion-MNIST, CIFAR10, tiny-CIFAR10, TinyImageNet, or ImageNet.",
     )
     parser.add_argument(
         "--arch",
@@ -1778,8 +2042,8 @@ def parse_args():
         default=None,
         choices=["mlp", "cnn"],
         help=(
-            "Architecture. Default: mlp for MNIST / Fashion-MNIST, "
-            "cnn otherwise."
+            "Architecture. Default: mlp for MNIST / Fashion-MNIST / "
+            "tiny-CIFAR10, cnn otherwise."
         ),
     )
 
@@ -1823,7 +2087,23 @@ def parse_args():
         type=int,
         nargs="+",
         default=[64],
-        help="Minibatch size. Pass multiple values to sweep.",
+        help=(
+            "Minibatch size. Pass multiple values to sweep. "
+            "With --fixed_subset this is both the frozen train-set size "
+            "and the held-out test subset size."
+        ),
+    )
+    parser.add_argument(
+        "--fixed_subset",
+        action="store_true",
+        default=False,
+        help=(
+            "Train on one frozen unaugmented subset of --batch_size "
+            "examples (sampled with --seed). Every epoch is one GD step "
+            "on that same batch. Train metrics use this subset; test "
+            "metrics use a held-out subset of the same size from the "
+            "official test/val split (alignment protocol)."
+        ),
     )
     parser.add_argument("--n_epochs", type=int, default=5)
     parser.add_argument(
@@ -2055,6 +2335,8 @@ def make_run_args(base_args, hparams=None, **overrides):
         setattr(run_args, key, value)
     run_args._train_loader = None
     run_args._test_loader = None
+    run_args._fixed_train_batch = None
+    run_args._fixed_test_batch = None
     return run_args
 
 
@@ -2253,6 +2535,7 @@ def _fixed_training_args(args):
         "param_optim",
         "pc_infer_mode",
         "use_skips",
+        "fixed_subset",
         "n_mini_per_epoch",
     ]
     if args.param_optim == "sgd_momentum":
@@ -2266,7 +2549,7 @@ def _fixed_training_args(args):
             if len(value) != 1:
                 continue
             value = value[0]
-        if key in ("use_skips", "scale_non_res_layers") and not value:
+        if key in ("use_skips", "scale_non_res_layers", "fixed_subset") and not value:
             continue
         fixed[key] = _json_number(value)
     return fixed
@@ -2448,6 +2731,20 @@ def run_hp_sweep(args):
 if __name__ == "__main__":
     args = parse_args()
     args.dataset = normalize_dataset_id(args.dataset)
+    if args.dataset == "tiny-CIFAR10":
+        if args.arch is None:
+            args.arch = "mlp"
+            print(f"Using default --arch mlp for {args.dataset}")
+        if args.arch != "mlp":
+            raise SystemExit(
+                "tiny-CIFAR10 requires --arch mlp (grayscale binary MSE)"
+            )
+        if args.loss_id != "mse":
+            print(
+                "tiny-CIFAR10 uses MSE (labels are {-1, +1}); "
+                "overriding --loss_id"
+            )
+            args.loss_id = "mse"
     if args.arch is None:
         args.arch = default_arch_for_dataset(args.dataset)
         print(f"Using default --arch {args.arch} for {args.dataset}")
@@ -2517,5 +2814,12 @@ if __name__ == "__main__":
 # python train_benchmark.py --dataset MNIST --n_epochs 10 --batch_size 64 --width 256 --n_hidden 2 --param_lr 0.01 --param_lr_pc 0.01 --activity_lr 0.1 --n_infer_iters 100 --param_optim adam --act_fn tanh --log_steps
 # python train_benchmark.py --dataset MNIST --n_epochs 10 --batch_size 64 --width 256 --n_hidden 3 --param_lr 0.01 --param_lr_pc 0.02 --activity_lr 0.05 --n_infer_iters 200 --param_optim adam --act_fn relu
 
+# python train_benchmark.py --dataset MNIST --n_epochs 10 --n_seeds 1 --width 256 --n_hidden 2 --batch_size 64 --param_lr 0.3 --param_lr_pc 0.3 --activity_lr 0.001 --n_infer_iters 20 --param_optim adam --act_fn relu --results_dir results_test 
+
 # Linear MLP, MSE, closed-form PC equilibrium
 # python train_benchmark.py --dataset MNIST --n_epochs 10 --batch_size 64 --width 256 --n_hidden 2 --param_lr 0.01 --param_lr_pc 0.01 --param_optim adam --act_fn linear --loss_id mse --pc_infer_mode closed_form
+
+# Frozen 40-example subset (full-batch GD, alignment-style)
+# python train_benchmark.py --dataset tiny-CIFAR10 --fixed_subset --batch_size 40 --n_epochs 100 --width 256 --n_hidden 2 --param_lr 0.05 --param_lr_pc 0.05 --activity_lr 0.1 --n_infer_iters 20 --param_optim gd --act_fn relu --loss_id mse --results_dir results_test 
+# python train_benchmark.py --dataset MNIST --fixed_subset --batch_size 40 --n_epochs 100 --width 256 --n_hidden 2 --param_lr 0.05 --param_lr_pc 0.05 --activity_lr 0.001 --n_infer_iters 20 --param_optim gd --act_fn relu --results_dir results_test 
+
