@@ -455,14 +455,24 @@ def sample_traced_pc_kernel(
 
 
 def sample_traced_empirical_pc_kernel(field):
-    """Sample-traced ``T x T`` kernel from a field of shape ``(T, P, N)``."""
-    arr = np.asarray(field, dtype=np.float64)
+    """Sample-traced ``T x T`` kernel from a field of shape ``(T, P, N)``.
+
+    Equivalent to tracing the sample diagonal of the flattened
+    ``(T P, T P)`` Gram ``phi phi^T / N``, i.e.
+    ``C_T[t, t'] = sum_mu phi[t, mu] · phi[t', mu] / N``.
+    Implemented as a ``(T, P N)`` GEMM so peak extra memory is
+    ``O(T^2)`` rather than ``O((T P)^2)`` (the latter OOMs at
+    ``T=1001``, ``P=40``, ``N=10000``).
+    """
+    arr = np.asarray(field)
     if arr.ndim != 3:
         raise ValueError(f"expected (T, P, N), got {arr.shape}")
-    T, P, _ = arr.shape
-    return sample_traced_time_kernel(
-        empirical_pc_kernel(arr).reshape(T, P, T, P)
-    )
+    T, P, n_units = arr.shape
+    if n_units < 1:
+        raise ValueError("width N must be positive")
+    flat = np.reshape(arr, (T, P * n_units))
+    gram = flat @ flat.T
+    return np.asarray(gram, dtype=np.float64) / n_units
 
 
 def bp_sample_kernel_at(kernel, t=-1):

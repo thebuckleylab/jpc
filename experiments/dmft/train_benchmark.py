@@ -2783,43 +2783,64 @@ if __name__ == "__main__":
 
 
 
+# # Frozen 40-example subset (full-batch GD, similar to analyse_alignment.py) - For testing
+# python train_benchmark.py --dataset tiny-CIFAR10 --fixed_subset --batch_size 40 --n_epochs 100 --width 256 --n_hidden 2 --param_lr 0.05 --param_lr_pc 0.05 --activity_lr 0.1 --n_infer_iters 20 --param_optim gd --act_fn relu --loss_id mse --results_dir results_fixed_batch
+
+# # Linear MLP (closed-form PC equilibrium; MSE), MNIST
+# python train_benchmark.py --dataset MNIST --n_epochs 10 --batch_size 64 --width 256 --n_hidden 2 --param_lr 0.01 --param_lr_pc 0.01 --param_optim adam --act_fn linear --loss_id mse --pc_infer_mode closed_form --results_dir results_mnist_linear
+
 # # MLP, MNIST
-# python train_benchmark.py --dataset MNIST --n_epochs 5 --batch_size 64 --width 256 --n_hidden 3 --param_lr 0.01 --param_lr_pc 0.1 --activity_lr 0.1 --n_infer_iters 50 --param_optim adam --act_fn relu
+# python train_benchmark.py --dataset MNIST --n_epochs 10 --batch_size 64 --width 256 --n_hidden 2 --param_lr 0.3 --param_lr_pc 0.3 --activity_lr 0.01 --n_infer_iters 20 --param_optim adam --act_fn relu --n_seeds 3 --results_dir results_mnist
+
+# # MLP, Fashion-MNIST
+# python train_benchmark.py --dataset Fashion-MNIST --n_epochs 10 --batch_size 64 --width 256 --n_hidden 2 --param_lr 0.3 --param_lr_pc 0.3 --activity_lr 0.01 --n_infer_iters 20 --param_optim adam --act_fn relu --n_seeds 3 --results_dir results_fashion_mnist
 
 # # CNN, CIFAR-10
-# python train_benchmark.py --dataset CIFAR10 --n_epochs 10 --batch_size 64 --width 256 --n_res_blocks 3 --n_hidden 3 --param_lr 0.01 --param_lr_pc 0.1 --activity_lr 0.1 --n_infer_iters 50 --param_optim adam --act_fn relu
+# python train_benchmark.py --dataset CIFAR10 --arch cnn --n_epochs 100 --batch_size 64 --width 256 --n_res_blocks 3 --param_lr 0.1 --param_lr_pc 0.1 --activity_lr 0.01 --n_infer_iters 20 --param_optim sgd_momentum --act_fn relu --results_dir results_cifar
 
-# # ImageNet (HF streaming)
-# python train_benchmark.py --dataset ImageNet --n_epochs 1 --batch_size 64 --width 256 --n_res_blocks 3 --n_hidden 3 --param_lr 0.01 --param_lr_pc 0.1 --activity_lr 0.1 --n_infer_iters 50 --param_optim adam --act_fn relu
+# # CNN, ImageNet (HF streaming) - Not optimised
+# python train_benchmark.py --dataset ImageNet --arch cnn --n_epochs 100 --batch_size 64 --width 256 --n_res_blocks 3 --param_lr 0.1 --param_lr_pc 0.1 --activity_lr 0.01 --n_infer_iters 20 --param_optim sgd_momentum --act_fn relu --results_dir results_imagenet
 
-# # Hyperparameter sweep (BP and PC independently; rank by mean final test acc)
-# python train_benchmark.py --dataset MNIST --n_epochs 10 --n_seeds 2 \
+
+########### SWEEP (MNIST) ##############
+########################################
+
+# # MLP, MNIST: Hyperparameter sweep (Coarse) - Same for Fashion-MNIST (change dataset and name)
+# # python train_benchmark.py --dataset Fashion-MNIST --n_epochs 6 --n_seeds 1 \
+# python train_benchmark.py --dataset MNIST --n_epochs 6 --n_seeds 1 \
 #   --width 256 --n_hidden 2 --batch_size 64 \
 #   --param_lr 0.001 0.003 0.01 0.03 0.1 0.3 1.0 \
 #   --param_lr_pc 0.01 0.03 0.1 0.3 1.0 3.0 \
 #   --activity_lr 0.01 0.03 0.1 0.3 \
-#   --n_infer_iters 50 200 500 \
+#   --n_infer_iters 20 200 \
 #   --param_optim adam --act_fn relu \
-#   --results_dir results_sweep
+#   --results_dir results_mnist_sweep_coarse
+# #   --results_dir results_fashion_mnist_sweep_coarse
 
-# # CNN sweep including residual-block depth
-# python train_benchmark.py --dataset CIFAR10 --arch cnn --n_epochs 10 \
-#   --width 128 256 --n_res_blocks 3 6 --batch_size 64 \
-#   --param_lr 0.001 0.01 \
-#   --param_lr_pc 0.01 0.1 --activity_lr 0.1 --n_infer_iters 50
-#   --results_dir results_sweep
+# # MLP, MNIST: Hyperparameter sweep (Fine) - Same for Fashion-MNIST (change dataset and name)
+# # python train_benchmark.py --dataset Fashion-MNIST --n_epochs 10 --n_seeds 3 \
+# python train_benchmark.py --dataset MNIST --n_epochs 10 --n_seeds 3 \
+#   --width 256 --n_hidden 2 --batch_size 64 \
+#   --param_lr 0.03 0.1 0.3 1.0 3.0 \
+#   --param_lr_pc 0.03 0.1 0.3 1.0 3.0 \
+#   --activity_lr 0.01 0.03 0.1 0.3 \
+#   --n_infer_iters 20 \
+#   --param_optim adam --act_fn relu \
+#   --results_dir results_mnist_sweep_fine
+# #   --results_dir results_fashion_mnist_sweep_fine
 
 
-### Testing MLP on MNIST
-# python train_benchmark.py --dataset MNIST --n_epochs 10 --batch_size 64 --width 256 --n_hidden 2 --param_lr 0.01 --param_lr_pc 0.01 --activity_lr 0.1 --n_infer_iters 100 --param_optim adam --act_fn tanh --log_steps
-# python train_benchmark.py --dataset MNIST --n_epochs 10 --batch_size 64 --width 256 --n_hidden 3 --param_lr 0.01 --param_lr_pc 0.02 --activity_lr 0.05 --n_infer_iters 200 --param_optim adam --act_fn relu
+########### SWEEP (CIFAR) ##############
+########################################
 
-# python train_benchmark.py --dataset MNIST --n_epochs 10 --n_seeds 1 --width 256 --n_hidden 2 --batch_size 64 --param_lr 0.3 --param_lr_pc 0.3 --activity_lr 0.001 --n_infer_iters 20 --param_optim adam --act_fn relu --results_dir results_test 
+# # CNN, CIFAR-10: Hyperparameter sweep including residual-block depth (Can start lr at 0.03, probably 0.1 best)
+# python train_benchmark.py --dataset CIFAR10 --arch cnn --n_epochs 100 --n_seeds 1 \
+#   --width 256 --n_res_blocks 3 --batch_size 64 \
+#   --param_lr 0.001 0.003 0.01 0.03 0.1 0.3 1.0 \
+#   --param_lr_pc 0.01 0.03 0.1 0.3 1.0 3.0 \
+#   --activity_lr 0.01 0.03 0.1 0.3 \
+#   --n_infer_iters 20 200 \
+#   --param_optim sgd_momentum --act_fn relu \
+#   --results_dir results_cifar_sweep
 
-# Linear MLP, MSE, closed-form PC equilibrium
-# python train_benchmark.py --dataset MNIST --n_epochs 10 --batch_size 64 --width 256 --n_hidden 2 --param_lr 0.01 --param_lr_pc 0.01 --param_optim adam --act_fn linear --loss_id mse --pc_infer_mode closed_form
-
-# Frozen 40-example subset (full-batch GD, alignment-style)
-# python train_benchmark.py --dataset tiny-CIFAR10 --fixed_subset --batch_size 40 --n_epochs 100 --width 256 --n_hidden 2 --param_lr 0.05 --param_lr_pc 0.05 --activity_lr 0.1 --n_infer_iters 20 --param_optim gd --act_fn relu --loss_id mse --results_dir results_test 
-# python train_benchmark.py --dataset MNIST --fixed_subset --batch_size 40 --n_epochs 100 --width 256 --n_hidden 2 --param_lr 0.05 --param_lr_pc 0.05 --activity_lr 0.001 --n_infer_iters 20 --param_optim gd --act_fn relu --results_dir results_test 
 

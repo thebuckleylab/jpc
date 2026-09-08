@@ -916,7 +916,10 @@ def _train_finite_bp(
         momentum=momentum,
     )
     losses = np.load(f"{save_dir}/losses.npy")
-    h_k0_traj = np.stack(h_k0_steps, axis=1) if collect_h_k0 else None
+    h_k0_traj = None
+    if collect_h_k0:
+        h_k0_traj = np.stack(h_k0_steps, axis=1)
+        h_k0_steps.clear()
     return losses, h_k0_traj, eval_kernels
 
 
@@ -1295,6 +1298,7 @@ if __name__ == "__main__":
             phi_fn=phi_fn if seed == plot_seed else None,
             collect_eval_kernels=(seed == plot_seed),
         )
+        pc_fields.pop("init_model", None)
         _term(
             f"BP final training loss: "
             f"{float(np.asarray(bp_losses).flatten()[-1]):.4e}"
@@ -1701,24 +1705,25 @@ if __name__ == "__main__":
 ######### LINEAR ##########
 ###########################
 
-# Infer mode (default)
-# CUDA_VISIBLE_DEVICES=1 python analyse_alignment.py --n_samples 20 --n_hidden 5 --width 10000 --gamma_0 1.0 --param_lr 0.1 --param_lr_pc 0.2 --activity_lr 0.01 --pc_infer_mode infer --n_infer_iters 5 --n_train_iters 21
+### Note: Not yet optimised
 
-# Closed-form inference for PC
-# CUDA_VISIBLE_DEVICES=1 python analyse_alignment.py --n_samples 20 --n_hidden 5 --width 10000 --gamma_0 1.0 --param_lr 0.1 --param_lr_pc 0.2 --pc_infer_mode closed_form --n_train_iters 21
+# Iterative inference (toy dataset)
+# CUDA_VISIBLE_DEVICES=1 python analyse_alignment.py --n_samples 20 --n_hidden 5 --width 10000 --gamma_0 1.0 --param_lr 0.1 --param_lr_pc 0.2 --pc_infer_mode infer --activity_lr 0.01 --n_infer_iters 5 --n_train_iters 21 --results_dir results_align_linear_I
 
-# Closed-form inference for PC (tiny-CIFAR10)
-# CUDA_VISIBLE_DEVICES=1 python analyse_alignment.py --n_samples 40 --n_hidden 3 --width 10000 --gamma_0 1.0 --param_lr 0.05 --param_lr_pc 0.5 --pc_infer_mode closed_form --n_train_iters 501 --dataset tiny-CIFAR10
+# Closed-form inference (toy dataset)
+# CUDA_VISIBLE_DEVICES=1 python analyse_alignment.py --n_samples 20 --n_hidden 5 --width 10000 --gamma_0 1.0 --param_lr 0.1 --param_lr_pc 0.2 --pc_infer_mode closed_form --n_train_iters 21 --results_dir results_align_linear_C
+
+# Closed-form inference (tiny-CIFAR10)
+# CUDA_VISIBLE_DEVICES=1 python analyse_alignment.py --n_samples 40 --n_hidden 3 --width 10000 --gamma_0 1.0 --param_lr 0.05 --param_lr_pc 0.5 --pc_infer_mode closed_form --n_train_iters 501 --dataset tiny-CIFAR10 --results_dir results_align_linear_C_tiny
 
 
 ############ NONLINEAR ##################
 #########################################
 
-# Infer mode (default)
-# CUDA_VISIBLE_DEVICES=1 python analyse_alignment.py --n_samples 40 --n_hidden 3 --width 10000 --gamma_0 1.0 --param_lr 0.5 --param_lr_pc 1.0 --activity_lr 0.05 --pc_infer_mode infer --n_infer_iters 100 --n_train_iters 31 --act_fn tanh --dataset tiny-CIFAR10
+### Iterative inference (tiny-CIFAR10) 
 
-# CUDA_VISIBLE_DEVICES=1 python analyse_alignment.py --n_samples 40 --n_hidden 3 --width 10000 --gamma_0 1.0 --param_lr 0.2 --param_lr_pc 0.5 --activity_lr 0.1 --pc_infer_mode infer --n_infer_iters 200 --n_train_iters 101 --act_fn tanh --dataset tiny-CIFAR10
+# # Logarithmic loss scale
+# python analyse_alignment.py --n_samples 40 --n_hidden 3 --width 10000 --gamma_0 1.0 --param_lr 0.05 --param_lr_pc 0.5 --activity_lr 0.1 --pc_infer_mode infer --n_infer_iters 500 --n_train_iters 1001 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_align
 
-# CUDA_VISIBLE_DEVICES=1 python analyse_alignment.py --n_samples 40 --n_hidden 3 --width 10000 --gamma_0 1.0 --param_lr 0.05 --param_lr_pc 0.5 --activity_lr 0.1 --pc_infer_mode infer --n_infer_iters 200 --n_train_iters 801 --act_fn tanh --dataset tiny-CIFAR10
-
-# --skip_loss_matched --loss_scale linear --n_loss_divisor 10
+# # Linear loss scale
+# python analyse_alignment.py --n_samples 40 --n_hidden 3 --width 10000 --gamma_0 1.0 --param_lr 0.05 --param_lr_pc 0.5 --activity_lr 0.1 --pc_infer_mode infer --n_infer_iters 500 --n_train_iters 1001 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_align_L --loss_scale linear
