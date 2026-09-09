@@ -17,29 +17,30 @@ and alignment line plots use a denser time grid: every training step if
 ``T <= 31``, otherwise every 2 steps (always including the endpoints).
 Time-indexed figures are written under ``alignment/by_time/``.
 
-Pass ``--skip_loss_matched`` to write only the time-indexed suite.
-Otherwise a parallel suite is written under ``alignment/by_loss/``.
-Those figures use a shared target-loss grid ``L*`` on the overlap of
-the PC and BP training-loss curves (from the common init loss down to
-the last loss both methods have reached). Each ``L*`` is paired with
-the first time each method crosses it. Line plots, PC–BP pairing,
-spectra, and sample-traced temporal kernels use a dense ``L*`` grid
-with ``max(11, round(T / --n_loss_divisor))`` points (default divisor 5,
+Pass ``--plot_loss_matched none`` (the default) to write only the
+time-indexed suite. ``log``, ``linear``, or ``both`` also writes a
+parallel suite under ``alignment/by_loss_{scale}/``. Those figures use
+a shared target-loss grid ``L*`` on the overlap of the PC and BP
+training-loss curves (from the common init loss down to the last loss
+both methods have reached). Each ``L*`` is paired with the first time
+each method crosses it. Line plots, PC–BP pairing, spectra, and
+sample-traced temporal kernels use a dense ``L*`` grid with
+``max(11, round(T / --n_loss_divisor))`` points (default divisor 5,
 capped at ``T``); heatmaps use an ``--n_timepoints`` subset of that
-same grid. ``--loss_scale`` (``log`` or ``linear``) sets both how
-``L*`` is spaced and the x-axis scale of vs-``L`` plots (high loss on
-the left). Verbose run output is written to
-``alignment/analyse_alignment.log``.
+same grid. The chosen scale sets both how ``L*`` is spaced and the
+x-axis scale of vs-``L`` plots (high loss on the left). ``both``
+trains once and writes the log and linear suites. Verbose run output
+is written to ``alignment/analyse_alignment.log``.
 
 - PC vs BP training-loss curves
   (``alignment/by_time/pc_bp_loss.png``). Loss-matched runs also write
-  ``alignment/by_loss/pc_bp_loss.png`` with markers at the
+  ``alignment/by_loss_{scale}/pc_bp_loss.png`` with markers at the
   first-crossing times of each ``L*``.
 - Feature-kernel grid: one figure per heatmap timepoint, a ``P x P``
   heatmap per hidden layer, top row PC / bottom row backprop, kernels
   converted to correlations ``R_{ij} = C_{ij} / sqrt(C_{ii} C_{jj})``
   (``alignment/by_time/feature_kernels_grid_t{t}.png``; loss-matched
-  analogue ``alignment/by_loss/feature_kernels_grid_lstar{i}.png``).
+  analogue ``alignment/by_loss_{scale}/feature_kernels_grid_lstar{i}.png``).
 - Kernel displacement vs time / loss: one subplot per layer, cosine
   similarity of each layer's feature kernel vs. at ``t=0``, PC and BP
   curves (``kernel_displacement_vs_time.png`` /
@@ -64,8 +65,12 @@ the left). Verbose run output is written to
   (``pc_bp_kernel_alignment_test.png``,
   ``kernel_target_alignment_test.png``), plus a test-set kernel grid
   (``feature_kernels_grid_test.png``).
+- Final train snapshot: CKA of each PC / BP feature kernel with ``C^y``
+  and with ``C^x`` vs layer
+  (``kernel_target_input_alignment_final.png``).
 - If ``--n_seeds > 1``: kernel concentration across weight-init seeds
-  vs layer and vs time / loss. Skipped when ``--n_seeds`` is 1.
+  vs time / loss, using mean pairwise cosine similarity and relative
+  Frobenius. Skipped when ``--n_seeds`` is 1.
 
 ``--seed`` draws two independent RNG streams (dataset, weight init). PC
 is initialized from the weight-init stream; BP copies those Linear
@@ -127,7 +132,6 @@ from plot_dmft_results import (
     plot_final_kernel_grid,
     plot_temporal_kernel_grid,
     plot_kernel_displacement_per_timepoint,
-    plot_kernel_concentration_per_timepoint,
     plot_kernel_concentration_vs_time,
     plot_kernel_effective_rank_vs_time,
     plot_kernel_input_alignment_vs_time,
@@ -143,6 +147,7 @@ from plot_dmft_results import (
     plot_temporal_pc_bp_alignment_vs_layer,
     plot_pc_bp_kernel_alignment_test_vs_layer,
     plot_kernel_target_alignment_test_vs_layer,
+    plot_kernel_target_input_alignment_final,
 )
 
 _TERMINAL = sys.stdout
@@ -203,7 +208,23 @@ def _select_curve_timepoints(n_train_iters, stride=2, every_t_max=31):
 
 
 _DIR_BY_TIME = os.path.join("alignment", "by_time")
-_DIR_BY_LOSS = os.path.join("alignment", "by_loss")
+_CONCENTRATION_METRICS = ("cosine", "rel_frob")
+
+
+def _dir_by_loss(scale):
+    """Loss-matched plot subdirectory, e.g. ``alignment/by_loss_log``."""
+    return os.path.join("alignment", f"by_loss_{scale}")
+
+
+def _loss_matched_scales(mode):
+    """Scales to write for ``--plot_loss_matched``."""
+    if mode == "none":
+        return []
+    if mode == "both":
+        return ["log", "linear"]
+    if mode in ("log", "linear"):
+        return [mode]
+    raise ValueError(f"unknown --plot_loss_matched {mode!r}")
 _DEFAULT_N_LOSS_DIVISOR = 5
 _MIN_N_LOSS_POINTS = 11
 
@@ -727,6 +748,237 @@ def _plot_train_test_kernel_suite(
     )
 
 
+def _collect_target_input_alignment_records(
+    pc_kernels, bp_kernels, C_y, C_x, n_hidden
+):
+    """CKA of train PC/BP feature kernels with ``C^y`` and ``C^x``."""
+    records = []
+    for l in range(n_hidden):
+        for method, Ct in (("pc", pc_kernels[l]), ("bp", bp_kernels[l])):
+            records.append({
+                "layer": l,
+                "method": method,
+                "ref": "target",
+                "alignment": float(
+                    centered_kernel_alignment(Ct, C_y, eps=1e-30)
+                ),
+            })
+            records.append({
+                "layer": l,
+                "method": method,
+                "ref": "input",
+                "alignment": float(
+                    centered_kernel_alignment(Ct, C_x, eps=1e-30)
+                ),
+            })
+    return pd.DataFrame(records)
+
+
+def _plot_kernel_target_input_alignment_final(
+    pc_kernels,
+    bp_kernels,
+    C_y,
+    C_x,
+    plot_kw,
+    n_hidden,
+    *,
+    title_note="",
+):
+    """Train-only CKA vs layer with ``C^y`` and ``C^x`` at a snapshot."""
+    df = _collect_target_input_alignment_records(
+        pc_kernels, bp_kernels, C_y, C_x, n_hidden
+    )
+    title = "Feature-kernel alignment with the target and input"
+    if title_note:
+        title += title_note
+    plot_kernel_target_input_alignment_final(
+        df, title=title, **plot_kw
+    )
+
+
+def _plot_loss_matched_suite(
+    *,
+    pc_losses,
+    bp_losses,
+    pc_kernels_by_t,
+    bp_kernels_by_t,
+    pc_h_traj,
+    bp_h_traj,
+    pc_eval_kernels,
+    bp_eval_kernels,
+    t_pc_L,
+    t_bp_L,
+    loss_grid,
+    heatmap_loss_idx,
+    t0,
+    C_y,
+    C_y_test,
+    C_x,
+    Y_target,
+    n_hidden,
+    n_label_cols,
+    phi_fn,
+    feat_tex,
+    plots_dir,
+    plot_kw,
+    scale,
+    width,
+    gamma_0,
+    activity_lr,
+    n_infer_iters,
+):
+    """Write the full loss-matched figure suite for one L* scale."""
+    dir_name = _dir_by_loss(scale)
+    plot_pc_bp_loss_matched_times(
+        pc_losses,
+        bp_losses,
+        t_pc_L,
+        t_bp_L,
+        loss_grid,
+        plots_dir=plots_dir,
+        n_hidden=n_hidden,
+        gamma_0=gamma_0,
+        activity_lr=activity_lr,
+        n_infer_iters=n_infer_iters,
+        width=width,
+        dir_name=dir_name,
+        heatmap_idx=heatmap_loss_idx,
+        yscale=scale,
+    )
+    for i in heatmap_loss_idx:
+        L_star = float(loss_grid[i])
+        t_pc_i = int(t_pc_L[i])
+        t_bp_i = int(t_bp_L[i])
+        plot_final_kernel_grid(
+            [
+                (
+                    "PC",
+                    kernels_to_correlations(pc_kernels_by_t[t_pc_i]),
+                ),
+                (
+                    "Backprop",
+                    kernels_to_correlations(bp_kernels_by_t[t_bp_i]),
+                ),
+            ],
+            plots_dir=plots_dir,
+            gamma_0=gamma_0,
+            n_hidden=n_hidden,
+            activity_lr=activity_lr,
+            n_infer_iters=n_infer_iters,
+            width=width,
+            filename=f"feature_kernels_grid_lstar{i}.png",
+            share_clim=True,
+            vmin=-1.0,
+            vmax=1.0,
+            title=(
+                rf"$C^{{{feat_tex}}}$ feature kernels "
+                rf"($L={L_star:.2e}$, $t_{{\mathrm{{PC}}}}={t_pc_i}$, "
+                rf"$t_{{\mathrm{{BP}}}}={t_bp_i}$, correlation)"
+            ),
+            dir_name=dir_name,
+        )
+
+    loss_pairs = list(zip(loss_grid, t_pc_L, t_bp_L))
+    loss_records = _collect_alignment_records(
+        pc_kernels_by_t,
+        bp_kernels_by_t,
+        loss_pairs,
+        t0=t0,
+        C_y=C_y,
+        C_x=C_x,
+        Y_target=Y_target,
+        n_hidden=n_hidden,
+        x_col="loss",
+    )
+    evec_ylabel_loss = (
+        r"$\left|\cos(v_1^{\ell}(L), y)\right|$"
+        if n_label_cols == 1
+        else r"$\|U_y^{\top} v_1^{\ell}(L)\|$"
+    )
+    _plot_alignment_suite(
+        loss_records,
+        plot_kw,
+        feat_tex,
+        evec_ylabel_loss,
+        vs="loss",
+        x_col="loss",
+        xlabel="$L$",
+        xscale=scale,
+        invert_x=True,
+    )
+
+    i_lo = len(loss_grid) - 1
+    L_lo = float(loss_grid[i_lo])
+    t_pc_lo = int(t_pc_L[i_lo])
+    t_bp_lo = int(t_bp_L[i_lo])
+    overlap_spectrum_df = pd.DataFrame(
+        _spectrum_records(pc_kernels_by_t[t_pc_lo], "pc")
+        + _spectrum_records(bp_kernels_by_t[t_bp_lo], "bp")
+    )
+    plot_kernel_spectrum(
+        overlap_spectrum_df,
+        ylabel=rf"$\lambda_i(C^{{{feat_tex},\ell}})$",
+        title=(
+            rf"$C^{{{feat_tex}}}$ feature-kernel spectrum "
+            rf"at last overlap ($L={L_lo:.2e}$)"
+        ),
+        filename="kernel_spectrum_final.png",
+        annotate_rank=True,
+        **plot_kw,
+    )
+
+    print(f"Temporal kernels (loss-matched, {scale})...")
+    _plot_temporal_kernel_figures(
+        pc_h_traj[:, np.asarray(t_pc_L, dtype=int)],
+        bp_h_traj[:, np.asarray(t_bp_L, dtype=int)],
+        phi_fn,
+        plot_kw,
+        feat_tex,
+        xlabel=r"$L$",
+        ylabel=r"$L'$",
+        title_note=" (loss-matched)",
+    )
+
+    print(f"Train vs test kernels (loss-matched, {scale})...")
+    title_note = (
+        rf" ($L={L_lo:.2e}$, $t_{{\mathrm{{PC}}}}={t_pc_lo}$, "
+        rf"$t_{{\mathrm{{BP}}}}={t_bp_lo}$)"
+    )
+    _plot_train_test_kernel_suite(
+        pc_kernels_by_t[t_pc_lo],
+        bp_kernels_by_t[t_bp_lo],
+        pc_eval_kernels[t_pc_lo],
+        bp_eval_kernels[t_bp_lo],
+        C_y,
+        C_y_test,
+        plot_kw,
+        feat_tex,
+        n_hidden,
+        title_note=title_note,
+    )
+    _plot_kernel_target_input_alignment_final(
+        pc_kernels_by_t[t_pc_lo],
+        bp_kernels_by_t[t_bp_lo],
+        C_y,
+        C_x,
+        plot_kw,
+        n_hidden,
+        title_note=title_note,
+    )
+
+
+def _plot_concentration_suite(conc_df, n_seeds, plot_kw, **axis_kw):
+    """Cosine and relative-Frobenius concentration plots vs ``x_col``."""
+    for metric in _CONCENTRATION_METRICS:
+        plot_kernel_concentration_vs_time(
+            conc_df,
+            n_seeds=n_seeds,
+            metric=metric,
+            **plot_kw,
+            **axis_kw,
+        )
+
+
 _INIT_CKA_ATOL = 1e-3
 _SUBSPACE_KS = (1, 3, 5)
 
@@ -792,19 +1044,45 @@ def _assert_init_pc_bp_cka(pc_kernels, bp_kernels, *, seed, atol=_INIT_CKA_ATOL)
             )
 
 
-def _mean_pairwise_cka(kernels):
-    """Mean and std of pairwise CKA over a list of kernels (one per seed)."""
-    vals = []
-    for i in range(len(kernels)):
-        for j in range(i + 1, len(kernels)):
-            vals.append(
-                centered_kernel_alignment(kernels[i], kernels[j], eps=1e-30)
-            )
+def _pairwise_mean_std(vals):
+    """Mean and sample std of a 1-d array of pairwise values."""
     vals = np.asarray(vals, dtype=float)
     if vals.size == 0:
         return float("nan"), float("nan")
     std = float(vals.std(ddof=1)) if vals.size > 1 else 0.0
     return float(vals.mean()), std
+
+
+def _mean_pairwise_kernel_metrics(kernels):
+    """Mean pairwise cosine and relative Frobenius over seed kernels.
+
+    Relative Frobenius is symmetrised as
+    ``0.5 * (d(C_i, C_j) + d(C_j, C_i))`` for each unordered pair.
+    """
+    cos_vals = []
+    rel_vals = []
+    for i in range(len(kernels)):
+        for j in range(i + 1, len(kernels)):
+            cos_vals.append(
+                float(
+                    cosine_similarity(kernels[i], kernels[j], eps=1e-30)
+                )
+            )
+            rel_ij = relative_frobenius_displacement(
+                kernels[i], kernels[j], eps=1e-30
+            )
+            rel_ji = relative_frobenius_displacement(
+                kernels[j], kernels[i], eps=1e-30
+            )
+            rel_vals.append(0.5 * (rel_ij + rel_ji))
+    cos_mean, cos_std = _pairwise_mean_std(cos_vals)
+    rel_mean, rel_std = _pairwise_mean_std(rel_vals)
+    return {
+        "cosine_mean": cos_mean,
+        "cosine_std": cos_std,
+        "rel_mean": rel_mean,
+        "rel_std": rel_std,
+    }
 
 
 def _train_finite_bp(
@@ -1003,7 +1281,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--n_timepoints",
         type=int,
-        default=6,
+        default=5,
         help=(
             "Number of equally spaced training-step timepoints "
             "(including t=0 and t=T-1) used for the feature-kernel "
@@ -1014,23 +1292,16 @@ if __name__ == "__main__":
         ),
     )
     parser.add_argument(
-        "--skip_loss_matched",
-        action="store_true",
-        default=False,
-        help=(
-            "Skip loss-matched figures under alignment/by_loss/. "
-            "Time-indexed figures under alignment/by_time/ are always "
-            "written."
-        ),
-    )
-    parser.add_argument(
-        "--loss_scale",
+        "--plot_loss_matched",
         type=str,
-        default="log",
-        choices=["log", "linear"],
+        default="none",
+        choices=["both", "log", "linear", "none"],
         help=(
-            "Spacing of the target-loss grid L* and x-axis scale of "
-            "vs-L plots. Default log (loss typically spans decades)."
+            "Loss-matched figures under alignment/by_loss_{scale}/. "
+            "log / linear: one L* suite (grid spacing and vs-L x-axis). "
+            "both: write log and linear suites after a single training run. "
+            "none (default): skip loss-matched figures. Time-indexed "
+            "figures under alignment/by_time/ are always written."
         ),
     )
     parser.add_argument(
@@ -1053,7 +1324,8 @@ if __name__ == "__main__":
         help=(
             "Number of independent weight-init seeds (dataset is shared). "
             "If greater than 1, plot kernel concentration across seeds "
-            "for both PC and BP. Default 1 skips that analysis."
+            "for both PC and BP, using mean pairwise cosine similarity "
+            "and relative Frobenius. Default 1 skips that analysis."
         ),
     )
 
@@ -1078,7 +1350,7 @@ if __name__ == "__main__":
         parser.error("--n_loss_divisor must be >= 1.")
 
     os.makedirs(args.results_dir, exist_ok=True)
-    plot_loss_matched = not args.skip_loss_matched
+    loss_scales = _loss_matched_scales(args.plot_loss_matched)
 
     plots_dir = os.path.join(
         args.results_dir,
@@ -1188,17 +1460,18 @@ if __name__ == "__main__":
     print(f"Curve timepoints t = {curve_timepoints}")
     print(f"Feature kernel: C^{feat_sym}")
     print(f"n_seeds = {n_seeds}")
-    if plot_loss_matched:
+    if loss_scales:
         n_L_preview = _n_loss_grid_points(T_train, args.n_loss_divisor)
         print(
             f"Loss-matched plots enabled "
-            f"(scale={args.loss_scale}, n_loss_divisor={args.n_loss_divisor}, "
+            f"(scale={'+'.join(loss_scales)}, "
+            f"n_loss_divisor={args.n_loss_divisor}, "
             f"n_L*={n_L_preview})"
         )
     else:
         print(
             "Loss-matched plots skipped "
-            "(omit --skip_loss_matched to enable)."
+            "(pass --plot_loss_matched log, linear, or both)."
         )
     print()
 
@@ -1212,14 +1485,24 @@ if __name__ == "__main__":
         feature_symbol=feat_sym,
     )
     plot_kw_time = dict(plot_kw, dir_name=_DIR_BY_TIME)
-    plot_kw_loss = dict(plot_kw, dir_name=_DIR_BY_LOSS)
+    plot_kw_loss_by_scale = {
+        scale: dict(plot_kw, dir_name=_dir_by_loss(scale))
+        for scale in loss_scales
+    }
 
     pc_kernels_by_seed = []
     bp_kernels_by_seed = []
-    pc_kernels_loss_by_seed = []
-    bp_kernels_loss_by_seed = []
-    loss_grid = None
-    heatmap_loss_idx = None
+    loss_matched = {
+        scale: {
+            "grid": None,
+            "heatmap_idx": None,
+            "pc_by_seed": [],
+            "bp_by_seed": [],
+            "t_pc_L": None,
+            "t_bp_L": None,
+        }
+        for scale in loss_scales
+    }
     plot_seed = args.seed
 
     for seed in range(args.seed, args.seed + n_seeds):
@@ -1332,45 +1615,50 @@ if __name__ == "__main__":
         pc_kernels_by_seed.append(pc_kernels_by_t)
         bp_kernels_by_seed.append(bp_kernels_by_t)
 
-        t_pc_L = None
-        t_bp_L = None
-        if plot_loss_matched:
-            if loss_grid is None:
+        for scale in loss_scales:
+            st = loss_matched[scale]
+            if st["grid"] is None:
                 n_L = _n_loss_grid_points(T_train, args.n_loss_divisor)
-                loss_grid = _overlap_loss_grid(
-                    pc_losses, bp_losses, n_L, args.loss_scale
+                st["grid"] = _overlap_loss_grid(
+                    pc_losses, bp_losses, n_L, scale
                 )
-                heatmap_loss_idx = _select_timepoints(
-                    len(loss_grid), args.n_timepoints
-                )
-                print(
-                    f"\nLoss-matched L* grid ({args.loss_scale}, "
-                    f"n={len(loss_grid)}): "
-                    + ", ".join(f"{L:.3e}" for L in loss_grid)
+                st["heatmap_idx"] = _select_timepoints(
+                    len(st["grid"]), args.n_timepoints
                 )
                 print(
-                    f"Loss-matched heatmap L* indices = {heatmap_loss_idx}"
+                    f"\nLoss-matched L* grid ({scale}, "
+                    f"n={len(st['grid'])}): "
+                    + ", ".join(f"{L:.3e}" for L in st["grid"])
                 )
-            t_pc_L = _first_crossing_times(pc_losses, loss_grid)
-            t_bp_L = _first_crossing_times(bp_losses, loss_grid)
+                print(
+                    f"Loss-matched heatmap L* indices ({scale}) = "
+                    f"{st['heatmap_idx']}"
+                )
+            t_pc_L = _first_crossing_times(pc_losses, st["grid"])
+            t_bp_L = _first_crossing_times(bp_losses, st["grid"])
             _ensure_kernels_at_times(
                 pc_kernels_by_t, pc_h_traj, t_pc_L, phi_fn
             )
             _ensure_kernels_at_times(
                 bp_kernels_by_t, bp_h_traj, t_bp_L, phi_fn
             )
-            pc_kernels_loss_by_seed.append(
+            st["pc_by_seed"].append(
                 [pc_kernels_by_t[int(t)] for t in t_pc_L]
             )
-            bp_kernels_loss_by_seed.append(
+            st["bp_by_seed"].append(
                 [bp_kernels_by_t[int(t)] for t in t_bp_L]
             )
             if seed == plot_seed:
-                print("Loss-matched first-crossing times (plot seed):")
+                st["t_pc_L"] = t_pc_L
+                st["t_bp_L"] = t_bp_L
+                print(
+                    f"Loss-matched first-crossing times "
+                    f"(plot seed, {scale}):"
+                )
                 for i, (L_star, tpc, tbp) in enumerate(
-                    zip(loss_grid, t_pc_L, t_bp_L)
+                    zip(st["grid"], t_pc_L, t_bp_L)
                 ):
-                    mark = " [heatmap]" if i in heatmap_loss_idx else ""
+                    mark = " [heatmap]" if i in st["heatmap_idx"] else ""
                     print(
                         f"  L*={L_star:.4e}  t_PC={tpc:4d}  "
                         f"t_BP={tbp:4d}{mark}"
@@ -1482,143 +1770,53 @@ if __name__ == "__main__":
             n_hidden,
             title_note=rf" ($t={t_final}$)",
         )
+        _plot_kernel_target_input_alignment_final(
+            pc_kernels_by_t[t_final],
+            bp_kernels_by_t[t_final],
+            C_y,
+            C_x,
+            plot_kw_time,
+            n_hidden,
+            title_note=rf" ($t={t_final}$)",
+        )
 
-        if plot_loss_matched:
-            plot_pc_bp_loss_matched_times(
-                pc_losses,
-                bp_losses,
-                t_pc_L,
-                t_bp_L,
-                loss_grid,
-                plots_dir=plots_dir,
-                n_hidden=n_hidden,
-                gamma_0=args.gamma_0,
-                activity_lr=args.activity_lr,
-                n_infer_iters=args.n_infer_iters,
-                width=width,
-                dir_name=_DIR_BY_LOSS,
-                heatmap_idx=heatmap_loss_idx,
-                yscale=args.loss_scale,
-            )
-            for i in heatmap_loss_idx:
-                L_star = float(loss_grid[i])
-                t_pc_i = int(t_pc_L[i])
-                t_bp_i = int(t_bp_L[i])
-                plot_final_kernel_grid(
-                    [
-                        (
-                            "PC",
-                            kernels_to_correlations(
-                                pc_kernels_by_t[t_pc_i]
-                            ),
-                        ),
-                        (
-                            "Backprop",
-                            kernels_to_correlations(
-                                bp_kernels_by_t[t_bp_i]
-                            ),
-                        ),
-                    ],
-                    plots_dir=plots_dir,
-                    gamma_0=args.gamma_0,
-                    n_hidden=n_hidden,
-                    activity_lr=args.activity_lr,
-                    n_infer_iters=args.n_infer_iters,
-                    width=width,
-                    filename=f"feature_kernels_grid_lstar{i}.png",
-                    share_clim=True,
-                    vmin=-1.0,
-                    vmax=1.0,
-                    title=(
-                        rf"$C^{{{feat_tex}}}$ feature kernels "
-                        rf"($L={L_star:.2e}$, $t_{{\mathrm{{PC}}}}={t_pc_i}$, "
-                        rf"$t_{{\mathrm{{BP}}}}={t_bp_i}$, correlation)"
-                    ),
-                    dir_name=_DIR_BY_LOSS,
-                )
-
-            loss_pairs = list(zip(loss_grid, t_pc_L, t_bp_L))
-            loss_records = _collect_alignment_records(
-                pc_kernels_by_t,
-                bp_kernels_by_t,
-                loss_pairs,
+        for scale in loss_scales:
+            st = loss_matched[scale]
+            _plot_loss_matched_suite(
+                pc_losses=pc_losses,
+                bp_losses=bp_losses,
+                pc_kernels_by_t=pc_kernels_by_t,
+                bp_kernels_by_t=bp_kernels_by_t,
+                pc_h_traj=pc_h_traj,
+                bp_h_traj=bp_h_traj,
+                pc_eval_kernels=pc_eval_kernels,
+                bp_eval_kernels=bp_eval_kernels,
+                t_pc_L=st["t_pc_L"],
+                t_bp_L=st["t_bp_L"],
+                loss_grid=st["grid"],
+                heatmap_loss_idx=st["heatmap_idx"],
                 t0=t0,
                 C_y=C_y,
+                C_y_test=C_y_test,
                 C_x=C_x,
                 Y_target=Y_target,
                 n_hidden=n_hidden,
-                x_col="loss",
-            )
-            evec_ylabel_loss = (
-                r"$\left|\cos(v_1^{\ell}(L), y)\right|$"
-                if n_label_cols == 1
-                else r"$\|U_y^{\top} v_1^{\ell}(L)\|$"
-            )
-            _plot_alignment_suite(
-                loss_records,
-                plot_kw_loss,
-                feat_tex,
-                evec_ylabel_loss,
-                vs="loss",
-                x_col="loss",
-                xlabel="$L$",
-                xscale=args.loss_scale,
-                invert_x=True,
-            )
-
-            i_lo = len(loss_grid) - 1
-            L_lo = float(loss_grid[i_lo])
-            t_pc_lo = int(t_pc_L[i_lo])
-            t_bp_lo = int(t_bp_L[i_lo])
-            overlap_spectrum_df = pd.DataFrame(
-                _spectrum_records(pc_kernels_by_t[t_pc_lo], "pc")
-                + _spectrum_records(bp_kernels_by_t[t_bp_lo], "bp")
-            )
-            plot_kernel_spectrum(
-                overlap_spectrum_df,
-                ylabel=rf"$\lambda_i(C^{{{feat_tex},\ell}})$",
-                title=(
-                    rf"$C^{{{feat_tex}}}$ feature-kernel spectrum "
-                    rf"at last overlap ($L={L_lo:.2e}$)"
-                ),
-                filename="kernel_spectrum_final.png",
-                annotate_rank=True,
-                **plot_kw_loss,
-            )
-
-            print("Temporal kernels (loss-matched)...")
-            _plot_temporal_kernel_figures(
-                pc_h_traj[:, np.asarray(t_pc_L, dtype=int)],
-                bp_h_traj[:, np.asarray(t_bp_L, dtype=int)],
-                phi_fn,
-                plot_kw_loss,
-                feat_tex,
-                xlabel=r"$L$",
-                ylabel=r"$L'$",
-                title_note=" (loss-matched)",
-            )
-
-            print("Train vs test kernels (loss-matched)...")
-            _plot_train_test_kernel_suite(
-                pc_kernels_by_t[t_pc_lo],
-                bp_kernels_by_t[t_bp_lo],
-                pc_eval_kernels[t_pc_lo],
-                bp_eval_kernels[t_bp_lo],
-                C_y,
-                C_y_test,
-                plot_kw_loss,
-                feat_tex,
-                n_hidden,
-                title_note=(
-                    rf" ($L={L_lo:.2e}$, $t_{{\mathrm{{PC}}}}={t_pc_lo}$, "
-                    rf"$t_{{\mathrm{{BP}}}}={t_bp_lo}$)"
-                ),
+                n_label_cols=n_label_cols,
+                phi_fn=phi_fn,
+                feat_tex=feat_tex,
+                plots_dir=plots_dir,
+                plot_kw=plot_kw_loss_by_scale[scale],
+                scale=scale,
+                width=width,
+                gamma_0=args.gamma_0,
+                activity_lr=args.activity_lr,
+                n_infer_iters=args.n_infer_iters,
             )
 
     if n_seeds > 1:
         _term(
             f"\nKernel concentration across {n_seeds} seeds "
-            f"(mean pairwise CKA)..."
+            f"(mean pairwise cosine and relative Frobenius)..."
         )
         conc_records = []
         for t in curve_timepoints:
@@ -1628,60 +1826,44 @@ if __name__ == "__main__":
                     ("bp", bp_kernels_by_seed),
                 ):
                     kernels = [seed_kernels[t][l] for seed_kernels in by_seed]
-                    cka_mean, cka_std = _mean_pairwise_cka(kernels)
                     conc_records.append({
                         "t": t,
                         "layer": l,
                         "method": method,
-                        "cka_mean": cka_mean,
-                        "cka_std": cka_std,
+                        **_mean_pairwise_kernel_metrics(kernels),
                     })
         conc_df = pd.DataFrame(conc_records)
-        plot_kernel_concentration_per_timepoint(
-            conc_df, n_seeds=n_seeds, **plot_kw_time
-        )
-        plot_kernel_concentration_vs_time(
-            conc_df, n_seeds=n_seeds, **plot_kw_time
-        )
-        if plot_loss_matched and loss_grid is not None:
+        _plot_concentration_suite(conc_df, n_seeds, plot_kw_time)
+        for scale in loss_scales:
+            st = loss_matched[scale]
+            if st["grid"] is None:
+                continue
             conc_loss_records = []
-            for i, L_star in enumerate(loss_grid):
+            for i, L_star in enumerate(st["grid"]):
                 for l in range(n_hidden):
                     for method, by_seed in (
-                        ("pc", pc_kernels_loss_by_seed),
-                        ("bp", bp_kernels_loss_by_seed),
+                        ("pc", st["pc_by_seed"]),
+                        ("bp", st["bp_by_seed"]),
                     ):
                         kernels = [
                             seed_kernels[i][l] for seed_kernels in by_seed
                         ]
-                        cka_mean, cka_std = _mean_pairwise_cka(kernels)
                         conc_loss_records.append({
                             "loss": float(L_star),
-                            "star_idx": i,
                             "layer": l,
                             "method": method,
-                            "cka_mean": cka_mean,
-                            "cka_std": cka_std,
+                            **_mean_pairwise_kernel_metrics(kernels),
                         })
             conc_loss_df = pd.DataFrame(conc_loss_records)
-            conc_loss_grid_df = conc_loss_df[
-                conc_loss_df["star_idx"].isin(heatmap_loss_idx)
-            ]
-            plot_kernel_concentration_per_timepoint(
-                conc_loss_grid_df,
-                n_seeds=n_seeds,
-                x_col="loss",
-                **plot_kw_loss,
-            )
-            plot_kernel_concentration_vs_time(
+            _plot_concentration_suite(
                 conc_loss_df,
-                n_seeds=n_seeds,
+                n_seeds,
+                plot_kw_loss_by_scale[scale],
                 x_col="loss",
                 xlabel="$L$",
-                xscale=args.loss_scale,
+                xscale=scale,
                 invert_x=True,
                 filename="kernel_concentration_vs_loss.png",
-                **plot_kw_loss,
             )
     else:
         _term(
@@ -1722,8 +1904,8 @@ if __name__ == "__main__":
 
 ### Iterative inference (tiny-CIFAR10) 
 
-# # Logarithmic loss scale
-# python analyse_alignment.py --n_samples 40 --n_hidden 3 --width 10000 --gamma_0 1.0 --param_lr 0.05 --param_lr_pc 0.5 --activity_lr 0.1 --pc_infer_mode infer --n_infer_iters 500 --n_train_iters 1001 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_align
+# # Include both logarithmic and linear loss-matched plots
+# python analyse_alignment.py --n_samples 40 --n_hidden 3 --width 10000 --gamma_0 1.0 --param_lr 0.05 --param_lr_pc 0.5 --activity_lr 0.1 --pc_infer_mode infer --n_infer_iters 500 --n_train_iters 1001 --act_fn tanh --plot_loss_matched both --dataset tiny-CIFAR10 --results_dir results_align 
 
-# # Linear loss scale
-# python analyse_alignment.py --n_samples 40 --n_hidden 3 --width 10000 --gamma_0 1.0 --param_lr 0.05 --param_lr_pc 0.5 --activity_lr 0.1 --pc_infer_mode infer --n_infer_iters 500 --n_train_iters 1001 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_align_L --loss_scale linear
+# # Same as above, but also assess kernel concentration
+# python analyse_alignment.py --n_samples 40 --n_hidden 3 --width 10000 --gamma_0 1.0 --param_lr 0.05 --param_lr_pc 0.5 --activity_lr 0.1 --pc_infer_mode infer --n_infer_iters 500 --n_train_iters 1001 --act_fn tanh --plot_loss_matched both --dataset tiny-CIFAR10 --results_dir results_align --n_seeds 3

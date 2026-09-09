@@ -110,6 +110,39 @@ def _displacement_plot_filename(cosine_name, metric):
     raise ValueError(f"unknown displacement metric {metric!r}")
 
 
+def _insert_rel_before_vs(name, metric):
+    """Insert ``_rel`` before the first ``_vs_`` in a plot filename."""
+    if metric == "cosine":
+        return name
+    if metric != "rel_frob":
+        raise ValueError(f"unknown metric {metric!r}")
+    stem, ext = os.path.splitext(name)
+    idx = stem.find("_vs_")
+    if idx >= 0:
+        return f"{stem[:idx]}_rel{stem[idx:]}{ext}"
+    return f"{stem}_rel{ext}"
+
+
+def _concentration_metric_spec(metric, feature_symbol):
+    """Return ``(value_col, std_col, ylabel, invert_ylim)`` for concentration.
+
+    ``metric`` is ``"cosine"`` (mean pairwise cosine similarity) or
+    ``"rel_frob"`` (mean pairwise relative Frobenius). Relative Frobenius
+    inverts the y-axis so 0 (identical kernels) sits at the top.
+    """
+    sym = _feature_kernel_tex(feature_symbol)
+    if metric == "cosine":
+        ylabel = rf"mean pairwise $\cos(C^{{{sym},\ell}})$"
+        return "cosine_mean", "cosine_std", ylabel, False
+    if metric == "rel_frob":
+        ylabel = (
+            rf"mean pairwise $\|C^{{{sym},\ell}}-C'\|_F"
+            rf"/\|C^{{{sym},\ell}}\|_F$"
+        )
+        return "rel_mean", "rel_std", ylabel, True
+    raise ValueError(f"unknown concentration metric {metric!r}")
+
+
 def _maybe_set_ylim(ax, ylim):
     if ylim is not None:
         ax.set_ylim(*ylim)
@@ -2313,6 +2346,104 @@ def plot_kernel_target_alignment_test_vs_layer(
     return save_path
 
 
+_TARGET_INPUT_STYLES = (
+    ("pc", "target", "tab:blue", "o", "-", r"PC, $C^{y}$"),
+    ("bp", "target", "tab:orange", "s", "-", r"BP, $C^{y}$"),
+    ("pc", "input", "tab:blue", "^", "--", r"PC, $C^{x}$"),
+    ("bp", "input", "tab:orange", "D", "--", r"BP, $C^{x}$"),
+)
+
+
+def plot_kernel_target_input_alignment_final(
+    alignment_df,
+    plots_dir,
+    n_hidden=None,
+    gamma_0=None,
+    activity_lr=None,
+    n_infer_iters=None,
+    width=None,
+    dir_name="alignment",
+    feature_symbol="h",
+    ylabel=None,
+    title=None,
+    filename="kernel_target_input_alignment_final.png",
+):
+    """CKA of train feature kernels with ``C^y`` and ``C^x``, vs layer.
+
+    Four curves on one axis: PC/BP vs the target kernel and vs the input
+    kernel. ``alignment_df`` must have columns ``layer``, ``method``
+    (``"pc"`` / ``"bp"``), ``ref`` (``"target"`` / ``"input"``), and
+    ``alignment``.
+    """
+    if alignment_df is None or len(alignment_df) == 0:
+        print("No kernel-target/input alignment records to plot.")
+        return None
+
+    out_dir = _alignment_plots_dir(
+        plots_dir,
+        n_hidden=n_hidden,
+        gamma_0=gamma_0,
+        activity_lr=activity_lr,
+        n_infer_iters=n_infer_iters,
+        dir_name=dir_name,
+    )
+    sym = _feature_kernel_tex(feature_symbol)
+    plot_df = alignment_df.copy()
+    plot_df["layer_display"] = plot_df["layer"].astype(int) + 1
+    _warn_if_nonfinite(
+        "kernel-target/input alignment",
+        np.asarray(plot_df["alignment"], dtype=float),
+    )
+    ylim = _data_ylim(plot_df["alignment"], invert=False, ymin_floor=0.0)
+    layers = sorted(plot_df["layer_display"].unique())
+    if ylabel is None:
+        ylabel = rf"$\mathrm{{CKA}}(C^{{{sym},\ell}}, C^{{y/x}})$"
+
+    plt.figure(figsize=(5.5, 3.6))
+    ax = plt.gca()
+    for method, ref, color, marker, linestyle, label in _TARGET_INPUT_STYLES:
+        sub = plot_df[
+            (plot_df["method"] == method) & (plot_df["ref"] == ref)
+        ].sort_values("layer_display")
+        if not len(sub):
+            continue
+        x = np.asarray(sub["layer_display"], dtype=float)
+        values = np.asarray(sub["alignment"], dtype=float)
+        _warn_if_nonfinite(f"{method} {ref} alignment", values)
+        ax.plot(
+            x,
+            values,
+            marker=marker,
+            markersize=8,
+            color=color,
+            linestyle=linestyle,
+            label=label,
+        )
+    ax.set_xticks(layers)
+    ax.set_xlabel(r"layer $\ell$")
+    ax.set_ylabel(ylabel)
+    _maybe_set_ylim(ax, ylim)
+    ax.grid(True, alpha=0.4)
+    ax.legend(fontsize=8)
+    if title is None:
+        title = "Feature-kernel alignment with the target and input"
+    ax.set_title(
+        title
+        + _fig_param_suffix(
+            n_hidden=n_hidden,
+            width=width,
+            gamma_0=gamma_0,
+            activity_lr=activity_lr,
+        )
+    )
+    plt.tight_layout()
+    save_path = os.path.join(out_dir, filename)
+    plt.savefig(save_path, bbox_inches="tight")
+    plt.close()
+    print(f"Kernel-target/input alignment saved to {save_path}")
+    return save_path
+
+
 def plot_pc_bp_alignment_vs_time(
     alignment_df,
     plots_dir,
@@ -2417,12 +2548,15 @@ def plot_kernel_concentration_per_timepoint(
     dir_name="alignment",
     feature_symbol="h",
     x_col="t",
+    metric="cosine",
+    filename="kernel_concentration_vs_layer_grid.png",
 ):
-    """Mean pairwise CKA of kernels across seeds, vs layer, one subplot per ``x_col``.
+    """Mean pairwise kernel similarity across seeds, vs layer.
 
-    ``conc_df`` must have columns ``x_col``, ``layer``, ``method`` (``"pc"``
-    or ``"bp"``), ``cka_mean``, and optionally ``cka_std``. High CKA
-    means kernels concentrate across initialisations.
+    One subplot per ``x_col``. ``conc_df`` must have columns ``x_col``,
+    ``layer``, ``method`` (``"pc"`` or ``"bp"``), and the mean/std
+    columns for ``metric`` (``"cosine"`` or ``"rel_frob"``). High cosine
+    (low relative Frobenius) means kernels concentrate across inits.
     """
     if conc_df is None or len(conc_df) == 0:
         print("No kernel-concentration records to plot.")
@@ -2436,15 +2570,19 @@ def plot_kernel_concentration_per_timepoint(
         n_infer_iters=n_infer_iters,
         dir_name=dir_name,
     )
+    value_col, std_col, ylabel, invert = _concentration_metric_spec(
+        metric, feature_symbol
+    )
     x_values = sorted(conc_df[x_col].unique())
     if x_col == "loss":
         x_values = list(reversed(x_values))
     n_x = len(x_values)
     ncols = int(np.ceil(np.sqrt(n_x)))
     nrows = int(np.ceil(n_x / ncols))
-    ylim = _data_ylim(conc_df["cka_mean"], invert=False, ymin_floor=0.0)
-    has_std = "cka_std" in conc_df.columns
-    sym = _feature_kernel_tex(feature_symbol)
+    ylim = _data_ylim(
+        conc_df[value_col], invert=invert, ymin_floor=0.0
+    )
+    has_std = std_col in conc_df.columns
 
     fig, axes = plt.subplots(
         nrows,
@@ -2464,14 +2602,14 @@ def plot_kernel_concentration_per_timepoint(
             if not len(msub):
                 continue
             layers = np.asarray(msub["layer"], dtype=float) + 1
-            values = np.asarray(msub["cka_mean"], dtype=float)
+            values = np.asarray(msub[value_col], dtype=float)
             _warn_if_nonfinite(f"{method} concentration ({x_col}={x})", values)
             plot_kw_line = dict(marker=marker, color=color, label=label)
             if has_std:
                 ax.errorbar(
                     layers,
                     values,
-                    yerr=np.asarray(msub["cka_std"], dtype=float),
+                    yerr=np.asarray(msub[std_col], dtype=float),
                     **plot_kw_line,
                 )
             else:
@@ -2484,9 +2622,7 @@ def plot_kernel_concentration_per_timepoint(
         _maybe_set_ylim(ax, ylim)
         ax.grid(True, alpha=0.4)
         if i % ncols == 0:
-            ax.set_ylabel(
-                rf"mean pairwise $\mathrm{{CKA}}(C^{{{sym},\ell}})$"
-            )
+            ax.set_ylabel(ylabel)
         if i == 0:
             ax.legend(fontsize=8)
 
@@ -2501,7 +2637,9 @@ def plot_kernel_concentration_per_timepoint(
     )
     fig.suptitle(fig_title, y=1.02)
     fig.tight_layout()
-    save_path = os.path.join(out_dir, "kernel_concentration_vs_layer_grid.png")
+    save_path = os.path.join(
+        out_dir, _insert_rel_before_vs(filename, metric)
+    )
     fig.savefig(save_path, bbox_inches="tight")
     plt.close(fig)
     print(f"Kernel concentration grid saved to {save_path}")
@@ -2523,22 +2661,28 @@ def plot_kernel_concentration_vs_time(
     xlabel="$t$",
     xscale="linear",
     invert_x=False,
+    metric="cosine",
     filename="kernel_concentration_vs_time.png",
 ):
-    """Mean pairwise CKA of kernels across seeds vs ``x_col``.
+    """Mean pairwise kernel similarity across seeds vs ``x_col``.
 
-    One colour per layer; PC solid, backprop dashed.
+    One colour per layer; PC solid, backprop dashed. ``metric`` is
+    ``"cosine"`` or ``"rel_frob"``.
     """
     if conc_df is None or len(conc_df) == 0:
         print("No kernel-concentration records to plot.")
         return None
 
+    value_col, std_col, ylabel, invert = _concentration_metric_spec(
+        metric, feature_symbol
+    )
     layers = sorted(conc_df["layer"].unique())
     cmap = plt.get_cmap("viridis")
     colors = [cmap(i / max(1, len(layers) - 1)) for i in range(len(layers))]
-    has_std = "cka_std" in conc_df.columns
-    ylim = _data_ylim(conc_df["cka_mean"], invert=False, ymin_floor=0.0)
-    sym = _feature_kernel_tex(feature_symbol)
+    has_std = std_col in conc_df.columns
+    ylim = _data_ylim(
+        conc_df[value_col], invert=invert, ymin_floor=0.0
+    )
 
     plt.figure(figsize=(8, 6))
     ax = plt.gca()
@@ -2553,7 +2697,7 @@ def plot_kernel_concentration_vs_time(
             if not len(sub):
                 continue
             x = np.asarray(sub[x_col], dtype=float)
-            values = np.asarray(sub["cka_mean"], dtype=float)
+            values = np.asarray(sub[value_col], dtype=float)
             _warn_if_nonfinite(
                 f"{method} concentration layer={int(layer)}", values
             )
@@ -2568,14 +2712,14 @@ def plot_kernel_concentration_vs_time(
                 ax.errorbar(
                     x,
                     values,
-                    yerr=np.asarray(sub["cka_std"], dtype=float),
+                    yerr=np.asarray(sub[std_col], dtype=float),
                     **line_kw,
                 )
             else:
                 ax.plot(x, values, **line_kw)
 
     _apply_x_axis(ax, xlabel=xlabel, xscale=xscale, invert_x=invert_x)
-    ax.set_ylabel(rf"mean pairwise $\mathrm{{CKA}}(C^{{{sym},\ell}})$")
+    ax.set_ylabel(ylabel)
     title = "Feature-kernel concentration across seeds"
     if n_seeds is not None:
         title += rf", $n_{{\mathrm{{seeds}}}}={int(n_seeds)}$"
@@ -2595,7 +2739,9 @@ def plot_kernel_concentration_vs_time(
         n_infer_iters=n_infer_iters,
         dir_name=dir_name,
     )
-    save_path = os.path.join(out_dir, filename)
+    save_path = os.path.join(
+        out_dir, _insert_rel_before_vs(filename, metric)
+    )
     plt.savefig(save_path, bbox_inches="tight")
     plt.close()
     print(f"Kernel concentration plot saved to {save_path}")
