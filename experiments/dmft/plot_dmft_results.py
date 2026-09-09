@@ -110,30 +110,49 @@ def _displacement_plot_filename(cosine_name, metric):
     raise ValueError(f"unknown displacement metric {metric!r}")
 
 
+_CONCENTRATION_FILENAME_TAGS = {
+    "cosine": None,
+    "rel_frob": "rel",
+    "cka": "cka",
+}
+
+
 def _insert_rel_before_vs(name, metric):
-    """Insert ``_rel`` before the first ``_vs_`` in a plot filename."""
-    if metric == "cosine":
-        return name
-    if metric != "rel_frob":
+    """Insert a metric tag before the first ``_vs_`` in a plot filename.
+
+    Cosine keeps the untagged name. Relative Frobenius inserts ``_rel``;
+    CKA inserts ``_cka``.
+    """
+    if metric not in _CONCENTRATION_FILENAME_TAGS:
         raise ValueError(f"unknown metric {metric!r}")
+    tag = _CONCENTRATION_FILENAME_TAGS[metric]
+    if tag is None:
+        return name
     stem, ext = os.path.splitext(name)
     idx = stem.find("_vs_")
     if idx >= 0:
-        return f"{stem[:idx]}_rel{stem[idx:]}{ext}"
-    return f"{stem}_rel{ext}"
+        return f"{stem[:idx]}_{tag}{stem[idx:]}{ext}"
+    return f"{stem}_{tag}{ext}"
 
 
 def _concentration_metric_spec(metric, feature_symbol):
     """Return ``(value_col, std_col, ylabel, invert_ylim)`` for concentration.
 
-    ``metric`` is ``"cosine"`` (mean pairwise cosine similarity) or
-    ``"rel_frob"`` (mean pairwise relative Frobenius). Relative Frobenius
-    inverts the y-axis so 0 (identical kernels) sits at the top.
+    ``metric`` is ``"cosine"`` (mean pairwise cosine similarity),
+    ``"cka"`` (mean pairwise linear CKA), or ``"rel_frob"`` (mean
+    pairwise relative Frobenius). Relative Frobenius inverts the y-axis
+    so 0 (identical kernels) sits at the top.
     """
     sym = _feature_kernel_tex(feature_symbol)
     if metric == "cosine":
         ylabel = rf"mean pairwise $\cos(C^{{{sym},\ell}})$"
         return "cosine_mean", "cosine_std", ylabel, False
+    if metric == "cka":
+        ylabel = (
+            rf"mean pairwise $\mathrm{{CKA}}"
+            rf"(C^{{{sym},\ell}}, C'^{{{sym},\ell}})$"
+        )
+        return "cka_mean", "cka_std", ylabel, False
     if metric == "rel_frob":
         ylabel = (
             rf"mean pairwise $\|C^{{{sym},\ell}}-C'\|_F"
@@ -1469,8 +1488,14 @@ def _per_layer_axes(n_l):
     return fig, axes, nrows, ncols
 
 
-def _plot_pc_bp_series(ax, sub, *, x_col, value_col, markersize, label_prefix=""):
-    """Overlay PC and Backprop curves on ``ax`` from a per-layer slice."""
+def _plot_pc_bp_series(
+    ax, sub, *, x_col, value_col, markersize, label_prefix="", std_col=None
+):
+    """Overlay PC and Backprop curves on ``ax`` from a per-layer slice.
+
+    If ``std_col`` is set and present on ``sub``, draw sample-SD error
+    bars instead of a plain line.
+    """
     for method, color, marker, label in _PC_BP_STYLES:
         msub = sub[sub["method"] == method].sort_values(x_col)
         if not len(msub):
@@ -1478,14 +1503,21 @@ def _plot_pc_bp_series(ax, sub, *, x_col, value_col, markersize, label_prefix=""
         x = np.asarray(msub[x_col], dtype=float)
         values = np.asarray(msub[value_col], dtype=float)
         _warn_if_nonfinite(f"{label_prefix}{method}", values)
-        ax.plot(
-            x,
-            values,
+        line_kw = dict(
             marker=marker,
             markersize=markersize,
             color=color,
             label=label,
         )
+        if std_col is not None and std_col in msub.columns:
+            ax.errorbar(
+                x,
+                values,
+                yerr=np.asarray(msub[std_col], dtype=float),
+                **line_kw,
+            )
+        else:
+            ax.plot(x, values, **line_kw)
 
 
 def _plot_train_test_series(
@@ -1530,13 +1562,15 @@ def plot_pc_bp_metric_vs_time(
     xlabel="$t$",
     xscale="linear",
     invert_x=False,
+    std_col=None,
 ):
     """Per-layer PC vs backprop line plot vs ``x_col``.
 
     Same layout as ``plot_kernel_displacement_per_timepoint``: one
     subplot per hidden layer, blue circles for PC and orange squares
     for backprop. ``metric_df`` must have columns ``x_col``, ``layer``,
-    ``method`` (``"pc"`` or ``"bp"``), and ``value_col``.
+    ``method`` (``"pc"`` or ``"bp"``), and ``value_col``. Optional
+    ``std_col`` draws sample-SD error bars.
     """
     if metric_df is None or len(metric_df) == 0:
         print(f"No records to plot for {filename}.")
@@ -1552,8 +1586,17 @@ def plot_pc_bp_metric_vs_time(
     )
     layers = sorted(metric_df["layer"].unique())
     n_l = len(layers)
+    ylim_vals = metric_df[value_col]
+    if std_col is not None and std_col in metric_df.columns:
+        std = metric_df[std_col]
+        ylim_vals = np.concatenate(
+            [
+                np.asarray(ylim_vals - std, dtype=float),
+                np.asarray(ylim_vals + std, dtype=float),
+            ]
+        )
     ylim = _data_ylim(
-        metric_df[value_col], invert=invert_ylim, ymin_floor=ymin_floor
+        ylim_vals, invert=invert_ylim, ymin_floor=ymin_floor
     )
     markersize = _markersize_for_n(metric_df[x_col].nunique())
 
@@ -1568,6 +1611,7 @@ def plot_pc_bp_metric_vs_time(
             value_col=value_col,
             markersize=markersize,
             label_prefix=f"{value_col} (layer={layer}) ",
+            std_col=std_col,
         )
         ax.set_title(rf"$\ell = {int(layer) + 1}$")
         _apply_x_axis(ax, xlabel=xlabel, xscale=xscale, invert_x=invert_x)
@@ -2555,8 +2599,9 @@ def plot_kernel_concentration_per_timepoint(
 
     One subplot per ``x_col``. ``conc_df`` must have columns ``x_col``,
     ``layer``, ``method`` (``"pc"`` or ``"bp"``), and the mean/std
-    columns for ``metric`` (``"cosine"`` or ``"rel_frob"``). High cosine
-    (low relative Frobenius) means kernels concentrate across inits.
+    columns for ``metric`` (``"cosine"``, ``"cka"``, or ``"rel_frob"``).
+    High cosine / CKA (low relative Frobenius) means kernels concentrate
+    across inits. Error bars are the sample SD of pairwise values.
     """
     if conc_df is None or len(conc_df) == 0:
         print("No kernel-concentration records to plot.")
@@ -2666,8 +2711,10 @@ def plot_kernel_concentration_vs_time(
 ):
     """Mean pairwise kernel similarity across seeds vs ``x_col``.
 
-    One colour per layer; PC solid, backprop dashed. ``metric`` is
-    ``"cosine"`` or ``"rel_frob"``.
+    One subplot per hidden layer with PC vs BP, matching
+    ``plot_kernel_target_alignment_vs_time``. ``metric`` is
+    ``"cosine"``, ``"cka"``, or ``"rel_frob"``. Error bars are the
+    sample SD of pairwise values.
     """
     if conc_df is None or len(conc_df) == 0:
         print("No kernel-concentration records to plot.")
@@ -2676,76 +2723,31 @@ def plot_kernel_concentration_vs_time(
     value_col, std_col, ylabel, invert = _concentration_metric_spec(
         metric, feature_symbol
     )
-    layers = sorted(conc_df["layer"].unique())
-    cmap = plt.get_cmap("viridis")
-    colors = [cmap(i / max(1, len(layers) - 1)) for i in range(len(layers))]
-    has_std = std_col in conc_df.columns
-    ylim = _data_ylim(
-        conc_df[value_col], invert=invert, ymin_floor=0.0
-    )
-
-    plt.figure(figsize=(8, 6))
-    ax = plt.gca()
-    for layer, color in zip(layers, colors):
-        for method, ls, marker in (
-            ("pc", "-", "o"),
-            ("bp", "--", "s"),
-        ):
-            sub = conc_df[
-                (conc_df["layer"] == layer) & (conc_df["method"] == method)
-            ].sort_values(x_col)
-            if not len(sub):
-                continue
-            x = np.asarray(sub[x_col], dtype=float)
-            values = np.asarray(sub[value_col], dtype=float)
-            _warn_if_nonfinite(
-                f"{method} concentration layer={int(layer)}", values
-            )
-            label = (
-                rf"{'PC' if method == 'pc' else 'BP'}, "
-                rf"$\ell = {int(layer) + 1}$"
-            )
-            line_kw = dict(
-                marker=marker, linestyle=ls, color=color, label=label
-            )
-            if has_std:
-                ax.errorbar(
-                    x,
-                    values,
-                    yerr=np.asarray(sub[std_col], dtype=float),
-                    **line_kw,
-                )
-            else:
-                ax.plot(x, values, **line_kw)
-
-    _apply_x_axis(ax, xlabel=xlabel, xscale=xscale, invert_x=invert_x)
-    ax.set_ylabel(ylabel)
     title = "Feature-kernel concentration across seeds"
     if n_seeds is not None:
         title += rf", $n_{{\mathrm{{seeds}}}}={int(n_seeds)}$"
-    title += _fig_param_suffix(
-        n_hidden=n_hidden, width=width, gamma_0=gamma_0, activity_lr=activity_lr
-    )
-    ax.set_title(title)
-    _maybe_set_ylim(ax, ylim)
-    ax.legend(fontsize=8)
-    ax.grid(True, alpha=0.4, which="both" if xscale == "log" else "major")
-    plt.tight_layout()
-    out_dir = _alignment_plots_dir(
+    has_std = std_col in conc_df.columns
+    return plot_pc_bp_metric_vs_time(
+        conc_df,
         plots_dir,
+        value_col=value_col,
+        ylabel=ylabel,
+        title=title,
+        filename=_insert_rel_before_vs(filename, metric),
         n_hidden=n_hidden,
         gamma_0=gamma_0,
         activity_lr=activity_lr,
         n_infer_iters=n_infer_iters,
+        width=width,
         dir_name=dir_name,
+        invert_ylim=invert,
+        ymin_floor=0.0,
+        x_col=x_col,
+        xlabel=xlabel,
+        xscale=xscale,
+        invert_x=invert_x,
+        std_col=std_col if has_std else None,
     )
-    save_path = os.path.join(
-        out_dir, _insert_rel_before_vs(filename, metric)
-    )
-    plt.savefig(save_path, bbox_inches="tight")
-    plt.close()
-    print(f"Kernel concentration plot saved to {save_path}")
-    return save_path
 
 
 def plot_pc_bp_loss(

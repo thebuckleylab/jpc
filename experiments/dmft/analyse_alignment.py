@@ -69,8 +69,9 @@ is written to ``alignment/analyse_alignment.log``.
   and with ``C^x`` vs layer
   (``kernel_target_input_alignment_final.png``).
 - If ``--n_seeds > 1``: kernel concentration across weight-init seeds
-  vs time / loss, using mean pairwise cosine similarity and relative
-  Frobenius. Skipped when ``--n_seeds`` is 1.
+  vs time / loss, using mean pairwise cosine similarity, linear CKA,
+  and relative Frobenius. Error bars are the sample SD of the pairwise
+  values (not the SEM). Skipped when ``--n_seeds`` is 1.
 
 ``--seed`` draws two independent RNG streams (dataset, weight init). PC
 is initialized from the weight-init stream; BP copies those Linear
@@ -208,7 +209,7 @@ def _select_curve_timepoints(n_train_iters, stride=2, every_t_max=31):
 
 
 _DIR_BY_TIME = os.path.join("alignment", "by_time")
-_CONCENTRATION_METRICS = ("cosine", "rel_frob")
+_CONCENTRATION_METRICS = ("cosine", "cka", "rel_frob")
 
 
 def _dir_by_loss(scale):
@@ -968,7 +969,7 @@ def _plot_loss_matched_suite(
 
 
 def _plot_concentration_suite(conc_df, n_seeds, plot_kw, **axis_kw):
-    """Cosine and relative-Frobenius concentration plots vs ``x_col``."""
+    """Cosine, CKA, and relative-Frobenius concentration plots vs ``x_col``."""
     for metric in _CONCENTRATION_METRICS:
         plot_kernel_concentration_vs_time(
             conc_df,
@@ -1054,18 +1055,28 @@ def _pairwise_mean_std(vals):
 
 
 def _mean_pairwise_kernel_metrics(kernels):
-    """Mean pairwise cosine and relative Frobenius over seed kernels.
+    """Mean pairwise cosine, CKA, and relative Frobenius over seed kernels.
 
     Relative Frobenius is symmetrised as
     ``0.5 * (d(C_i, C_j) + d(C_j, C_i))`` for each unordered pair.
+    Returned ``*_std`` values are the sample SD of those pairwise
+    scores (ddof=1), not the SEM.
     """
     cos_vals = []
+    cka_vals = []
     rel_vals = []
     for i in range(len(kernels)):
         for j in range(i + 1, len(kernels)):
             cos_vals.append(
                 float(
                     cosine_similarity(kernels[i], kernels[j], eps=1e-30)
+                )
+            )
+            cka_vals.append(
+                float(
+                    centered_kernel_alignment(
+                        kernels[i], kernels[j], eps=1e-30
+                    )
                 )
             )
             rel_ij = relative_frobenius_displacement(
@@ -1076,10 +1087,13 @@ def _mean_pairwise_kernel_metrics(kernels):
             )
             rel_vals.append(0.5 * (rel_ij + rel_ji))
     cos_mean, cos_std = _pairwise_mean_std(cos_vals)
+    cka_mean, cka_std = _pairwise_mean_std(cka_vals)
     rel_mean, rel_std = _pairwise_mean_std(rel_vals)
     return {
         "cosine_mean": cos_mean,
         "cosine_std": cos_std,
+        "cka_mean": cka_mean,
+        "cka_std": cka_std,
         "rel_mean": rel_mean,
         "rel_std": rel_std,
     }
@@ -1324,8 +1338,9 @@ if __name__ == "__main__":
         help=(
             "Number of independent weight-init seeds (dataset is shared). "
             "If greater than 1, plot kernel concentration across seeds "
-            "for both PC and BP, using mean pairwise cosine similarity "
-            "and relative Frobenius. Default 1 skips that analysis."
+            "for both PC and BP, using mean pairwise cosine similarity, "
+            "linear CKA, and relative Frobenius. Default 1 skips that "
+            "analysis."
         ),
     )
 
@@ -1816,7 +1831,7 @@ if __name__ == "__main__":
     if n_seeds > 1:
         _term(
             f"\nKernel concentration across {n_seeds} seeds "
-            f"(mean pairwise cosine and relative Frobenius)..."
+            f"(mean pairwise cosine, CKA, and relative Frobenius)..."
         )
         conc_records = []
         for t in curve_timepoints:
