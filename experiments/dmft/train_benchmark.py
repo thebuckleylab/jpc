@@ -2790,10 +2790,10 @@ if __name__ == "__main__":
 # python train_benchmark.py --dataset MNIST --n_epochs 10 --batch_size 64 --width 256 --n_hidden 2 --param_lr 0.01 --param_lr_pc 0.01 --param_optim adam --act_fn linear --loss_id mse --pc_infer_mode closed_form --results_dir results_mnist_linear
 
 # # MLP, MNIST
-# python train_benchmark.py --dataset MNIST --n_epochs 10 --batch_size 64 --width 256 --n_hidden 2 --param_lr 0.3 --param_lr_pc 0.3 --activity_lr 0.01 --n_infer_iters 20 --param_optim adam --act_fn relu --n_seeds 3 --results_dir results_mnist
+# python train_benchmark.py --dataset MNIST --n_epochs 10 --batch_size 64 --width 256 --n_hidden 2 --param_lr 0.1 --param_lr_pc 0.1 --activity_lr 0.01 --n_infer_iters 20 --param_optim adam --act_fn relu --n_seeds 3 --results_dir results_mnist
 
 # # MLP, Fashion-MNIST
-# python train_benchmark.py --dataset Fashion-MNIST --n_epochs 10 --batch_size 64 --width 256 --n_hidden 2 --param_lr 0.3 --param_lr_pc 0.3 --activity_lr 0.01 --n_infer_iters 20 --param_optim adam --act_fn relu --n_seeds 3 --results_dir results_fashion_mnist
+# python train_benchmark.py --dataset Fashion-MNIST --n_epochs 10 --batch_size 128 --width 256 --n_hidden 2 --param_lr 0.3 --param_lr_pc 0.3 --activity_lr 0.001 --n_infer_iters 20 --param_optim adam --act_fn relu --n_seeds 3 --results_dir results_fashion_mnist
 
 # # CNN, CIFAR-10
 # python train_benchmark.py --dataset CIFAR10 --arch cnn --n_epochs 100 --batch_size 64 --width 256 --n_res_blocks 3 --param_lr 0.1 --param_lr_pc 0.1 --activity_lr 0.01 --n_infer_iters 20 --param_optim sgd_momentum --act_fn relu --results_dir results_cifar
@@ -2809,25 +2809,37 @@ if __name__ == "__main__":
 # # python train_benchmark.py --dataset Fashion-MNIST --n_epochs 6 --n_seeds 1 \
 # python train_benchmark.py --dataset MNIST --n_epochs 6 --n_seeds 1 \
 #   --width 256 --n_hidden 2 --batch_size 64 \
-#   --param_lr 0.001 0.003 0.01 0.03 0.1 0.3 1.0 \
+#   --param_lr 0.001 0.003 0.01 0.03 0.1 0.3 1.0 3.0 \
 #   --param_lr_pc 0.01 0.03 0.1 0.3 1.0 3.0 \
-#   --activity_lr 0.01 0.03 0.1 0.3 \
+#   --activity_lr 0.001 0.003 0.01 0.03 0.1 0.3 \
 #   --n_infer_iters 20 200 \
 #   --param_optim adam --act_fn relu \
 #   --results_dir results_mnist_sweep_coarse
 # #   --results_dir results_fashion_mnist_sweep_coarse
 
-# # MLP, MNIST: Hyperparameter sweep (Fine) - Same for Fashion-MNIST (change dataset and name)
+# # MLP, MNIST: Hyperparameter sweep (Fine) - Same for Fashion-MNIST (change dataset and name) - bs64
 # # python train_benchmark.py --dataset Fashion-MNIST --n_epochs 10 --n_seeds 3 \
 # python train_benchmark.py --dataset MNIST --n_epochs 10 --n_seeds 3 \
 #   --width 256 --n_hidden 2 --batch_size 64 \
-#   --param_lr 0.03 0.1 0.3 1.0 3.0 \
-#   --param_lr_pc 0.03 0.1 0.3 1.0 3.0 \
-#   --activity_lr 0.01 0.03 0.1 0.3 \
+#   --param_lr 0.03 0.1 0.3 1.0 \
+#   --param_lr_pc 0.03 0.1 0.3 1.0 \
+#   --activity_lr 0.001 0.003 0.01 0.03 0.1 \
 #   --n_infer_iters 20 \
 #   --param_optim adam --act_fn relu \
-#   --results_dir results_mnist_sweep_fine
-# #   --results_dir results_fashion_mnist_sweep_fine
+#   --results_dir results_mnist_sweep_fine_bs64
+# #   --results_dir results_fashion_mnist_sweep_fine_bs64
+
+# # MLP, MNIST: Hyperparameter sweep (Fine) - Same for Fashion-MNIST (change dataset and name) - bs128
+# # python train_benchmark.py --dataset Fashion-MNIST --n_epochs 10 --n_seeds 3 \
+# python train_benchmark.py --dataset MNIST --n_epochs 10 --n_seeds 3 \
+#   --width 256 --n_hidden 2 --batch_size 128 \
+#   --param_lr 0.03 0.1 0.3 1.0 \
+#   --param_lr_pc 0.03 0.1 0.3 1.0 \
+#   --activity_lr 0.001 0.003 0.01 0.03 0.1 \
+#   --n_infer_iters 20 \
+#   --param_optim adam --act_fn relu \
+#   --results_dir results_mnist_sweep_fine_bs128
+# #   --results_dir results_fashion_mnist_sweep_fine_bs128
 
 
 ########### SWEEP (CIFAR) ##############
