@@ -60,6 +60,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 import numpy as np
 import jax
 import jax.numpy as jnp
@@ -94,6 +95,10 @@ if str(_CNN_DIR) not in sys.path:
 from model import ResNet  # noqa: E402
 from optim import configure_cnn_param_optim  # noqa: E402
 from experiments.limits_paper.cnn.utils import _import_hf_load_dataset  # noqa: E402
+
+import plot_style as ps
+
+ps.apply_paper_style()
 
 
 DATASET_ALIASES = {
@@ -1083,6 +1088,21 @@ def _aggregate_curves(curves):
     return mean, sem, n_t
 
 
+_EPOCH_XLABEL = "epoch"
+_STEP_XLABEL = "step"
+_TEST_LOSS_YLABEL = r"test loss $\mathcal{L}$"
+_TEST_ACC_YLABEL = "test accuracy (%)"
+_TRAIN_ACC_YLABEL = "train accuracy (%)"
+
+#: Combined 2x2 (train+test) is supplementary; each cell is roughly half-width.
+_FIGSIZE_2x2 = ps.per_layer_figsize(2, 2)
+_FIGSIZE_1x2 = (2 * ps.PANEL_HALF[0], ps.PANEL_HALF[1])
+
+
+def _markersize_for_n(n):
+    return 1.6 if n > 20 else ps.MARKER_SIZE
+
+
 def _plot_overlay(
     ax,
     xs_pc,
@@ -1097,36 +1117,54 @@ def _plot_overlay(
     skip_pc=False,
     skip_bp=False,
 ):
+    n_pts = 0
+    if not skip_pc:
+        n_pts = max(n_pts, len(np.asarray(xs_pc)))
+    if not skip_bp:
+        n_pts = max(n_pts, len(np.asarray(xs_bp)))
+    markersize = _markersize_for_n(n_pts)
     if not skip_pc:
         ax.plot(
-            xs_pc, ys_pc, marker="o", color="tab:blue", label="PC", alpha=0.9
+            xs_pc,
+            ys_pc,
+            marker="o",
+            markersize=markersize,
+            color=ps.COLOR_PC,
+            label=ps.LABEL_PC,
         )
         if yerr_pc is not None:
             ax.fill_between(
                 xs_pc,
                 np.asarray(ys_pc) - np.asarray(yerr_pc),
                 np.asarray(ys_pc) + np.asarray(yerr_pc),
-                color="tab:blue",
+                color=ps.COLOR_PC,
                 alpha=0.2,
                 linewidth=0,
             )
     if not skip_bp:
         ax.plot(
-            xs_bp, ys_bp, marker="s", color="tab:orange", label="Backprop", alpha=0.9
+            xs_bp,
+            ys_bp,
+            marker="s",
+            markersize=markersize,
+            color=ps.COLOR_BP,
+            label=ps.LABEL_BP,
         )
         if yerr_bp is not None:
             ax.fill_between(
                 xs_bp,
                 np.asarray(ys_bp) - np.asarray(yerr_bp),
                 np.asarray(ys_bp) + np.asarray(yerr_bp),
-                color="tab:orange",
+                color=ps.COLOR_BP,
                 alpha=0.2,
                 linewidth=0,
             )
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
-    ax.grid(True, alpha=0.4)
-    ax.legend(fontsize=8)
+    if xlabel in (_EPOCH_XLABEL, _STEP_XLABEL):
+        ax.xaxis.set_major_locator(MaxNLocator(integer=True, nbins=6))
+    ax.legend()
+    ps.style_axes(ax)
 
 
 def _metric_plot_stem(skip_pc, skip_bp=False):
@@ -1137,28 +1175,148 @@ def _metric_plot_stem(skip_pc, skip_bp=False):
     return "pc_bp"
 
 
-def _metrics_title(
-    skip_pc,
+def _panel_spec(xs_pc, ys_pc, xs_bp, ys_bp, xlabel, ylabel, yerr_pc=None, yerr_bp=None):
+    return (xs_pc, ys_pc, xs_bp, ys_bp, xlabel, ylabel, yerr_pc, yerr_bp)
+
+
+def _save_overlay_figure(shape, figsize, panels, save_path, plot_kw):
+    fig, axes = plt.subplots(*shape, figsize=figsize)
+    axes_flat = np.atleast_1d(axes).ravel()
+    for ax, panel in zip(axes_flat, panels):
+        xs_pc, ys_pc, xs_bp, ys_bp, xlabel, ylabel, yerr_pc, yerr_bp = panel
+        _plot_overlay(
+            ax,
+            xs_pc,
+            ys_pc,
+            xs_bp,
+            ys_bp,
+            xlabel,
+            ylabel,
+            yerr_pc=yerr_pc,
+            yerr_bp=yerr_bp,
+            **plot_kw,
+        )
+    ps.save_figure(fig, save_path)
+    return save_path
+
+
+def _split_train_test_panels(
     *,
-    skip_bp=False,
-    mean_sem=False,
-    n_seeds=None,
-    per_step=False,
-    per_mini=False,
+    xs_train,
+    xs_eval,
+    train_loss_pc,
+    train_loss_bp,
+    test_loss_pc,
+    test_loss_bp,
+    train_acc_pc,
+    train_acc_bp,
+    test_acc_pc,
+    test_acc_bp,
+    yerr=None,
 ):
-    if skip_pc:
-        base = "Backprop"
-    elif skip_bp:
-        base = "Predictive coding"
-    else:
-        base = "PC vs backprop"
-    if per_mini:
-        base = f"{base} (mini-epoch)"
-    elif per_step:
-        base = f"{base} (per step)"
-    if mean_sem:
-        base = f"{base} (mean ± SEM, n={n_seeds} seeds)"
-    return base
+    """Return (combined 2x2, test-loss, test-acc, train 1x2) panel lists."""
+
+    def err(key):
+        if yerr is None:
+            return None, None
+        return yerr.get(f"{key}_pc"), yerr.get(f"{key}_bp")
+
+    e_tr_l = err("train_loss")
+    e_te_l = err("test_loss")
+    e_tr_a = err("train_acc")
+    e_te_a = err("test_acc")
+    combined = [
+        _panel_spec(
+            xs_train, train_loss_pc, xs_train, train_loss_bp,
+            _EPOCH_XLABEL, ps.LOSS_LABEL, *e_tr_l,
+        ),
+        _panel_spec(
+            xs_eval, test_loss_pc, xs_eval, test_loss_bp,
+            _EPOCH_XLABEL, _TEST_LOSS_YLABEL, *e_te_l,
+        ),
+        _panel_spec(
+            xs_train, train_acc_pc, xs_train, train_acc_bp,
+            _EPOCH_XLABEL, _TRAIN_ACC_YLABEL, *e_tr_a,
+        ),
+        _panel_spec(
+            xs_eval, test_acc_pc, xs_eval, test_acc_bp,
+            _EPOCH_XLABEL, _TEST_ACC_YLABEL, *e_te_a,
+        ),
+    ]
+    test_loss = [
+        _panel_spec(
+            xs_eval, test_loss_pc, xs_eval, test_loss_bp,
+            _EPOCH_XLABEL, _TEST_LOSS_YLABEL, *e_te_l,
+        )
+    ]
+    test_acc = [
+        _panel_spec(
+            xs_eval, test_acc_pc, xs_eval, test_acc_bp,
+            _EPOCH_XLABEL, _TEST_ACC_YLABEL, *e_te_a,
+        )
+    ]
+    train = [
+        _panel_spec(
+            xs_train, train_loss_pc, xs_train, train_loss_bp,
+            _EPOCH_XLABEL, ps.LOSS_LABEL, *e_tr_l,
+        ),
+        _panel_spec(
+            xs_train, train_acc_pc, xs_train, train_acc_bp,
+            _EPOCH_XLABEL, _TRAIN_ACC_YLABEL, *e_tr_a,
+        ),
+    ]
+    return combined, test_loss, test_acc, train
+
+
+def _write_metric_figures(
+    save_dir,
+    stem,
+    combined_name,
+    combined,
+    test_loss,
+    test_acc,
+    train,
+    plot_kw,
+    *,
+    tag="",
+    test_prefix="",
+    train_name="train_metrics",
+):
+    """Write the combined 2x2 plus the split test / train figures.
+
+    ``tag`` is appended to the split filenames (``_mean_sem`` for seed
+    aggregates). ``test_prefix`` distinguishes mini-epoch splits from the
+    main-text epoch panels.
+    """
+    combined_path = _save_overlay_figure(
+        (2, 2),
+        _FIGSIZE_2x2,
+        combined,
+        os.path.join(save_dir, f"{stem}_{combined_name}.png"),
+        plot_kw,
+    )
+    test_loss_path = _save_overlay_figure(
+        (1, 1),
+        ps.PANEL_THIRD,
+        test_loss,
+        os.path.join(save_dir, f"{stem}_{test_prefix}test_loss{tag}.png"),
+        plot_kw,
+    )
+    test_acc_path = _save_overlay_figure(
+        (1, 1),
+        ps.PANEL_THIRD,
+        test_acc,
+        os.path.join(save_dir, f"{stem}_{test_prefix}test_accuracy{tag}.png"),
+        plot_kw,
+    )
+    train_path = _save_overlay_figure(
+        (1, 2),
+        _FIGSIZE_1x2,
+        train,
+        os.path.join(save_dir, f"{stem}_{train_name}{tag}.png"),
+        plot_kw,
+    )
+    return combined_path, test_loss_path, test_acc_path, train_path
 
 
 def plot_metrics(
@@ -1169,139 +1327,85 @@ def plot_metrics(
     skip_pc=False,
     skip_bp=False,
 ):
+    del title_suffix
     os.makedirs(save_dir, exist_ok=True)
     plot_kw = dict(skip_pc=skip_pc, skip_bp=skip_bp)
     stem = _metric_plot_stem(skip_pc, skip_bp)
 
-    fig, axes = plt.subplots(2, 2, figsize=(12, 9))
-    _plot_overlay(
-        axes[0, 0],
-        history["epoch_train"],
-        history["pc_train_loss_epoch"],
-        history["epoch_train"],
-        history["bp_train_loss_epoch"],
-        "Epoch",
-        "Train loss",
-        **plot_kw,
+    combined, test_loss, test_acc, train = _split_train_test_panels(
+        xs_train=history["epoch_train"],
+        xs_eval=history["epoch_eval"],
+        train_loss_pc=history["pc_train_loss_epoch"],
+        train_loss_bp=history["bp_train_loss_epoch"],
+        test_loss_pc=history["pc_test_loss"],
+        test_loss_bp=history["bp_test_loss"],
+        train_acc_pc=history["pc_train_acc_epoch"],
+        train_acc_bp=history["bp_train_acc_epoch"],
+        test_acc_pc=history["pc_test_acc"],
+        test_acc_bp=history["bp_test_acc"],
     )
-    _plot_overlay(
-        axes[0, 1],
-        history["epoch_eval"],
-        history["pc_test_loss"],
-        history["epoch_eval"],
-        history["bp_test_loss"],
-        "Epoch",
-        "Test loss",
-        **plot_kw,
+    epoch_path, _, _, _ = _write_metric_figures(
+        save_dir,
+        stem,
+        "epoch_metrics",
+        combined,
+        test_loss,
+        test_acc,
+        train,
+        plot_kw,
     )
-    _plot_overlay(
-        axes[1, 0],
-        history["epoch_train"],
-        history["pc_train_acc_epoch"],
-        history["epoch_train"],
-        history["bp_train_acc_epoch"],
-        "Epoch",
-        "Train accuracy (%)",
-        **plot_kw,
-    )
-    _plot_overlay(
-        axes[1, 1],
-        history["epoch_eval"],
-        history["pc_test_acc"],
-        history["epoch_eval"],
-        history["bp_test_acc"],
-        "Epoch",
-        "Test accuracy (%)",
-        **plot_kw,
-    )
-    fig.suptitle(_metrics_title(skip_pc, skip_bp=skip_bp) + title_suffix)
-    fig.tight_layout()
-    epoch_name = f"{stem}_epoch_metrics.png"
-    epoch_path = os.path.join(save_dir, epoch_name)
-    fig.savefig(epoch_path, bbox_inches="tight")
-    plt.close(fig)
 
-    fig, axes = plt.subplots(2, 2, figsize=(12, 9))
-    _plot_overlay(
-        axes[0, 0],
-        history["mini_epoch"],
-        history["pc_train_loss_mini"],
-        history["mini_epoch"],
-        history["bp_train_loss_mini"],
-        "Epoch",
-        "Train loss",
-        **plot_kw,
+    combined, test_loss, test_acc, train = _split_train_test_panels(
+        xs_train=history["mini_epoch"],
+        xs_eval=history["mini_epoch"],
+        train_loss_pc=history["pc_train_loss_mini"],
+        train_loss_bp=history["bp_train_loss_mini"],
+        test_loss_pc=history["pc_test_loss_mini"],
+        test_loss_bp=history["bp_test_loss_mini"],
+        train_acc_pc=history["pc_train_acc_mini"],
+        train_acc_bp=history["bp_train_acc_mini"],
+        test_acc_pc=history["pc_test_acc_mini"],
+        test_acc_bp=history["bp_test_acc_mini"],
     )
-    _plot_overlay(
-        axes[0, 1],
-        history["mini_epoch"],
-        history["pc_test_loss_mini"],
-        history["mini_epoch"],
-        history["bp_test_loss_mini"],
-        "Epoch",
-        "Test loss",
-        **plot_kw,
+    mini_path, _, _, _ = _write_metric_figures(
+        save_dir,
+        stem,
+        "mini_epoch_metrics",
+        combined,
+        test_loss,
+        test_acc,
+        train,
+        plot_kw,
+        test_prefix="mini_epoch_",
+        train_name="mini_epoch_train_metrics",
     )
-    _plot_overlay(
-        axes[1, 0],
-        history["mini_epoch"],
-        history["pc_train_acc_mini"],
-        history["mini_epoch"],
-        history["bp_train_acc_mini"],
-        "Epoch",
-        "Train accuracy (%)",
-        **plot_kw,
-    )
-    _plot_overlay(
-        axes[1, 1],
-        history["mini_epoch"],
-        history["pc_test_acc_mini"],
-        history["mini_epoch"],
-        history["bp_test_acc_mini"],
-        "Epoch",
-        "Test accuracy (%)",
-        **plot_kw,
-    )
-    fig.suptitle(
-        _metrics_title(skip_pc, skip_bp=skip_bp, per_mini=True) + title_suffix
-    )
-    fig.tight_layout()
-    mini_name = f"{stem}_mini_epoch_metrics.png"
-    mini_path = os.path.join(save_dir, mini_name)
-    fig.savefig(mini_path, bbox_inches="tight")
-    plt.close(fig)
 
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4.5))
     step_key = "pc_train_loss_step" if skip_bp else "bp_train_loss_step"
     steps = np.arange(len(history[step_key]))
-    _plot_overlay(
-        axes[0],
-        steps,
-        history["pc_train_loss_step"],
-        steps,
-        history["bp_train_loss_step"],
-        "Step",
-        "Train loss",
-        **plot_kw,
+    step_path = _save_overlay_figure(
+        (1, 2),
+        _FIGSIZE_1x2,
+        [
+            _panel_spec(
+                steps,
+                history["pc_train_loss_step"],
+                steps,
+                history["bp_train_loss_step"],
+                _STEP_XLABEL,
+                ps.LOSS_LABEL,
+            ),
+            _panel_spec(
+                steps,
+                history["pc_train_acc_step"],
+                steps,
+                history["bp_train_acc_step"],
+                _STEP_XLABEL,
+                _TRAIN_ACC_YLABEL,
+            ),
+        ],
+        os.path.join(save_dir, f"{stem}_step_metrics.png"),
+        plot_kw,
     )
-    _plot_overlay(
-        axes[1],
-        steps,
-        history["pc_train_acc_step"],
-        steps,
-        history["bp_train_acc_step"],
-        "Step",
-        "Train accuracy (%)",
-        **plot_kw,
-    )
-    fig.suptitle(
-        _metrics_title(skip_pc, skip_bp=skip_bp, per_step=True) + title_suffix
-    )
-    fig.tight_layout()
-    step_name = f"{stem}_step_metrics.png"
-    step_path = os.path.join(save_dir, step_name)
-    fig.savefig(step_path, bbox_inches="tight")
-    plt.close(fig)
     if log_steps:
         print(f"Saved plots to {epoch_path}, {mini_path}, and {step_path}")
     return epoch_path, mini_path, step_path
@@ -1328,145 +1432,162 @@ def plot_metrics_mean_sem(
     skip_bp=False,
 ):
     """Plot mean ± SEM across seeds (shaded bands)."""
+    del title_suffix
     os.makedirs(save_dir, exist_ok=True)
-    n_seeds = len(histories)
     plot_kw = dict(skip_pc=skip_pc, skip_bp=skip_bp)
     stem = _metric_plot_stem(skip_pc, skip_bp)
 
+    def series(pc_key, bp_key, xs):
+        mean_pc, sem_pc, mean_bp, sem_bp, n_t = _mean_sem_method_curves(
+            histories, pc_key, bp_key, skip_pc, skip_bp
+        )
+        xs_use = np.asarray(xs)[:n_t]
+        return xs_use, mean_pc, mean_bp, sem_pc, sem_bp
+
     epoch_train = np.asarray(histories[0]["epoch_train"])
     epoch_eval = np.asarray(histories[0]["epoch_eval"])
-
-    metric_pairs = [
-        ("pc_train_loss_epoch", "bp_train_loss_epoch", epoch_train, "Epoch", "Train loss"),
-        ("pc_test_loss", "bp_test_loss", epoch_eval, "Epoch", "Test loss"),
-        (
-            "pc_train_acc_epoch",
-            "bp_train_acc_epoch",
-            epoch_train,
-            "Epoch",
-            "Train accuracy (%)",
-        ),
-        ("pc_test_acc", "bp_test_acc", epoch_eval, "Epoch", "Test accuracy (%)"),
-    ]
-
-    fig, axes = plt.subplots(2, 2, figsize=(12, 9))
-    for ax, (pc_key, bp_key, xs, xlabel, ylabel) in zip(
-        axes.ravel(), metric_pairs
-    ):
-        mean_pc, sem_pc, mean_bp, sem_bp, n_t = _mean_sem_method_curves(
-            histories, pc_key, bp_key, skip_pc, skip_bp
-        )
-        xs_use = np.asarray(xs)[:n_t]
-        _plot_overlay(
-            ax,
-            xs_use,
-            mean_pc,
-            xs_use,
-            mean_bp,
-            xlabel,
-            ylabel,
-            yerr_pc=sem_pc,
-            yerr_bp=sem_bp,
-            **plot_kw,
-        )
-    fig.suptitle(
-        _metrics_title(
-            skip_pc, skip_bp=skip_bp, mean_sem=True, n_seeds=n_seeds
-        )
-        + title_suffix
+    xs_tr, tr_l_pc, tr_l_bp, tr_l_pc_e, tr_l_bp_e = series(
+        "pc_train_loss_epoch", "bp_train_loss_epoch", epoch_train
     )
-    fig.tight_layout()
-    epoch_name = f"{stem}_epoch_metrics_mean_sem.png"
-    epoch_path = os.path.join(save_dir, epoch_name)
-    fig.savefig(epoch_path, bbox_inches="tight")
-    plt.close(fig)
+    xs_te, te_l_pc, te_l_bp, te_l_pc_e, te_l_bp_e = series(
+        "pc_test_loss", "bp_test_loss", epoch_eval
+    )
+    _, tr_a_pc, tr_a_bp, tr_a_pc_e, tr_a_bp_e = series(
+        "pc_train_acc_epoch", "bp_train_acc_epoch", epoch_train
+    )
+    _, te_a_pc, te_a_bp, te_a_pc_e, te_a_bp_e = series(
+        "pc_test_acc", "bp_test_acc", epoch_eval
+    )
+    combined, test_loss, test_acc, train = _split_train_test_panels(
+        xs_train=xs_tr,
+        xs_eval=xs_te,
+        train_loss_pc=tr_l_pc,
+        train_loss_bp=tr_l_bp,
+        test_loss_pc=te_l_pc,
+        test_loss_bp=te_l_bp,
+        train_acc_pc=tr_a_pc,
+        train_acc_bp=tr_a_bp,
+        test_acc_pc=te_a_pc,
+        test_acc_bp=te_a_bp,
+        yerr=dict(
+            train_loss_pc=tr_l_pc_e,
+            train_loss_bp=tr_l_bp_e,
+            test_loss_pc=te_l_pc_e,
+            test_loss_bp=te_l_bp_e,
+            train_acc_pc=tr_a_pc_e,
+            train_acc_bp=tr_a_bp_e,
+            test_acc_pc=te_a_pc_e,
+            test_acc_bp=te_a_bp_e,
+        ),
+    )
+    epoch_path, _, _, _ = _write_metric_figures(
+        save_dir,
+        stem,
+        "epoch_metrics_mean_sem",
+        combined,
+        test_loss,
+        test_acc,
+        train,
+        plot_kw,
+        tag="_mean_sem",
+    )
 
     mini_epoch = np.asarray(histories[0]["mini_epoch"])
-    mini_pairs = [
-        ("pc_train_loss_mini", "bp_train_loss_mini", mini_epoch, "Epoch", "Train loss"),
-        ("pc_test_loss_mini", "bp_test_loss_mini", mini_epoch, "Epoch", "Test loss"),
-        (
-            "pc_train_acc_mini",
-            "bp_train_acc_mini",
-            mini_epoch,
-            "Epoch",
-            "Train accuracy (%)",
+    xs_m, m_tr_l_pc, m_tr_l_bp, m_tr_l_pc_e, m_tr_l_bp_e = series(
+        "pc_train_loss_mini", "bp_train_loss_mini", mini_epoch
+    )
+    _, m_te_l_pc, m_te_l_bp, m_te_l_pc_e, m_te_l_bp_e = series(
+        "pc_test_loss_mini", "bp_test_loss_mini", mini_epoch
+    )
+    _, m_tr_a_pc, m_tr_a_bp, m_tr_a_pc_e, m_tr_a_bp_e = series(
+        "pc_train_acc_mini", "bp_train_acc_mini", mini_epoch
+    )
+    _, m_te_a_pc, m_te_a_bp, m_te_a_pc_e, m_te_a_bp_e = series(
+        "pc_test_acc_mini", "bp_test_acc_mini", mini_epoch
+    )
+    combined, test_loss, test_acc, train = _split_train_test_panels(
+        xs_train=xs_m,
+        xs_eval=xs_m,
+        train_loss_pc=m_tr_l_pc,
+        train_loss_bp=m_tr_l_bp,
+        test_loss_pc=m_te_l_pc,
+        test_loss_bp=m_te_l_bp,
+        train_acc_pc=m_tr_a_pc,
+        train_acc_bp=m_tr_a_bp,
+        test_acc_pc=m_te_a_pc,
+        test_acc_bp=m_te_a_bp,
+        yerr=dict(
+            train_loss_pc=m_tr_l_pc_e,
+            train_loss_bp=m_tr_l_bp_e,
+            test_loss_pc=m_te_l_pc_e,
+            test_loss_bp=m_te_l_bp_e,
+            train_acc_pc=m_tr_a_pc_e,
+            train_acc_bp=m_tr_a_bp_e,
+            test_acc_pc=m_te_a_pc_e,
+            test_acc_bp=m_te_a_bp_e,
         ),
-        ("pc_test_acc_mini", "bp_test_acc_mini", mini_epoch, "Epoch", "Test accuracy (%)"),
-    ]
-    fig, axes = plt.subplots(2, 2, figsize=(12, 9))
-    for ax, (pc_key, bp_key, xs, xlabel, ylabel) in zip(
-        axes.ravel(), mini_pairs
-    ):
-        mean_pc, sem_pc, mean_bp, sem_bp, n_t = _mean_sem_method_curves(
-            histories, pc_key, bp_key, skip_pc, skip_bp
-        )
-        xs_use = np.asarray(xs)[:n_t]
-        _plot_overlay(
-            ax,
-            xs_use,
-            mean_pc,
-            xs_use,
-            mean_bp,
-            xlabel,
-            ylabel,
-            yerr_pc=sem_pc,
-            yerr_bp=sem_bp,
-            **plot_kw,
-        )
-    fig.suptitle(
-        _metrics_title(
-            skip_pc,
-            skip_bp=skip_bp,
-            mean_sem=True,
-            n_seeds=n_seeds,
-            per_mini=True,
-        )
-        + title_suffix
     )
-    fig.tight_layout()
-    mini_name = f"{stem}_mini_epoch_metrics_mean_sem.png"
-    mini_path = os.path.join(save_dir, mini_name)
-    fig.savefig(mini_path, bbox_inches="tight")
-    plt.close(fig)
+    mini_path, _, _, _ = _write_metric_figures(
+        save_dir,
+        stem,
+        "mini_epoch_metrics_mean_sem",
+        combined,
+        test_loss,
+        test_acc,
+        train,
+        plot_kw,
+        tag="_mean_sem",
+        test_prefix="mini_epoch_",
+        train_name="mini_epoch_train_metrics",
+    )
 
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4.5))
-    step_pairs = [
-        ("pc_train_loss_step", "bp_train_loss_step", "Train loss"),
-        ("pc_train_acc_step", "bp_train_acc_step", "Train accuracy (%)"),
-    ]
-    for ax, (pc_key, bp_key, ylabel) in zip(axes, step_pairs):
-        mean_pc, sem_pc, mean_bp, sem_bp, n_t = _mean_sem_method_curves(
-            histories, pc_key, bp_key, skip_pc, skip_bp
-        )
-        steps = np.arange(n_t)
-        _plot_overlay(
-            ax,
-            steps,
-            mean_pc,
-            steps,
-            mean_bp,
-            "Step",
-            ylabel,
-            yerr_pc=sem_pc,
-            yerr_bp=sem_bp,
-            **plot_kw,
-        )
-    fig.suptitle(
-        _metrics_title(
-            skip_pc,
-            skip_bp=skip_bp,
-            mean_sem=True,
-            n_seeds=n_seeds,
-            per_step=True,
-        )
-        + title_suffix
+    mean_pc, sem_pc, mean_bp, sem_bp, n_t = _mean_sem_method_curves(
+        histories, "pc_train_loss_step", "bp_train_loss_step", skip_pc, skip_bp
     )
-    fig.tight_layout()
-    step_name = f"{stem}_step_metrics_mean_sem.png"
-    step_path = os.path.join(save_dir, step_name)
-    fig.savefig(step_path, bbox_inches="tight")
-    plt.close(fig)
+    acc_pc, acc_pc_e, acc_bp, acc_bp_e, n_t_acc = _mean_sem_method_curves(
+        histories, "pc_train_acc_step", "bp_train_acc_step", skip_pc, skip_bp
+    )
+    n_t = min(n_t, n_t_acc)
+    steps = np.arange(n_t)
+
+    def _trim(arr):
+        return None if arr is None else arr[:n_t]
+
+    step_path = _save_overlay_figure(
+        (1, 2),
+        _FIGSIZE_1x2,
+        [
+            _panel_spec(
+                steps,
+                _trim(mean_pc),
+                steps,
+                _trim(mean_bp),
+                _STEP_XLABEL,
+                ps.LOSS_LABEL,
+                _trim(sem_pc),
+                _trim(sem_bp),
+            ),
+            _panel_spec(
+                steps,
+                _trim(acc_pc),
+                steps,
+                _trim(acc_bp),
+                _STEP_XLABEL,
+                _TRAIN_ACC_YLABEL,
+                _trim(acc_pc_e),
+                _trim(acc_bp_e),
+            ),
+        ],
+        os.path.join(save_dir, f"{stem}_step_metrics_mean_sem.png"),
+        plot_kw,
+    )
+    if log_steps:
+        print(
+            f"Saved mean±SEM plots to {epoch_path}, {mini_path}, and {step_path}"
+        )
+    else:
+        print(f"Saved mean±SEM plots to {save_dir}")
+    return epoch_path, mini_path, step_path
     if log_steps:
         print(
             f"Saved mean±SEM plots to {epoch_path}, {mini_path}, and {step_path}"
@@ -2659,7 +2780,7 @@ def run_hp_sweep(args):
                 hparams,
                 skip_pc=True,
                 skip_bp=False,
-                method_label="BP",
+                method_label=ps.LABEL_BP,
                 sweep_dir=sweep_dir,
             )
         )
@@ -2672,7 +2793,7 @@ def run_hp_sweep(args):
                 hparams,
                 skip_pc=False,
                 skip_bp=True,
-                method_label="PC",
+                method_label=ps.LABEL_PC,
                 sweep_dir=sweep_dir,
             )
         )

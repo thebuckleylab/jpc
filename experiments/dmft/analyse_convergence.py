@@ -104,6 +104,7 @@ from experiments.dmft.utils import (
 )
 from theory_pc_utils import solve_pc_kernels
 from theory_pc_nonlin_utils import solve_pc_kernels_nonlin, get_nonlinearity
+import plot_style as ps
 from plot_dmft_results import (
     feature_kernel_symbol,
     plot_pc_theory_vs_finite_loss,
@@ -500,10 +501,12 @@ def _plot_k_sweep_kernels_and_displacement(
     kernel_rows = []
     if dmft_final is not None:
         kernel_rows.append(
-            (rf"DMFT ($K={int(dmft_K)}$)", dmft_final)
+            (ps.k_label(dmft_K, prefix=ps.LABEL_DMFT), dmft_final)
         )
     for K in sorted(infer_final):
-        kernel_rows.append((rf"$K={int(K)}$", infer_final[K]))
+        kernel_rows.append(
+            (ps.k_label(K, prefix=ps.LABEL_NN), infer_final[K])
+        )
 
     cf_final = None
     cf_init = None
@@ -514,7 +517,7 @@ def _plot_k_sweep_kernels_and_displacement(
     ):
         cf_final = _final_feature_kernels(fields_cf, phi_fn)
         cf_init = _init_feature_kernels(fields_cf, phi_fn)
-        kernel_rows.append(("Closed-form", cf_final))
+        kernel_rows.append((ps.LABEL_NN_CLOSED_FORM, cf_final))
 
     feat_tex = r"\phi" if feature_symbol == "phi" else "h"
     if kernel_rows:
@@ -526,7 +529,6 @@ def _plot_k_sweep_kernels_and_displacement(
             activity_lr=activity_lr,
             width=width,
             filename="final_pc_kernels_grid.png",
-            share_clim=True,
             title=rf"Final $C^{{{feat_tex}}}$ feature kernels",
             dir_name="convergence",
         )
@@ -1325,28 +1327,31 @@ if __name__ == "__main__":
                                     if closed_form_feature_kernels is not None:
                                         kernel_rows.append(
                                             (
-                                                "Closed-form",
+                                                ps.LABEL_NN_CLOSED_FORM,
                                                 closed_form_feature_kernels,
                                             )
                                         )
                                     if closed_form_temporal_kernels is not None:
                                         temporal_rows.append(
                                             (
-                                                "Closed-form",
+                                                ps.LABEL_NN_CLOSED_FORM,
                                                 closed_form_temporal_kernels,
                                             )
                                         )
                                     kernel_rows.append(
-                                        ("Infer", infer_feature_kernels)
+                                        (ps.LABEL_NN, infer_feature_kernels)
                                     )
                                     if infer_temporal_kernels is not None:
                                         temporal_rows.append(
-                                            ("Infer", infer_temporal_kernels)
+                                            (
+                                                ps.LABEL_NN,
+                                                infer_temporal_kernels,
+                                            )
                                         )
                                     if all_Ch is not None:
                                         kernel_rows.append(
                                             (
-                                                "DMFT",
+                                                ps.LABEL_DMFT,
                                                 _final_dmft_feature_kernels(
                                                     all_Ch,
                                                     num_inference_steps=K_inf,
@@ -1358,7 +1363,7 @@ if __name__ == "__main__":
                                         if args.plot_temporal_kernels:
                                             temporal_rows.append(
                                                 (
-                                                    "DMFT",
+                                                    ps.LABEL_DMFT,
                                                     _dmft_sample_traced_feature_kernels(
                                                         all_Ch,
                                                         num_inference_steps=K_inf,
@@ -1376,7 +1381,6 @@ if __name__ == "__main__":
                                         n_infer_iters=K_inf,
                                         width=kernel_plot_width,
                                         filename="final_pc_kernels_grid.png",
-                                        share_clim=True,
                                         title=rf"Final $C^{{{feat_tex}}}$ feature kernels",
                                         dir_name="convergence",
                                     )

@@ -127,6 +127,7 @@ from analyse_convergence import (
     _feature_kernels_from_h,
     _sample_traced_feature_kernels_from_h_traj,
 )
+import plot_style as ps
 from plot_dmft_results import (
     _alignment_plots_dir,
     feature_kernel_symbol,
@@ -600,8 +601,8 @@ def _plot_temporal_kernel_figures(
         title += title_note
     plot_temporal_kernel_grid(
         [
-            ("PC", kernels_to_correlations(pc_temporal_kernels)),
-            ("Backprop", kernels_to_correlations(bp_temporal_kernels)),
+            (ps.LABEL_PC, kernels_to_correlations(pc_temporal_kernels)),
+            (ps.LABEL_BP, kernels_to_correlations(bp_temporal_kernels)),
         ],
         filename="temporal_kernels_grid.png",
         vmin=-1.0,
@@ -734,11 +735,10 @@ def _plot_train_test_kernel_suite(
         )
     plot_final_kernel_grid(
         [
-            ("PC", kernels_to_correlations(pc_test_kernels)),
-            ("Backprop", kernels_to_correlations(bp_test_kernels)),
+            (ps.LABEL_PC, kernels_to_correlations(pc_test_kernels)),
+            (ps.LABEL_BP, kernels_to_correlations(bp_test_kernels)),
         ],
         filename="feature_kernels_grid_test.png",
-        share_clim=True,
         vmin=-1.0,
         vmax=1.0,
         title=grid_title,
@@ -853,11 +853,11 @@ def _plot_loss_matched_suite(
         plot_final_kernel_grid(
             [
                 (
-                    "PC",
+                    ps.LABEL_PC,
                     kernels_to_correlations(pc_kernels_by_t[t_pc_i]),
                 ),
                 (
-                    "Backprop",
+                    ps.LABEL_BP,
                     kernels_to_correlations(bp_kernels_by_t[t_bp_i]),
                 ),
             ],
@@ -868,7 +868,6 @@ def _plot_loss_matched_suite(
             n_infer_iters=n_infer_iters,
             width=width,
             filename=f"feature_kernels_grid_lstar{i}.png",
-            share_clim=True,
             vmin=-1.0,
             vmax=1.0,
             title=(
@@ -1697,8 +1696,8 @@ if __name__ == "__main__":
         for t in heatmap_timepoints:
             plot_final_kernel_grid(
                 [
-                    ("PC", kernels_to_correlations(pc_kernels_by_t[t])),
-                    ("Backprop", kernels_to_correlations(bp_kernels_by_t[t])),
+                    (ps.LABEL_PC, kernels_to_correlations(pc_kernels_by_t[t])),
+                    (ps.LABEL_BP, kernels_to_correlations(bp_kernels_by_t[t])),
                 ],
                 plots_dir=plots_dir,
                 gamma_0=args.gamma_0,
@@ -1707,7 +1706,6 @@ if __name__ == "__main__":
                 n_infer_iters=args.n_infer_iters,
                 width=width,
                 filename=f"feature_kernels_grid_t{t}.png",
-                share_clim=True,
                 vmin=-1.0,
                 vmax=1.0,
                 title=(
