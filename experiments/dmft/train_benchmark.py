@@ -28,10 +28,14 @@ energy (requires ``--act_fn linear``, ``--loss_id mse``, and
 ``hp_sweep/{bp|pc}/key=value/.../seed=N`` with a compact
 ``sweep_summary.json``.
 
-Energy scalings match ``train.py`` / ``train_pcn``:
+Energy scalings match ``train.py`` / ``train_pcn`` for MLPs:
 
     λ = γ² N L    (µPC output precision)
     κ = L         (µPC hidden precision)
+
+with a single ``L = n_hidden + 1``. CNNs split this into two depths
+(``--resnet_fwd_l``, ``--resnet_energy_l``; see those flags). Hidden
+precision can be restricted with ``--hidden_energy_layers``.
 
 For Adam, the PC parameter LR is divided the same way as BP
 (``1/√N``, or ``1/√(N L)`` with MLP skips). GD and SGD+momentum keep the
@@ -40,7 +44,8 @@ in the energy); BP bakes ``γ² N`` into the optimiser. No Adam-style
 ``1/√N`` rescaling is applied for SGD+momentum.
 
 CNN residual blocks still use the per-parameter Adam tree from
-``configure_cnn_param_optim``. ImageNet is streamed from Hugging Face.
+``configure_cnn_param_optim``, with residual Adam LRs using ``L_fwd``.
+ImageNet is streamed from Hugging Face.
 
 Default architecture: MLP for MNIST / Fashion-MNIST / tiny-CIFAR10,
 CNN otherwise. Override with ``--arch``.
@@ -87,6 +92,11 @@ from experiments.dmft.utils import (
 )
 from experiments.limits_paper.utils import configure_param_optim
 from experiments.mupc_paper.utils import set_seed
+
+try:
+    from experiments.dmft import cnn_pc
+except ImportError:
+    import cnn_pc
 
 _CNN_DIR = Path(__file__).resolve().parents[1] / "limits_paper" / "cnn"
 if str(_CNN_DIR) not in sys.path:
@@ -162,8 +172,18 @@ def default_arch_for_dataset(dataset_id):
 
 
 def cnn_energy_depth(n_res_blocks, additive_depth_factor):
-    """µP / energy depth ``L`` for the CNN, matching ``configure_cnn_param_optim``."""
+    """Energy depth ``L = n_res_blocks + additive_depth_factor``.
+
+    Prefer ``cnn_pc.resolve_cnn_ls`` when both ``L_fwd`` and ``L_energy``
+    are needed. Kept for the old ``L = R + factor`` formula.
+    """
     return int(n_res_blocks) + int(additive_depth_factor)
+
+
+def _cnn_depth_title(fwd_l, energy_l):
+    if fwd_l == energy_l:
+        return f"L={energy_l}"
+    return f"L_fwd={fwd_l}, L_energy={energy_l}"
 
 
 def copy_eqx_arrays(src, dst):
@@ -648,6 +668,10 @@ def make_models(key, args, spec):
         )
         return pc_model, bp_model, skip_model
 
+    fwd_l, _ = cnn_pc.resolve_cnn_ls(args)
+    fwd_additive = cnn_pc.resnet_fwd_additive_depth_factor(
+        fwd_l, args.n_res_blocks
+    )
     pc_model = ResNet(
         key=key,
         width=args.width,
@@ -658,7 +682,7 @@ def make_models(key, args, spec):
         param_type=args.param_type,
         act_fn=args.act_fn,
         scale_non_res_layers=args.scale_non_res_layers,
-        additive_depth_factor=args.additive_depth_factor,
+        additive_depth_factor=fwd_additive,
     )
     bp_model = ResNet(
         key=key,
@@ -670,7 +694,7 @@ def make_models(key, args, spec):
         param_type=args.param_type,
         act_fn=args.act_fn,
         scale_non_res_layers=args.scale_non_res_layers,
-        additive_depth_factor=args.additive_depth_factor,
+        additive_depth_factor=fwd_additive,
     )
     bp_model = copy_eqx_arrays(pc_model, bp_model)
     return pc_model, bp_model, None
@@ -965,8 +989,17 @@ def pc_infer_and_update(
     )
     activity_opt_state = activity_optim.init(activities)
     energy = None
+    update_activities = (
+        cnn_pc.update_pc_activities
+        if args.arch == "cnn"
+        else jpc.update_pc_activities
+    )
+    update_params = (
+        cnn_pc.update_pc_params if args.arch == "cnn" else jpc.update_pc_params
+    )
+    extra_kw = {} if args.arch == "cnn" else jpc_kw
     for _ in range(args.n_infer_iters):
-        result = jpc.update_pc_activities(
+        result = update_activities(
             params=params,
             activities=activities,
             optim=activity_optim,
@@ -976,7 +1009,7 @@ def pc_infer_and_update(
             loss_id=args.loss_id,
             output_energy_scaling=output_energy_scaling,
             hidden_energy_scaling=hidden_energy_scaling,
-            **jpc_kw,
+            **extra_kw,
         )
         activities = result["activities"]
         activity_opt_state = result["opt_state"]
@@ -986,7 +1019,7 @@ def pc_infer_and_update(
     if not np.isfinite(energy):
         return model, skip_model, param_opt_state, energy, False
 
-    param_result = jpc.update_pc_params(
+    param_result = update_params(
         params=params,
         activities=activities,
         optim=param_optim,
@@ -996,7 +1029,7 @@ def pc_infer_and_update(
         loss_id=args.loss_id,
         output_energy_scaling=output_energy_scaling,
         hidden_energy_scaling=hidden_energy_scaling,
-        **jpc_kw,
+        **extra_kw,
     )
     return (
         param_result["model"],
@@ -1069,6 +1102,21 @@ def setup_save_dir(args, seed_tag=None):
             ]
         ),
         f"{args.use_skips}_use_skips",
+        *(
+            [
+                f"{getattr(args, 'resnet_fwd_l', 'n_res_blocks')}_resnet_fwd_l",
+                f"{getattr(args, 'resnet_energy_l', 'n_weight_layers')}_resnet_energy_l",
+                f"{getattr(args, 'hidden_energy_layers', 'weight')}_hidden_energy_layers",
+            ]
+            if args.arch == "cnn"
+            else []
+        ),
+        *(
+            [f"{args.additive_depth_factor}_additive_depth_factor"]
+            if args.arch == "cnn"
+            and getattr(args, "additive_depth_factor", None) is not None
+            else []
+        ),
         f"{args.skip_pc}_skip_pc",
         f"{getattr(args, 'skip_bp', False)}_skip_bp",
         seed_tag,
@@ -1703,6 +1751,7 @@ def run_benchmark(args, save_dir=None):
 
     if args.arch == "mlp":
         depth = args.n_hidden + 1
+        fwd_depth = energy_depth = depth
         if args.use_skips:
             print("MLP skip connections enabled (Adam LR uses 1/√(N L)).")
     else:
@@ -1710,28 +1759,42 @@ def run_benchmark(args, save_dir=None):
             raise ValueError(
                 f"--n_res_blocks must be a multiple of 3, got {args.n_res_blocks}"
             )
-        depth = cnn_energy_depth(
-            args.n_res_blocks, args.additive_depth_factor
-        )
+        fwd_depth, energy_depth = cnn_pc.resolve_cnn_ls(args)
+        depth = energy_depth
+        args.resolved_resnet_fwd_l = fwd_depth
+        args.resolved_resnet_energy_l = energy_depth
         if args.use_skips:
             print(
                 "Note: --use_skips is an MLP flag; CNN residual blocks are "
                 "already in the architecture. Adam CNN LRs still use the "
                 "res-block vs stage split from configure_cnn_param_optim."
             )
+        if getattr(args, "additive_depth_factor", None) is not None:
+            print(
+                f"Note: --additive_depth_factor={args.additive_depth_factor} "
+                f"overrides --resnet_energy_l; L_energy={energy_depth}."
+            )
 
     output_energy_scaling = get_output_energy_scaling(
-        args.param_type, args.gamma, args.width, depth
+        args.param_type, args.gamma, args.width, energy_depth
     )
-    hidden_energy_scaling = get_hidden_energy_scaling(args.param_type, depth)
+    hidden_kappa = get_hidden_energy_scaling(args.param_type, energy_depth)
     jpc_kw = pc_jpc_kwargs(args)
 
     prepare_data(args)
 
     pc_model, bp_model, skip_model = make_models(key, args, spec)
+    if args.arch == "cnn":
+        hidden_energy_scaling = cnn_pc.cnn_hidden_energy_scales(
+            pc_model,
+            hidden_kappa,
+            getattr(args, "hidden_energy_layers", "weight"),
+        )
+    else:
+        hidden_energy_scaling = hidden_kappa
     if not args.skip_pc:
         pc_param_optim, pc_opt_state = make_pc_param_optim(
-            pc_model, skip_model, args, depth
+            pc_model, skip_model, args, fwd_depth
         )
         activity_optim = (
             None
@@ -1741,7 +1804,9 @@ def run_benchmark(args, save_dir=None):
     else:
         pc_param_optim = pc_opt_state = activity_optim = None
     if not args.skip_bp:
-        bp_param_optim, bp_opt_state = make_bp_param_optim(bp_model, args, depth)
+        bp_param_optim, bp_opt_state = make_bp_param_optim(
+            bp_model, args, fwd_depth
+        )
         bp_step = make_bp_step(args.loss_id)
     else:
         bp_param_optim = bp_opt_state = bp_step = None
@@ -1765,8 +1830,15 @@ def run_benchmark(args, save_dir=None):
     skip_note = f", {', '.join(skip_notes)}" if skip_notes else ""
     print(
         f"Benchmark {args.dataset} ({args.arch}), width={args.width}, "
-        f"L={depth}, γ={args.gamma}, λ={output_energy_scaling}, "
-        f"κ={hidden_energy_scaling}, optim={args.param_optim}, "
+        f"{_cnn_depth_title(fwd_depth, energy_depth) if args.arch == 'cnn' else f'L={depth}'}, "
+        f"γ={args.gamma}, λ={output_energy_scaling}, "
+        f"κ={hidden_kappa}, "
+        + (
+            f"hidden_energy_layers={getattr(args, 'hidden_energy_layers', 'weight')}, "
+            if args.arch == "cnn"
+            else ""
+        )
+        + f"optim={args.param_optim}, "
         f"lr_bp={args.param_lr}, lr_pc={args.param_lr_pc}, "
         f"pc_infer={getattr(args, 'pc_infer_mode', 'infer')}{skip_note}"
     )
@@ -2124,7 +2196,13 @@ def run_benchmark(args, save_dir=None):
             history,
             os.path.join(save_dir, "plots"),
             title_suffix=(
-                f" ({args.dataset}, {args.arch}, N={args.width}, L={depth})"
+                f" ({args.dataset}, {args.arch}, N={args.width}, "
+                + (
+                    _cnn_depth_title(fwd_depth, energy_depth)
+                    if args.arch == "cnn"
+                    else f"L={depth}"
+                )
+                + ")"
             ),
             log_steps=args.log_steps,
             skip_pc=args.skip_pc,
@@ -2201,7 +2279,49 @@ def parse_args():
     parser.add_argument(
         "--scale_non_res_layers", action="store_true", default=False
     )
-    parser.add_argument("--additive_depth_factor", type=int, default=4)
+    parser.add_argument(
+        "--resnet_fwd_l",
+        type=cnn_pc.parse_resnet_l_arg,
+        default="n_res_blocks",
+        help=(
+            "CNN only: L used for residual 1/√L and Adam residual LRs. "
+            "n_res_blocks (default), n_weight_layers (R+4), n_modules "
+            "(R+7, includes pools), or a positive integer. Ignored for MLP."
+        ),
+    )
+    parser.add_argument(
+        "--resnet_energy_l",
+        type=cnn_pc.parse_resnet_l_arg,
+        default="n_weight_layers",
+        help=(
+            "CNN only: L used for λ = γ² N L and κ = L. "
+            "n_weight_layers (default, R+4), n_res_blocks, n_modules, "
+            "or a positive integer. Ignored for MLP. Overridden by "
+            "--additive_depth_factor when that flag is set."
+        ),
+    )
+    parser.add_argument(
+        "--hidden_energy_layers",
+        type=str,
+        default="weight",
+        choices=list(cnn_pc.HIDDEN_ENERGY_LAYER_CHOICES),
+        help=(
+            "CNN only: which hidden modules get κ. "
+            "weight (default): stems + residual blocks; pools unscaled. "
+            "all: every hidden module including pools. "
+            "residual: ResNetBlocks only. Ignored for MLP."
+        ),
+    )
+    parser.add_argument(
+        "--additive_depth_factor",
+        type=int,
+        default=None,
+        help=(
+            "CNN only: if set, overrides --resnet_energy_l with "
+            "n_res_blocks + this factor. Does not affect L_fwd. "
+            "Default: unset (use --resnet_energy_l)."
+        ),
+    )
 
     parser.add_argument(
         "--batch_size",
@@ -2443,7 +2563,15 @@ def _json_number(value):
 def _energy_depth(args):
     if args.arch == "mlp":
         return args.n_hidden + 1
-    return cnn_energy_depth(args.n_res_blocks, args.additive_depth_factor)
+    _, energy_l = cnn_pc.resolve_cnn_ls(args)
+    return energy_l
+
+
+def _fwd_depth(args):
+    if args.arch == "mlp":
+        return args.n_hidden + 1
+    fwd_l, _ = cnn_pc.resolve_cnn_ls(args)
+    return fwd_l
 
 
 def make_run_args(base_args, hparams=None, **overrides):
@@ -2483,11 +2611,18 @@ def plot_seed_aggregate(args, histories, save_dir=None):
         seed_tag = f"seeds_{args.seed}_{args.seed + args.n_seeds - 1}"
         save_dir = setup_save_dir(args, seed_tag=seed_tag)
     depth = _energy_depth(args)
+    fwd_depth = _fwd_depth(args)
     plot_metrics_mean_sem(
         histories,
         os.path.join(save_dir, "plots"),
         title_suffix=(
-            f" ({args.dataset}, {args.arch}, N={args.width}, L={depth})"
+            f" ({args.dataset}, {args.arch}, N={args.width}, "
+            + (
+                _cnn_depth_title(fwd_depth, depth)
+                if args.arch == "cnn"
+                else f"L={depth}"
+            )
+            + ")"
         ),
         log_steps=args.log_steps,
         skip_pc=args.skip_pc,
@@ -2662,7 +2797,16 @@ def _fixed_training_args(args):
     if args.param_optim == "sgd_momentum":
         keys.append("momentum")
     if args.arch == "cnn":
-        keys.extend(["scale_non_res_layers", "additive_depth_factor"])
+        keys.extend(
+            [
+                "scale_non_res_layers",
+                "resnet_fwd_l",
+                "resnet_energy_l",
+                "hidden_energy_layers",
+            ]
+        )
+        if getattr(args, "additive_depth_factor", None) is not None:
+            keys.append("additive_depth_factor")
     fixed = {}
     for key in keys:
         value = getattr(args, key)
@@ -2732,6 +2876,15 @@ def warn_unused_arch_sweep_axes(args):
         print(
             "Warning: --n_hidden is unused for CNN; extra values are ignored."
         )
+    if args.arch == "mlp":
+        if getattr(args, "resnet_fwd_l", "n_res_blocks") != "n_res_blocks":
+            print("Warning: --resnet_fwd_l is unused for MLP.")
+        if getattr(args, "resnet_energy_l", "n_weight_layers") != "n_weight_layers":
+            print("Warning: --resnet_energy_l is unused for MLP.")
+        if getattr(args, "hidden_energy_layers", "weight") != "weight":
+            print("Warning: --hidden_energy_layers is unused for MLP.")
+        if getattr(args, "additive_depth_factor", None) is not None:
+            print("Warning: --additive_depth_factor is unused for MLP.")
     if pc_closed_form(args):
         for key in ("activity_lr", "n_infer_iters"):
             if len(_as_values(args, key)) > 1:
@@ -2918,6 +3071,13 @@ if __name__ == "__main__":
 
 # # CNN, CIFAR-10
 # python train_benchmark.py --dataset CIFAR10 --arch cnn --n_epochs 100 --batch_size 64 --width 256 --n_res_blocks 3 --param_lr 0.1 --param_lr_pc 0.1 --activity_lr 0.01 --n_infer_iters 20 --param_optim sgd_momentum --act_fn relu --results_dir results_cifar
+
+# # CNN L / κ variants (defaults: --resnet_fwd_l n_res_blocks, --resnet_energy_l n_weight_layers, --hidden_energy_layers weight)
+# python train_benchmark.py --dataset CIFAR10 --arch cnn --resnet_fwd_l n_res_blocks --resnet_energy_l n_weight_layers --hidden_energy_layers weight --results_dir results_cifar_l_default
+# python train_benchmark.py --dataset CIFAR10 --arch cnn --resnet_fwd_l n_weight_layers --resnet_energy_l n_weight_layers --hidden_energy_layers all --results_dir results_cifar_l_old
+# python train_benchmark.py --dataset CIFAR10 --arch cnn --resnet_fwd_l n_res_blocks --resnet_energy_l n_modules --hidden_energy_layers all --results_dir results_cifar_l_modules
+# python train_benchmark.py --dataset CIFAR10 --arch cnn --resnet_fwd_l n_res_blocks --resnet_energy_l n_weight_layers --hidden_energy_layers residual --results_dir results_cifar_l_res
+# python train_benchmark.py --dataset CIFAR10 --arch cnn --additive_depth_factor 4 --results_dir results_cifar_l_energy_r_plus_4
 
 # # CNN, ImageNet (HF streaming) - Not optimised
 # python train_benchmark.py --dataset ImageNet --arch cnn --n_epochs 100 --batch_size 64 --width 256 --n_res_blocks 3 --param_lr 0.1 --param_lr_pc 0.1 --activity_lr 0.01 --n_infer_iters 20 --param_optim sgd_momentum --act_fn relu --results_dir results_imagenet
