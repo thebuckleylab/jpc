@@ -21,6 +21,10 @@
 
 ---
 
+::: jpc.compute_bregman_pc_activity_grad
+
+---
+
 ::: jpc.compute_epc_error_grad
 
 ---
@@ -34,6 +38,10 @@
 ---
 
 ::: jpc.compute_bpc_param_grads
+
+---
+
+::: jpc.compute_bregman_pc_param_grads
 
 ---
 
