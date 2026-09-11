@@ -36,47 +36,47 @@ cd ./jpc/experiments/dmft
 #########################################
 
 # # Single (final P x P kernels + sample-traced T x T temporal kernels)
-# python analyse_convergence.py --n_samples 20 --n_hiddens 5 --widths 10000 --plot_temporal_kernels --gamma_0s 1.0 --param_lr_pc 0.2 --activity_lrs 0.01 --n_infer_iters 5 --n_train_iters 20 --n_fixed_point_steps 100 --pc_damping 0.05 --results_dir results_S
+# python analyse_convergence.py --n_samples 20 --n_hiddens 5 --widths 10000 --plot_temporal_kernels --gamma_0s 1.0 --param_lr_pc 0.2 --activity_lrs 0.01 --n_infer_iters 5 --n_train_iters 20 --n_fixed_point_steps 100 --pc_damping 0.05 --results_dir results_S --keep_npy
 
 # # Across depth (loss curves)
-# python analyse_convergence.py --n_samples 20 --n_hiddens 2 3 4 5 --widths 10000 --gamma_0s 1.0 --param_lr_pc 0.2 --activity_lrs 0.01 --n_infer_iters 5 --n_train_iters 20 --n_fixed_point_steps 100 --pc_damping 0.05 --results_dir results_D
+# python analyse_convergence.py --n_samples 20 --n_hiddens 2 3 4 5 --widths 10000 --gamma_0s 1.0 --param_lr_pc 0.2 --activity_lrs 0.01 --n_infer_iters 5 --n_train_iters 20 --n_fixed_point_steps 100 --pc_damping 0.05 --results_dir results_D --keep_npy
 
 # # Across gamma (loss curves; includes DMFT)
-# python analyse_convergence.py --n_samples 20 --n_hiddens 5 --widths 10000 --gamma_0s 0.1 0.5 1.0 --param_lr_pc 0.2 --activity_lrs 0.01 --n_infer_iters 5 --n_train_iters 20 --n_fixed_point_steps 100 --pc_damping 0.05 --results_dir results_G
+# python analyse_convergence.py --n_samples 20 --n_hiddens 5 --widths 10000 --gamma_0s 0.1 0.5 1.0 --param_lr_pc 0.2 --activity_lrs 0.01 --n_infer_iters 5 --n_train_iters 20 --n_fixed_point_steps 100 --pc_damping 0.05 --results_dir results_G --keep_npy
 
 # # Across K and gamma (last-layer displacement vs gamma with curves per K; excludes DMFT) 
-# python analyse_convergence.py --n_samples 20 --n_hiddens 5 --widths 10000 --gamma_0s 0.1 0.5 1.0 --param_lr_pc 0.2 --activity_lrs 0.01 --n_infer_iters 5 20 50 200 500 --n_train_iters 20 --n_fixed_point_steps 100 --pc_damping 0.05 --skip_theory --results_dir results_KG
+# python analyse_convergence.py --n_samples 20 --n_hiddens 5 --widths 10000 --gamma_0s 0.1 0.5 1.0 --param_lr_pc 0.2 --activity_lrs 0.01 --n_infer_iters 5 20 50 200 500 --n_train_iters 20 --n_fixed_point_steps 100 --pc_damping 0.05 --skip_theory --results_dir results_KG --keep_npy
 
 # # Across widths (convergence of kernels + plot final kernels; plots for various depths)
-# python analyse_convergence.py --n_samples 20 --n_hiddens 2 3 4 5 --widths 10 25 100 250 1000 2500 10000 --plot_mode both --gamma_0s 1.0 --param_lr_pc 0.2 --activity_lrs 0.01 --n_infer_iters 5 --n_train_iters 20 --n_fixed_point_steps 500 --pc_damping 0.05 --pc_tolerance 1e-10 --n_seeds 5 --results_dir results_W
+# python analyse_convergence.py --n_samples 20 --n_hiddens 2 3 4 5 --widths 10 25 100 250 1000 2500 10000 --plot_mode both --gamma_0s 1.0 --param_lr_pc 0.2 --activity_lrs 0.01 --n_infer_iters 5 --n_train_iters 20 --n_fixed_point_steps 500 --pc_damping 0.05 --pc_tolerance 1e-10 --n_seeds 5 --results_dir results_W --keep_npy
 
 
 ############ CONVERGENCE (NONLINEAR) ##################
 #######################################################
 
 # # Single (final P x P kernels + sample-traced T x T temporal kernels)
-# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --plot_temporal_kernels --gamma_0s 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_nonlin_S
+# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --plot_temporal_kernels --gamma_0s 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_nonlin_S --keep_npy
 
 # # Across gamma (loss curves; includes DMFT) Note: Use H100 (Takes ~20h per gamma otherwise)
-# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 0.5 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 2500 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_nonlin_G
+# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 0.5 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 2500 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_nonlin_G --keep_npy
 
-# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 2000 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_nonlin_G_mc2000
-# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 2500 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_nonlin_G_mc2500
-# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 3000 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_nonlin_G_mc3000
+# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 2000 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_nonlin_G_mc2000 --keep_npy
+# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 2500 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_nonlin_G_mc2500 --keep_npy
+# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 3000 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_nonlin_G_mc3000 --keep_npy
 
-# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 0.5 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 2000 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_nonlin_G_new
-# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 0.5 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 2500 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_nonlin_G_new_A100
+# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 0.5 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 2000 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_nonlin_G_new --keep_npy
+# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 0.5 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 2500 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_nonlin_G_new_A100 --keep_npy
 
-# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 500 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --pc_tolerance 1e-10 --results_dir results_nonlin_G1
-# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --num_mc_samples 2000 --pc_tolerance 1e-10 --results_dir results_nonlin_G2
-# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --num_jacobian_samples 500 --pc_tolerance 1e-10 --results_dir results_nonlin_G3
-# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 500 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --num_mc_samples 2000 --num_jacobian_samples 500 --pc_tolerance 1e-10 --results_dir results_nonlin_G4
+# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 500 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --pc_tolerance 1e-10 --results_dir results_nonlin_G1 --keep_npy
+# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --num_mc_samples 2000 --pc_tolerance 1e-10 --results_dir results_nonlin_G2 --keep_npy
+# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --num_jacobian_samples 500 --pc_tolerance 1e-10 --results_dir results_nonlin_G3 --keep_npy
+# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 500 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --num_mc_samples 2000 --num_jacobian_samples 500 --pc_tolerance 1e-10 --results_dir results_nonlin_G4 --keep_npy
 
 # # Across K and gamma (last-layer displacement vs gamma with curves per K; excludes DMFT) 
-# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 0.5 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 5 10 20 50 200 500 --n_train_iters 30 --n_fixed_point_steps 250 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --skip_theory --results_dir results_nonlin_KG 
+# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 0.5 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 5 10 20 50 200 500 --n_train_iters 30 --n_fixed_point_steps 250 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --skip_theory --results_dir results_nonlin_KG --keep_npy
 
 # # Across widths (convergence of kernels + plot final kernels) Note: Use H100 (Takes ~40h otherwise)
-# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10 25 100 250 1000 2500 10000 --plot_mode both --gamma_0s 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 500 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --n_seeds 5 --results_dir results_nonlin_W
+# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10 25 100 250 1000 2500 10000 --plot_mode both --gamma_0s 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 500 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --n_seeds 5 --results_dir results_nonlin_W --keep_npy
 
 
 ############ ALIGNMENT ##################
@@ -85,20 +85,20 @@ cd ./jpc/experiments/dmft
 ### Iterative inference (tiny-CIFAR10) 
 
 # # Include both logarithmic and linear loss-matched plots
-# python analyse_alignment.py --n_samples 40 --n_hidden 3 --width 10000 --gamma_0 1.0 --param_lr 0.05 --param_lr_pc 0.5 --activity_lr 0.1 --pc_infer_mode infer --n_infer_iters 500 --n_train_iters 1001 --act_fn tanh --plot_loss_matched both --dataset tiny-CIFAR10 --results_dir results_align 
+# python analyse_alignment.py --n_samples 40 --n_hidden 3 --width 10000 --gamma_0 1.0 --param_lr 0.05 --param_lr_pc 0.5 --activity_lr 0.1 --pc_infer_mode infer --n_infer_iters 500 --n_train_iters 1001 --act_fn tanh --plot_loss_matched both --dataset tiny-CIFAR10 --results_dir results_align --keep_npy
 
 # # Same as above, but also assess kernel concentration
-# python analyse_alignment.py --n_samples 40 --n_hidden 3 --width 10000 --gamma_0 1.0 --param_lr 0.05 --param_lr_pc 0.5 --activity_lr 0.1 --pc_infer_mode infer --n_infer_iters 500 --n_train_iters 1001 --act_fn tanh --plot_loss_matched both --dataset tiny-CIFAR10 --results_dir results_align --n_seeds 3
+# python analyse_alignment.py --n_samples 40 --n_hidden 3 --width 10000 --gamma_0 1.0 --param_lr 0.05 --param_lr_pc 0.5 --activity_lr 0.1 --pc_infer_mode infer --n_infer_iters 500 --n_train_iters 1001 --act_fn tanh --plot_loss_matched both --dataset tiny-CIFAR10 --results_dir results_align --n_seeds 3 --keep_npy
 
 
 ############ BENCHMARKING ##############
 ########################################
 
 # # MLP, MNIST
-# python train_benchmark.py --dataset MNIST --n_epochs 10 --batch_size 64 --width 256 --n_hidden 2 --param_lr 0.1 --param_lr_pc 0.1 --activity_lr 0.01 --n_infer_iters 20 --param_optim adam --act_fn relu --n_seeds 3 --results_dir results_mnist
+# python train_benchmark.py --dataset MNIST --n_epochs 10 --batch_size 64 --width 256 --n_hidden 2 --param_lr 0.1 --param_lr_pc 0.1 --activity_lr 0.01 --n_infer_iters 20 --param_optim adam --act_fn relu --n_seeds 3 --results_dir results_mnist --keep_npy
 
 # # MLP, Fashion-MNIST
-# python train_benchmark.py --dataset Fashion-MNIST --n_epochs 10 --batch_size 128 --width 256 --n_hidden 2 --param_lr 0.3 --param_lr_pc 0.3 --activity_lr 0.001 --n_infer_iters 20 --param_optim adam --act_fn relu --n_seeds 3 --results_dir results_fashion_mnist
+# python train_benchmark.py --dataset Fashion-MNIST --n_epochs 10 --batch_size 128 --width 256 --n_hidden 2 --param_lr 0.3 --param_lr_pc 0.3 --activity_lr 0.001 --n_infer_iters 20 --param_optim adam --act_fn relu --n_seeds 3 --results_dir results_fashion_mnist --keep_npy
 
 
 ############ SWEEP ##############
@@ -139,3 +139,23 @@ cd ./jpc/experiments/dmft
 #   --param_optim adam --act_fn relu \
 #   --results_dir results_mnist_sweep_fine_bs128
 # #   --results_dir results_fashion_mnist_sweep_fine_bs128
+
+
+############# CNN ##############
+#################################
+
+# # CNN, CIFAR-10
+# python train_benchmark.py --dataset CIFAR10 --arch cnn --n_epochs 100 --batch_size 64 --width 512 --n_res_blocks 3 --param_lr 0.1 --param_lr_pc 0.1 --activity_lr 0.001 --n_infer_iters 20 --param_optim sgd_momentum --act_fn relu --results_dir results_cifar
+
+# CNN L / κ variants (defaults: --resnet_fwd_l n_res_blocks, --resnet_energy_l n_weight_layers, --hidden_energy_layers weight)
+# python train_benchmark.py --dataset CIFAR10 --arch cnn --n_epochs 100 --batch_size 64 --width 512 --n_res_blocks 3 --param_lr 0.1 --param_lr_pc 0.1 --activity_lr 0.001 --n_infer_iters 20 --param_optim sgd_momentum --act_fn relu --resnet_fwd_l n_res_blocks --resnet_energy_l n_weight_layers --hidden_energy_layers weight --results_dir results_cifar_l_default
+# python train_benchmark.py --dataset CIFAR10 --arch cnn --n_epochs 100 --batch_size 64 --width 512 --n_res_blocks 3 --param_lr 0.1 --param_lr_pc 0.1 --activity_lr 0.001 --n_infer_iters 20 --param_optim sgd_momentum --act_fn relu --resnet_fwd_l n_weight_layers --resnet_energy_l n_weight_layers --hidden_energy_layers all --results_dir results_cifar_l_old
+# python train_benchmark.py --dataset CIFAR10 --arch cnn --n_epochs 100 --batch_size 64 --width 512 --n_res_blocks 3 --param_lr 0.1 --param_lr_pc 0.1 --activity_lr 0.001 --n_infer_iters 20 --param_optim sgd_momentum --act_fn relu --resnet_fwd_l n_res_blocks --resnet_energy_l n_modules --hidden_energy_layers all --results_dir results_cifar_l_modules
+# python train_benchmark.py --dataset CIFAR10 --arch cnn --n_epochs 100 --batch_size 64 --width 512 --n_res_blocks 3 --param_lr 0.1 --param_lr_pc 0.1 --activity_lr 0.001 --n_infer_iters 20 --param_optim sgd_momentum --act_fn relu --resnet_fwd_l n_res_blocks --resnet_energy_l n_weight_layers --hidden_energy_layers residual --results_dir results_cifar_l_res
+# python train_benchmark.py --dataset CIFAR10 --arch cnn --n_epochs 100 --batch_size 64 --width 512 --n_res_blocks 3 --param_lr 0.1 --param_lr_pc 0.1 --activity_lr 0.001 --n_infer_iters 20 --param_optim sgd_momentum --act_fn relu --additive_depth_factor 4 --results_dir results_cifar_l_energy_r_plus_4
+
+# python train_benchmark.py --dataset CIFAR10 --arch cnn --n_epochs 100 --batch_size 64 --width 512 --n_res_blocks 3 --param_lr 0.1 --param_lr_pc 1.0 --activity_lr 0.001 --n_infer_iters 20 --param_optim sgd_momentum --act_fn relu --resnet_fwd_l n_res_blocks --resnet_energy_l n_weight_layers --hidden_energy_layers weight --results_dir results_cifar_l_default_lr1
+# python train_benchmark.py --dataset CIFAR10 --arch cnn --n_epochs 100 --batch_size 64 --width 512 --n_res_blocks 3 --param_lr 0.1 --param_lr_pc 1.0 --activity_lr 0.001 --n_infer_iters 20 --param_optim sgd_momentum --act_fn relu --resnet_fwd_l n_weight_layers --resnet_energy_l n_weight_layers --hidden_energy_layers all --results_dir results_cifar_l_old_lr1
+# python train_benchmark.py --dataset CIFAR10 --arch cnn --n_epochs 100 --batch_size 64 --width 512 --n_res_blocks 3 --param_lr 0.1 --param_lr_pc 1.0 --activity_lr 0.001 --n_infer_iters 20 --param_optim sgd_momentum --act_fn relu --resnet_fwd_l n_res_blocks --resnet_energy_l n_modules --hidden_energy_layers all --results_dir results_cifar_l_modules_lr1
+# python train_benchmark.py --dataset CIFAR10 --arch cnn --n_epochs 100 --batch_size 64 --width 512 --n_res_blocks 3 --param_lr 0.1 --param_lr_pc 1.0 --activity_lr 0.001 --n_infer_iters 20 --param_optim sgd_momentum --act_fn relu --resnet_fwd_l n_res_blocks --resnet_energy_l n_weight_layers --hidden_energy_layers residual --results_dir results_cifar_l_res_lr1
+# python train_benchmark.py --dataset CIFAR10 --arch cnn --n_epochs 100 --batch_size 64 --width 512 --n_res_blocks 3 --param_lr 0.1 --param_lr_pc 1.0 --activity_lr 0.001 --n_infer_iters 20 --param_optim sgd_momentum --act_fn relu --additive_depth_factor 4 --results_dir results_cifar_l_energy_r_plus_4_lr1

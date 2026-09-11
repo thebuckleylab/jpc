@@ -2982,10 +2982,13 @@ _KERNEL_AXIS_SYMBOL_W = 0.22
 _KERNEL_AXIS_SYMBOL_H = 0.16
 _KERNEL_COL_LABEL_H = 0.17
 _KERNEL_ROW_LABEL_PAD = 0.08
-_KERNEL_CBAR_W = 0.06
+_KERNEL_CBAR_W = 0.035
 _KERNEL_CBAR_PAD = 0.07
 _KERNEL_CBAR_TICK_PAD = 0.07
 _KERNEL_CBAR_LABEL_W = 0.14
+#: Half-height of a colour-bar end tick (e.g. ``-1``), so it is not
+#: clipped when axis symbols are omitted.
+_KERNEL_CBAR_TICK_HALF_H = 0.08
 
 
 def _kernel_grid_width(n_rows, n_layers):
@@ -3036,6 +3039,10 @@ def _kernel_grid_geometry(
     top = _KERNEL_COL_LABEL_H if has_col_labels else 0.02
     right = 0.02
     if cbar:
+        # End ticks sit on the colour-bar edges; keep them inside the
+        # figure even when the heatmaps have no axis-symbol margin.
+        bottom = max(bottom, _KERNEL_CBAR_TICK_HALF_H)
+        top = max(top, _KERNEL_CBAR_TICK_HALF_H)
         tick_w = max(
             (
                 ps.text_width_in(t, mpl.rcParams["ytick.labelsize"])
@@ -3134,19 +3141,6 @@ def _kernel_cbar_ticklabels(clim_kw):
     return tuple(labels)
 
 
-def _kernel_cbar_label(cbar_label, vmin, vmax):
-    if cbar_label is not None:
-        return cbar_label
-    if (
-        vmin is not None
-        and vmax is not None
-        and np.isclose(vmin, -1.0)
-        and np.isclose(vmax, 1.0)
-    ):
-        return "correlation"
-    return None
-
-
 def _style_kernel_heatmap_ax(
     ax,
     *,
@@ -3203,29 +3197,30 @@ def plot_final_kernel_grid(
     title="Final feature kernels",
     dir_name="alignment",
     origin="upper",
-    xlabel=r"$\mu$",
-    ylabel=r"$\nu$",
+    xlabel=None,
+    ylabel=None,
+    cbar=True,
     cbar_label=None,
     mark_origin=False,
     fig_width=None,
+    center_zero=True,
 ):
     """Grid of feature kernels (one heatmap per layer).
 
     ``kernel_rows`` is a list of ``(row_label, kernels)`` pairs. Each
     ``kernels`` is a sequence of 2-D arrays, one per layer (column),
     typically ``P x P`` (sample-sample) or ``T x T`` (sample-traced).
-    Every panel shares one set of colour limits, symmetric about zero so
-    that the midpoint of the diverging map is zero; pass ``vmin`` /
-    ``vmax`` to set them explicitly. ``origin`` is forwarded to
-    ``imshow`` (``"upper"`` puts index ``0`` at the top-left;
-    ``"lower"`` puts it at the bottom-left).
+    Every panel shares one set of colour limits. By default those limits
+    are symmetric about zero so the midpoint of the diverging map is
+    zero; set ``center_zero=False`` to stretch over the finite data
+    range instead. Pass ``vmin`` / ``vmax`` to set them explicitly.
+    ``origin`` is forwarded to ``imshow`` (``"upper"`` puts index ``0``
+    at the top-left; ``"lower"`` puts it at the bottom-left).
 
-    Tick marks are omitted, row labels sit in the left margin, and the
-    axis symbols are drawn once, on the bottom-left panel (sample
-    kernels default to ``$\\mu$`` / ``$\\nu$``). ``mark_origin`` draws a
-    ``0`` at the origin of that panel. One colour bar spans the height
-    of the grid; ``vmin=vmax=±1`` defaults ``cbar_label`` to
-    ``"correlation"``.
+    Tick marks are omitted and row labels sit in the left margin. Axis
+    symbols, if given, are drawn once on the bottom-left panel.
+    ``mark_origin`` draws a ``0`` at the origin of that panel. When
+    ``cbar`` is True, one colour bar spans the height of the grid.
 
     ``fig_width`` is the printed width in inches; it defaults to one,
     two, or three panels per text-width row depending on how many rows
@@ -3252,13 +3247,15 @@ def plot_final_kernel_grid(
         )
         rows.append((label, kernels))
 
-    # Every panel shares the colour limits, so one colour bar describes
-    # the whole grid, and a diverging map is only readable when its
-    # midpoint is zero.
-    clim_kw = ps.symmetric_clim(
+    # Every panel shares the colour limits so rows stay comparable. A
+    # diverging map is centred on zero unless ``center_zero`` is False
+    # (raw kernels with an arbitrary scale).
+    clim_fn = ps.symmetric_clim if center_zero else ps.data_clim
+    clim_kw = clim_fn(
         [k for _, kernels in rows for k in kernels], vmin=vmin, vmax=vmax
     )
-    cbar_label = _kernel_cbar_label(cbar_label, vmin, vmax)
+    if not cbar:
+        cbar_label = None
     n_rows = len(rows)
     row_labels = [label for label, _ in rows]
     geom = _kernel_grid_geometry(
@@ -3268,7 +3265,7 @@ def plot_final_kernel_grid(
         row_labels=row_labels,
         has_axis_symbols=xlabel is not None or ylabel is not None,
         has_col_labels=True,
-        cbar=True,
+        cbar=cbar,
         cbar_label=cbar_label,
         cbar_ticklabels=_kernel_cbar_ticklabels(clim_kw),
     )
@@ -3299,7 +3296,7 @@ def plot_final_kernel_grid(
                 mark_origin=mark_origin and corner,
             )
     _place_kernel_row_labels(fig, geom, row_labels)
-    if images:
+    if cbar and images:
         _add_kernel_colorbar(fig, geom, images[0], cbar_label)
 
     out_dir = _alignment_plots_dir(
@@ -3330,17 +3327,18 @@ def plot_temporal_kernel_grid(
     dir_name="alignment",
     origin="lower",
     title="Sample-traced feature kernels",
-    xlabel=r"$t$",
-    ylabel=r"$t'$",
+    xlabel=None,
+    ylabel=None,
+    cbar=True,
     cbar_label=None,
-    mark_origin=True,
+    mark_origin=False,
     fig_width=None,
+    center_zero=True,
 ):
     """Grid of sample-traced (``T x T``) feature kernels at ``k=0``.
 
     ``origin="lower"`` (default) places index ``0`` at the bottom-left
-    of each heatmap, i.e. the time axes increase upward/rightward, with
-    a ``0`` marking the origin of the bottom-left panel.
+    of each heatmap, i.e. the time axes increase upward/rightward.
     """
     return plot_final_kernel_grid(
         kernel_rows,
@@ -3358,9 +3356,11 @@ def plot_temporal_kernel_grid(
         origin=origin,
         xlabel=xlabel,
         ylabel=ylabel,
+        cbar=cbar,
         cbar_label=cbar_label,
         mark_origin=mark_origin,
         fig_width=fig_width,
+        center_zero=center_zero,
     )
 
 

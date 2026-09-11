@@ -11,7 +11,7 @@ nets compare theory ``C^phi`` (first return of
 ``phi(h)``. Plot labels follow this convention.
 
 Kernel / width figures:
-- ``kernels``: final feature-kernel grid (closed-form / infer / DMFT;
+- ``kernels``: final feature-kernel grid (DMFT / infer / closed-form;
   closed-form omitted for nonlinear nets) at the largest ``--widths``
   value and the first seed. ``--skip_theory`` drops the DMFT row (and
   skips solving theory) on this path only. ``--skip_closed_form`` drops
@@ -123,6 +123,11 @@ from plot_dmft_results import (
     plot_pc_k_sweep_displacement,
     plot_pc_last_layer_displacement_vs_gamma,
 )
+
+# Raw C^h / C^phi have an arbitrary scale: stretch coolwarm over the
+# data range and omit the colour bar. Alignment plots keep the default
+# (zero-centred, colour bar) because they show correlations.
+_CONVERGENCE_KERNEL_GRID_KW = dict(cbar=False, center_zero=False)
 
 
 def _stack_kernel_list(steps):
@@ -654,6 +659,7 @@ def _plot_k_sweep_kernels_and_displacement(
             filename="final_pc_kernels_grid.png",
             title=rf"Final $C^{{{feat_tex}}}$ feature kernels",
             dir_name="convergence",
+            **_CONVERGENCE_KERNEL_GRID_KW,
         )
 
     rec_meta = dict(
@@ -1531,30 +1537,6 @@ if __name__ == "__main__":
 
                                     kernel_rows = []
                                     temporal_rows = []
-                                    if closed_form_feature_kernels is not None:
-                                        kernel_rows.append(
-                                            (
-                                                ps.LABEL_NN_CLOSED_FORM,
-                                                closed_form_feature_kernels,
-                                            )
-                                        )
-                                    if closed_form_temporal_kernels is not None:
-                                        temporal_rows.append(
-                                            (
-                                                ps.LABEL_NN_CLOSED_FORM,
-                                                closed_form_temporal_kernels,
-                                            )
-                                        )
-                                    kernel_rows.append(
-                                        (ps.LABEL_NN, infer_feature_kernels)
-                                    )
-                                    if infer_temporal_kernels is not None:
-                                        temporal_rows.append(
-                                            (
-                                                ps.LABEL_NN,
-                                                infer_temporal_kernels,
-                                            )
-                                        )
                                     if all_Ch is not None:
                                         kernel_rows.append(
                                             (
@@ -1579,6 +1561,30 @@ if __name__ == "__main__":
                                                     ),
                                                 )
                                             )
+                                    kernel_rows.append(
+                                        (ps.LABEL_NN, infer_feature_kernels)
+                                    )
+                                    if infer_temporal_kernels is not None:
+                                        temporal_rows.append(
+                                            (
+                                                ps.LABEL_NN,
+                                                infer_temporal_kernels,
+                                            )
+                                        )
+                                    if closed_form_feature_kernels is not None:
+                                        kernel_rows.append(
+                                            (
+                                                ps.LABEL_NN_CLOSED_FORM,
+                                                closed_form_feature_kernels,
+                                            )
+                                        )
+                                    if closed_form_temporal_kernels is not None:
+                                        temporal_rows.append(
+                                            (
+                                                ps.LABEL_NN_CLOSED_FORM,
+                                                closed_form_temporal_kernels,
+                                            )
+                                        )
                                     plot_final_kernel_grid(
                                         kernel_rows,
                                         plots_dir=plots_dir,
@@ -1590,6 +1596,7 @@ if __name__ == "__main__":
                                         filename="final_pc_kernels_grid.png",
                                         title=rf"Final $C^{{{feat_tex}}}$ feature kernels",
                                         dir_name="convergence",
+                                        **_CONVERGENCE_KERNEL_GRID_KW,
                                     )
                                     if (
                                         args.plot_temporal_kernels
@@ -1609,6 +1616,7 @@ if __name__ == "__main__":
                                                 rf"$C^{{{feat_tex}}}$ "
                                                 rf"feature kernels"
                                             ),
+                                            **_CONVERGENCE_KERNEL_GRID_KW,
                                         )
 
                             if (
