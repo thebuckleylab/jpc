@@ -2,8 +2,9 @@
 
 Panels are drawn at their final printed size so that ``\\includegraphics``
 never rescales them: font sizes in this module are the font sizes on the
-page. ``TEXT_WIDTH_IN`` is the ICLR text width, and ``PANEL_*`` give the
-figure sizes for one, two, or three panels per row.
+page. ``TEXT_WIDTH_IN`` is the ICLR text width. ``PANEL_*`` are narrower
+than a strict partition of that width so that two or three panels leave
+``PANEL_GUTTER_IN`` of space between them when assembled in Inkscape.
 
 Figures are laid out with constrained layout and saved without a tight
 bounding box, so the saved file is exactly ``figsize`` inches.
@@ -26,9 +27,27 @@ import numpy as np
 
 TEXT_WIDTH_IN = 5.5  # ICLR \textwidth
 
-PANEL_FULL = (TEXT_WIDTH_IN, 2.20)
-PANEL_HALF = (2.70, 1.95)
-PANEL_THIRD = (1.83, 1.62)
+#: Horizontal gap between adjacent panels when they are assembled
+#: side-by-side to fill the text width. About 4 mm: enough for a
+#: subfigure letter and a clear visual break in Inkscape.
+PANEL_GUTTER_IN = 0.15
+
+
+def panel_width(n_across):
+    """Width of one panel when ``n_across`` panels share the text width.
+
+    ``n_across == 1`` is the full text width. For two or three panels the
+    returned width already subtracts the inter-panel gutters, so placing
+    the PDFs on a 5.5 in canvas with ``PANEL_GUTTER_IN`` between them
+    lands flush with the margins.
+    """
+    n_across = max(int(n_across), 1)
+    return (TEXT_WIDTH_IN - (n_across - 1) * PANEL_GUTTER_IN) / n_across
+
+
+PANEL_FULL = (panel_width(1), 2.20)
+PANEL_HALF = (panel_width(2), 1.95)
+PANEL_THIRD = (panel_width(3), 1.62)
 
 #: Height of one row in a per-layer panel grid spanning the text width.
 PER_LAYER_ROW_HEIGHT = 1.75

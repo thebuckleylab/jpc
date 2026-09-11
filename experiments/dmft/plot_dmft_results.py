@@ -48,16 +48,19 @@ def _feature_kernel_tex(symbol):
 
 
 def _data_ylim(
-    values, *, invert=False, pad_frac=0.08, min_pad=0.02, ymin_floor=None
+    values, *, invert=False, pad_frac=0.08, min_pad=0.02, ymin_floor=None,
+    ymin_at_most=None,
 ):
     """Tight y-limits around ``values``, with optional inverted axis.
 
     ``invert=True`` puts smaller values at the top (so relative
     displacement 0 matches cosine/CKA ``1`` at the top).
-    ``ymin_floor`` clamps the padded lower limit to a value the quantity
-    cannot go below (e.g. 0 for CKA / cosine); it does not stretch the
-    axis down to that floor, which would waste most of a narrow panel
-    whenever the data sit near 1.
+    ``ymin_floor`` clamps the padded lower limit so it cannot fall below
+    a hard bound (e.g. 0 for CKA / cosine) when padding would otherwise
+    push it there; it does not stretch the axis down to that floor.
+    ``ymin_at_most`` does stretch: the lower limit is at most this value
+    (e.g. ``0.5`` for cosine / CKA concentration and PC–BP alignment
+    panels), unless the data already require a lower limit.
     """
     v = np.asarray(values, dtype=float).reshape(-1)
     v = v[np.isfinite(v)]
@@ -72,6 +75,8 @@ def _data_ylim(
         and float(np.min(v)) >= ymin_floor
     ):
         lo = max(lo, float(ymin_floor))
+    if ymin_at_most is not None:
+        lo = min(lo, float(ymin_at_most))
     if invert:
         return (hi, lo)
     return (lo, hi)
@@ -168,6 +173,9 @@ def _concentration_metric_spec(metric, feature_symbol):
 def _maybe_set_ylim(ax, ylim):
     if ylim is not None:
         ax.set_ylim(*ylim)
+        # Shared axes plus error bars re-enable autoscale on every
+        # ``plot`` / ``errorbar``; pin the limit so it survives siblings.
+        ax.set_autoscaley_on(False)
 
 
 def _markersize_for_n(n):
@@ -179,8 +187,18 @@ def _markersize_for_n(n):
     return 1.6 if n > 20 else ps.MARKER_SIZE
 
 
-#: Line style per data source, so colour is free to encode a swept value.
+#: Line style per data source. Swept values keep sequence colours for NN
+#: (and closed-form when it varies with the sweep); DMFT is always the
+#: black reference so it stays visible when it sits on top of NN.
 _SOURCE_STYLES = {"dmft": "--", "nn": "-", "closed_form": "-."}
+_SOURCE_COLORS = {
+    "dmft": ps.COLOR_REFERENCE,
+    "nn": "0.35",
+    "closed_form": "0.35",
+}
+#: Draw DMFT above the coloured finite curves when they coincide.
+_DMFT_ZORDER = 3
+_NN_ZORDER = 2
 
 _SOURCE_LABELS = {
     "dmft": ps.LABEL_DMFT,
@@ -199,8 +217,9 @@ def _proxy_line(label, *, color="0.35", linestyle="-", marker=None):
 def _source_legend(ax, value_handles, *, dmft=False, nn=False, closed_form=False):
     """Legend keyed by swept value (colour) plus data source (line style).
 
-    Source entries are drawn in grey and only appear when more than one
-    source is present, since a single source is stated in the caption.
+    Source entries only appear when more than one source is present, since
+    a single source is stated in the caption. DMFT uses the black reference
+    colour; NN / closed-form proxies stay grey.
     """
     drawn = [
         key
@@ -212,7 +231,11 @@ def _source_legend(ax, value_handles, *, dmft=False, nn=False, closed_form=False
     handles = list(value_handles)
     if len(drawn) > 1:
         handles += [
-            _proxy_line(_SOURCE_LABELS[key], linestyle=_SOURCE_STYLES[key])
+            _proxy_line(
+                _SOURCE_LABELS[key],
+                color=_SOURCE_COLORS[key],
+                linestyle=_SOURCE_STYLES[key],
+            )
             for key in drawn
         ]
     if not handles:
@@ -518,15 +541,17 @@ def plot_pc_theory_vs_finite_loss(
                 markersize=markersize,
                 color=color,
                 label=ps.width_label(width),
+                zorder=_NN_ZORDER,
             )
     if plot_theory:
         theory_t = np.arange(1, len(pc_dmft_loss) + 1)
         plt.plot(
             theory_t,
             pc_dmft_loss,
-            color=ps.COLOR_REFERENCE,
-            linestyle="--",
+            color=_SOURCE_COLORS["dmft"],
+            linestyle=_SOURCE_STYLES["dmft"],
             label=ps.LABEL_DMFT,
+            zorder=_DMFT_ZORDER,
         )
     plt.xlabel(ps.TEX["time"])
     plt.ylabel(ps.LOSS_LABEL)
@@ -608,10 +633,11 @@ def plot_pc_param_sweep_loss(
 ):
     """Overlay theory and finite-size losses for every value of ``swept_col``.
 
-    Finite curves use only the largest recorded width. Theory is dashed; finite
-    infer is solid. If ``plot_closed_form`` is True, closed-form finite updates
-    are added: one curve per swept value, except for ``n_infer_iters`` where
-    closed-form is independent of ``K`` so a single extra curve is drawn.
+    Finite curves use only the largest recorded width. DMFT is the shared
+    black dashed reference; finite infer is solid in the sweep colour. If
+    ``plot_closed_form`` is True, closed-form finite updates are added: one
+    curve per swept value, except for ``n_infer_iters`` where closed-form is
+    independent of ``K`` so a single extra curve is drawn.
 
     For ``n_infer_iters``, the DMFT theory curve is drawn only for the
     smallest ``K`` (larger ``K`` are finite overlays only).
@@ -702,11 +728,13 @@ def plot_pc_param_sweep_loss(
             and g_theory is not None
             and len(g_theory)
         )
-        # Colour encodes the swept value; line style encodes the source.
+        # Colour encodes the swept value on finite curves; DMFT is the
+        # shared black dashed reference so it remains visible on overlap.
         value_handles = []
         drew_dmft = drew_nn = drew_closed_form = False
         # K-sweep: DMFT is shown only for the smallest inference-step count.
         min_swept = min(swept_values, key=lambda v: float(v))
+        dmft_to_draw = []
         for value, color in zip(swept_values, colors):
             plot_theory_this = plot_theory and (
                 swept_col != "n_infer_iters"
@@ -718,13 +746,7 @@ def plot_pc_param_sweep_loss(
                     y = np.asarray(sub_th["loss"])
                     if not np.allclose(y, 0.0):
                         _warn_if_nonfinite(f"pc_dmft_loss[{swept_col}={value}]", y)
-                        ax.plot(
-                            sub_th["t"],
-                            y,
-                            color=color,
-                            linestyle=_SOURCE_STYLES["dmft"],
-                        )
-                        drew_dmft = True
+                        dmft_to_draw.append((sub_th["t"], y))
             if infer_finite is not None and len(infer_finite):
                 sub_fi = infer_finite[
                     (infer_finite[swept_col] == value)
@@ -738,6 +760,7 @@ def plot_pc_param_sweep_loss(
                         linestyle=_SOURCE_STYLES["nn"],
                         marker="o",
                         markersize=markersize,
+                        zorder=_NN_ZORDER,
                     )
                     drew_nn = True
             if (
@@ -758,11 +781,21 @@ def plot_pc_param_sweep_loss(
                         linestyle=_SOURCE_STYLES["closed_form"],
                         marker="s",
                         markersize=markersize,
+                        zorder=_NN_ZORDER,
                     )
                     drew_closed_form = True
             value_handles.append(
                 _proxy_line(value_label(value), color=color)
             )
+        for t_vals, y_vals in dmft_to_draw:
+            ax.plot(
+                t_vals,
+                y_vals,
+                color=_SOURCE_COLORS["dmft"],
+                linestyle=_SOURCE_STYLES["dmft"],
+                zorder=_DMFT_ZORDER,
+            )
+            drew_dmft = True
 
         if (
             plot_closed_form
@@ -869,9 +902,10 @@ def plot_bp_theory_vs_finite_loss(
         plt.plot(
             theory_t,
             dmft_loss,
-            color=ps.COLOR_REFERENCE,
+            color=_SOURCE_COLORS["dmft"],
             linestyle=_SOURCE_STYLES["dmft"],
             label=ps.LABEL_DMFT,
+            zorder=_DMFT_ZORDER,
         )
     plt.xlabel(ps.TEX["time"])
     plt.ylabel(ps.LOSS_LABEL)
@@ -1197,8 +1231,8 @@ def plot_pc_k_sweep_displacement(
     (``"dmft"``, ``"infer"``, or ``"closed_form"``), ``n_infer_iters``,
     and ``displacement`` (cosine) or ``rel_displacement`` (relative
     Frobenius), selected by ``metric``. One curve per series: DMFT
-    (smallest ``K``, dashed), finite-size infer (solid, increasing
-    ``K``), and closed-form (linear case, dash-dot).
+    (black dashed, smallest ``K``), finite-size infer (solid, coloured by
+    ``K``), and closed-form (linear case, black dash-dot).
 
     ``feature_symbol`` is ``"h"`` (linear) or ``"phi"`` (nonlinear).
     ``metric`` is ``"cosine"`` or ``"rel_frob"``.
@@ -1237,9 +1271,10 @@ def plot_pc_k_sweep_displacement(
         ax.plot(
             layers,
             values,
-            color=k_colors.get(dmft_k, ps.COLOR_REFERENCE),
+            color=_SOURCE_COLORS["dmft"],
             linestyle=_SOURCE_STYLES["dmft"],
             marker="o",
+            zorder=_DMFT_ZORDER,
         )
         drew_dmft = True
 
@@ -1259,6 +1294,7 @@ def plot_pc_k_sweep_displacement(
             color=k_colors[k],
             linestyle=_SOURCE_STYLES["nn"],
             marker="o",
+            zorder=_NN_ZORDER,
         )
         drew_nn = True
         value_handles.append(_proxy_line(ps.k_label(k), color=k_colors[k]))
@@ -1275,6 +1311,7 @@ def plot_pc_k_sweep_displacement(
             color=ps.COLOR_REFERENCE,
             linestyle=_SOURCE_STYLES["closed_form"],
             marker="s",
+            zorder=_NN_ZORDER,
         )
         drew_closed_form = True
 
@@ -1522,6 +1559,7 @@ def plot_pc_bp_metric_vs_time(
     dir_name="alignment",
     invert_ylim=False,
     ymin_floor=None,
+    ymin_at_most=None,
     x_col="t",
     xlabel="$t$",
     xscale="linear",
@@ -1560,11 +1598,14 @@ def plot_pc_bp_metric_vs_time(
             ]
         )
     ylim = _data_ylim(
-        ylim_vals, invert=invert_ylim, ymin_floor=ymin_floor
+        ylim_vals,
+        invert=invert_ylim,
+        ymin_floor=ymin_floor,
+        ymin_at_most=ymin_at_most,
     )
     markersize = _markersize_for_n(metric_df[x_col].nunique())
 
-    fig, axes, nrows, ncols = _per_layer_axes(n_l)
+    fig, axes, nrows, ncols = _per_layer_axes(n_l, sharey=False)
     for i, layer in enumerate(layers):
         ax = axes[i // ncols, i % ncols]
         sub = metric_df[metric_df["layer"] == layer]
@@ -1579,7 +1620,6 @@ def plot_pc_bp_metric_vs_time(
         )
         _panel_label(ax, layer)
         _apply_x_axis(ax, xscale=xscale, invert_x=invert_x)
-        _maybe_set_ylim(ax, ylim)
         ps.style_axes(ax)
         if i % ncols == 0:
             ax.set_ylabel(ylabel)
@@ -1589,6 +1629,11 @@ def plot_pc_bp_metric_vs_time(
     for j in range(n_l, nrows * ncols):
         axes[j // ncols, j % ncols].axis("off")
     _shared_xlabel(fig, xlabel)
+    # Constrained layout on save can re-autoscale shared y-axes. Set the
+    # same limits on every panel after layout, with autoscale off.
+    fig.canvas.draw()
+    for ax in axes.ravel():
+        _maybe_set_ylim(ax, ylim)
 
     save_path = os.path.join(out_dir, filename)
     ps.save_figure(fig, save_path)
@@ -2408,8 +2453,13 @@ def plot_pc_bp_alignment_vs_time(
     _apply_x_axis(ax, xlabel=xlabel, xscale=xscale, invert_x=invert_x)
     ax.set_ylabel(ylabel)
     if ylim is None:
+        # Cosine / CKA sits near 1; open down to 0.5 unless the data
+        # already go lower. Same rule for vs-time and vs-loss.
         ylim = _data_ylim(
-            alignment_df["alignment"], invert=False, ymin_floor=0.0
+            alignment_df["alignment"],
+            invert=False,
+            ymin_floor=0.0,
+            ymin_at_most=0.5,
         )
     _maybe_set_ylim(ax, ylim)
     ax.legend(ncol=2 if len(layers) > 3 else 1)
@@ -2563,6 +2613,10 @@ def plot_kernel_concentration_vs_time(
     if n_seeds is not None:
         title += rf", $n_{{\mathrm{{seeds}}}}={int(n_seeds)}$"
     has_std = std_col in conc_df.columns
+    # Cosine / CKA concentration sits near 1; open down to 0.5 unless
+    # the data already go lower. Relative Frobenius is inverted and
+    # stays tight. Same rule for vs-time and vs-loss.
+    ymin_at_most = 0.5 if metric in ("cosine", "cka") else None
     return plot_pc_bp_metric_vs_time(
         conc_df,
         plots_dir,
@@ -2578,6 +2632,7 @@ def plot_kernel_concentration_vs_time(
         dir_name=dir_name,
         invert_ylim=invert,
         ymin_floor=0.0,
+        ymin_at_most=ymin_at_most,
         x_col=x_col,
         xlabel=xlabel,
         xscale=xscale,
@@ -2767,9 +2822,9 @@ def plot_pc_last_layer_displacement_vs_gamma(
     (``"dmft"``, ``"infer"``, or ``"closed_form"``), ``n_infer_iters``,
     ``gamma_0``, and ``displacement`` / ``rel_displacement`` (selected
     by ``metric``). Only the deepest hidden layer (``layer == max(layer)``,
-    i.e. ``ℓ = H``) is drawn. DMFT is the smallest ``K`` (dashed);
-    finite-size infer is solid for increasing ``K``; closed-form is
-    dash-dot in the linear case.
+    i.e. ``ℓ = H``) is drawn. DMFT is the black dashed reference at the
+    smallest ``K``; finite-size infer is solid for increasing ``K``;
+    closed-form is black dash-dot in the linear case.
 
     ``feature_symbol`` is ``"h"`` (linear) or ``"phi"`` (nonlinear).
     ``metric`` is ``"cosine"`` or ``"rel_frob"``.
@@ -2819,9 +2874,10 @@ def plot_pc_last_layer_displacement_vs_gamma(
         ax.plot(
             x,
             y,
-            color=k_colors.get(dmft_k, ps.COLOR_REFERENCE),
+            color=_SOURCE_COLORS["dmft"],
             linestyle=_SOURCE_STYLES["dmft"],
             marker="o",
+            zorder=_DMFT_ZORDER,
         )
         drew_dmft = True
 
@@ -2840,6 +2896,7 @@ def plot_pc_last_layer_displacement_vs_gamma(
             color=k_colors[k],
             linestyle=_SOURCE_STYLES["nn"],
             marker="o",
+            zorder=_NN_ZORDER,
         )
         drew_nn = True
         value_handles.append(_proxy_line(ps.k_label(k), color=k_colors[k]))
@@ -2854,6 +2911,7 @@ def plot_pc_last_layer_displacement_vs_gamma(
             color=ps.COLOR_REFERENCE,
             linestyle=_SOURCE_STYLES["closed_form"],
             marker="s",
+            zorder=_NN_ZORDER,
         )
         drew_closed_form = True
 
