@@ -60,6 +60,12 @@ or curve). It has no effect when the width-alignment path runs (theory
 is required). ``--skip_finite`` skips finite-width simulations (theory
 loss only; kernel figures are dropped).
 
+``--keep_npy`` keeps finite-sim ``*_input_dim`` trees and the
+``theory/`` npy cache after plotting (default: delete them).
+``--plot_from_npy`` skips DMFT and finite simulations and rebuilds
+every figure from those npy files (same hyperparameters; does not
+delete npy). Requires a prior run with ``--keep_npy``.
+
 Theory is solved once per hyperparameter combination and reused across
 seeds. ``--seed`` draws three independent RNG streams (dataset, weight
 init, DMFT Monte Carlo) so theory and finite-size always share the same
@@ -92,6 +98,8 @@ from experiments.dmft.utils import (
     create_tiny_cifar10_dataset,
     create_toy_dataset,
     cleanup_experiment_dirs,
+    cleanup_theory_npy,
+    load_required_npy,
     train_pcn,
     collect_final_pc_kernel_fields,
     cosine_similarity,
@@ -115,6 +123,101 @@ from plot_dmft_results import (
     plot_pc_k_sweep_displacement,
     plot_pc_last_layer_displacement_vs_gamma,
 )
+
+
+def _stack_kernel_list(steps):
+    """Stack a list-of-lists of ``(P, P)`` kernels to ``(T, n_hidden, P, P)``."""
+    return np.stack([np.stack(step, axis=0) for step in steps], axis=0)
+
+
+def _unstack_kernel_list(arr):
+    """Inverse of ``_stack_kernel_list``."""
+    arr = np.asarray(arr)
+    return [list(arr[t]) for t in range(arr.shape[0])]
+
+
+def _persist_pc_fields(save_dir, fields):
+    """Write extra PC field arrays needed to rebuild kernel figures."""
+    if not fields:
+        return
+    os.makedirs(save_dir, exist_ok=True)
+    for key in ("h", "delta", "h_init", "h_k0_traj"):
+        if key in fields and fields[key] is not None:
+            np.save(os.path.join(save_dir, f"{key}.npy"), np.asarray(fields[key]))
+    eval_kernels = fields.get("eval_kernels")
+    if eval_kernels:
+        np.save(
+            os.path.join(save_dir, "eval_kernels.npy"),
+            _stack_kernel_list(eval_kernels),
+        )
+
+
+def _load_pc_fields(
+    save_dir,
+    *,
+    collect_fields,
+    collect_h_k0,
+    collect_eval_kernels,
+):
+    """Load extra PC field arrays saved by ``_persist_pc_fields``."""
+    fields = {}
+    if collect_fields:
+        fields["h"] = load_required_npy(os.path.join(save_dir, "h.npy"))
+        fields["delta"] = load_required_npy(os.path.join(save_dir, "delta.npy"))
+        fields["h_init"] = load_required_npy(os.path.join(save_dir, "h_init.npy"))
+    if collect_h_k0:
+        fields["h_k0_traj"] = load_required_npy(
+            os.path.join(save_dir, "h_k0_traj.npy")
+        )
+    if collect_eval_kernels:
+        fields["eval_kernels"] = _unstack_kernel_list(
+            load_required_npy(os.path.join(save_dir, "eval_kernels.npy"))
+        )
+    return fields or None
+
+
+def _theory_npy_dir(
+    results_dir,
+    n_hidden,
+    use_skips,
+    gamma_0,
+    param_type,
+    activity_lr,
+    n_infer_iters,
+):
+    return os.path.join(
+        results_dir,
+        "theory",
+        f"{n_hidden}_n_hidden",
+        f"{bool(use_skips)}_use_skips",
+        f"{gamma_0}_gamma_0",
+        f"{param_type}_param_type",
+        f"{activity_lr}_activity_lr",
+        f"{n_infer_iters}_n_infer_iters",
+    )
+
+
+def _save_theory_npy(save_dir, all_Ch, all_Cdelta, pc_dmft_loss):
+    os.makedirs(save_dir, exist_ok=True)
+    np.save(
+        os.path.join(save_dir, "all_Ch.npy"),
+        np.stack([np.asarray(x) for x in all_Ch], axis=0),
+    )
+    np.save(
+        os.path.join(save_dir, "all_Cdelta.npy"),
+        np.stack([np.asarray(x) for x in all_Cdelta], axis=0),
+    )
+    np.save(
+        os.path.join(save_dir, "pc_dmft_loss.npy"),
+        np.asarray(pc_dmft_loss),
+    )
+
+
+def _load_theory_npy(save_dir):
+    all_Ch = load_required_npy(os.path.join(save_dir, "all_Ch.npy"))
+    all_Cdelta = load_required_npy(os.path.join(save_dir, "all_Cdelta.npy"))
+    pc_dmft_loss = load_required_npy(os.path.join(save_dir, "pc_dmft_loss.npy"))
+    return all_Ch, all_Cdelta, pc_dmft_loss
 
 
 def _train_finite_pc(
@@ -147,6 +250,8 @@ def _train_finite_pc(
     phi_fn=None,
     collect_eval_kernels=False,
     momentum=0.9,
+    plot_from_npy=False,
+    keep_npy=False,
 ):
     """Run one finite-width PC training job.
 
@@ -182,6 +287,22 @@ def _train_finite_pc(
         loss_id=loss_id,
         seed=seed,
     )
+    if plot_from_npy:
+        losses = load_required_npy(os.path.join(save_dir, "train_losses.npy"))
+        if (
+            not collect_fields
+            and not collect_h_k0
+            and not collect_init_model
+            and not collect_eval_kernels
+        ):
+            return losses, None
+        fields = _load_pc_fields(
+            save_dir,
+            collect_fields=collect_fields,
+            collect_h_k0=collect_h_k0,
+            collect_eval_kernels=collect_eval_kernels,
+        )
+        return losses, fields
     model = jpc.make_mlp(
         key,
         input_dim=input_dim,
@@ -285,6 +406,8 @@ def _train_finite_pc(
         fields["eval_kernels"] = eval_kernels
     if collect_init_model:
         fields["init_model"] = init_model
+    if keep_npy:
+        _persist_pc_fields(save_dir, fields)
     return losses, fields
 
 
@@ -753,17 +876,33 @@ if __name__ == "__main__":
         ),
     )
     parser.add_argument(
-        "--cleanup_npy",
+        "--keep_npy",
         action="store_true",
-        default=True,
+        default=False,
         help=(
-            "After the run, delete finite-sim result directories "
-            "(*_input_dim under results_dir), keeping plot pngs."
+            "Keep finite-sim result directories (*_input_dim) and the "
+            "theory npy cache after plotting. By default they are deleted. "
+            "Required for a later --plot_from_npy run."
+        ),
+    )
+    parser.add_argument(
+        "--plot_from_npy",
+        action="store_true",
+        default=False,
+        help=(
+            "Skip DMFT and finite simulations; rebuild figures from saved "
+            ".npy files (same hyperparameters as the original --keep_npy "
+            "run). Does not delete .npy files."
         ),
     )
     args = parser.parse_args()
     if args.skip_theory and args.skip_finite:
         parser.error("Cannot set both --skip_theory and --skip_finite.")
+    if args.plot_from_npy:
+        print(
+            "plot_from_npy: skipping simulations and DMFT; "
+            "rebuilding figures from .npy files."
+        )
 
     # PC DMFT inverts (K*T*P) matrices; float64 helps stability.
     jax.config.update("jax_enable_x64", True)
@@ -863,19 +1002,46 @@ if __name__ == "__main__":
     )
 
     # Dataset is built once so every trial and the theory solve share Kx, y.
+    # --plot_from_npy only needs input_dim / output_dim for save-path lookup.
     if args.dataset == "toy":
-        X, y = create_toy_dataset(
-            key=data_key, D=args.input_dim, P=args.n_samples
-        )
         input_dim = args.input_dim
         output_dim = 1
     elif args.dataset == "tiny-CIFAR10":
         input_dim = CIFAR_GRAY_DIM
+        output_dim = 1
+        print(f"Input dim: {input_dim}, Output dim: {output_dim}")
+    else:
+        input_dim = None
+        output_dim = None
+
+    if args.plot_from_npy:
+        if input_dim is None:
+            from torch import Generator as TorchGenerator
+
+            loader_gen = TorchGenerator()
+            loader_gen.manual_seed(int(np.asarray(data_key)[0]) & 0x7FFFFFFF)
+            train_loader, _ = get_dataloaders(
+                args.dataset, args.n_samples, generator=loader_gen
+            )
+            img_batch, label_batch = next(iter(train_loader))
+            input_dim = img_batch.shape[1]
+            output_dim = label_batch.shape[1]
+            print(f"Input dim: {input_dim}, Output dim: {output_dim}")
+        Kx = X_input = Y_target = None
+    elif args.dataset == "toy":
+        X, y = create_toy_dataset(
+            key=data_key, D=args.input_dim, P=args.n_samples
+        )
+        Kx = jnp.asarray(X.T @ X / input_dim, dtype=jnp.float64)
+        X_input = jnp.asarray(X.T, dtype=jnp.float64)
+        Y_target = jnp.asarray(y[:, None], dtype=jnp.float64)
+    elif args.dataset == "tiny-CIFAR10":
         X, y = create_tiny_cifar10_dataset(
             key=data_key, D=input_dim, P=args.n_samples
         )
-        output_dim = 1
-        print(f"Input dim: {input_dim}, Output dim: {output_dim}")
+        Kx = jnp.asarray(X.T @ X / input_dim, dtype=jnp.float64)
+        X_input = jnp.asarray(X.T, dtype=jnp.float64)
+        Y_target = jnp.asarray(y[:, None], dtype=jnp.float64)
     else:
         from torch import Generator as TorchGenerator
 
@@ -892,11 +1058,10 @@ if __name__ == "__main__":
 
         X = img_batch.numpy().T
         y = label_batch.numpy()
-
-    Kx = jnp.asarray(X.T @ X / input_dim, dtype=jnp.float64)
-    X_input = jnp.asarray(X.T, dtype=jnp.float64)
-    Y_target = y[:, None] if y.ndim == 1 else y
-    Y_target = jnp.asarray(Y_target, dtype=jnp.float64)
+        Kx = jnp.asarray(X.T @ X / input_dim, dtype=jnp.float64)
+        X_input = jnp.asarray(X.T, dtype=jnp.float64)
+        Y_target = y[:, None] if y.ndim == 1 else y
+        Y_target = jnp.asarray(Y_target, dtype=jnp.float64)
     loss_id = (
         "mse" if args.dataset in ("toy", "tiny-CIFAR10") else args.loss_id
     )
@@ -995,6 +1160,28 @@ if __name__ == "__main__":
                                         all_Ch, all_Cdelta, pc_dmft_loss = (
                                             theory_cache[theory_key]
                                         )
+                                    elif args.plot_from_npy:
+                                        theory_dir = _theory_npy_dir(
+                                            args.results_dir,
+                                            n_hidden,
+                                            use_skips,
+                                            gamma_0,
+                                            param_type,
+                                            activity_lr,
+                                            K_inf,
+                                        )
+                                        print(
+                                            "\t\t\t\t\tLoading PC theory "
+                                            f"from {theory_dir}\n"
+                                        )
+                                        all_Ch, all_Cdelta, pc_dmft_loss = (
+                                            _load_theory_npy(theory_dir)
+                                        )
+                                        theory_cache[theory_key] = (
+                                            all_Ch,
+                                            all_Cdelta,
+                                            pc_dmft_loss,
+                                        )
                                     else:
                                         n_pc = K_inf * T_train * P
                                         if use_nonlin_theory:
@@ -1068,6 +1255,22 @@ if __name__ == "__main__":
                                             f"{float(pc_diagnostics['equation_residual']):.3e} "
                                             f"after {pc_diagnostics['iterations']} iters\n"
                                         )
+                                        if args.keep_npy:
+                                            theory_dir = _theory_npy_dir(
+                                                args.results_dir,
+                                                n_hidden,
+                                                use_skips,
+                                                gamma_0,
+                                                param_type,
+                                                activity_lr,
+                                                K_inf,
+                                            )
+                                            _save_theory_npy(
+                                                theory_dir,
+                                                all_Ch,
+                                                all_Cdelta,
+                                                pc_dmft_loss,
+                                            )
                                         theory_cache[theory_key] = (
                                             all_Ch,
                                             all_Cdelta,
@@ -1171,6 +1374,8 @@ if __name__ == "__main__":
                                                 and seed == kernel_grid_seed
                                                 and width == kernel_plot_width
                                             ),
+                                            plot_from_npy=args.plot_from_npy,
+                                            keep_npy=args.keep_npy,
                                         )
                                         recs = _loss_records(
                                             losses,
@@ -1303,6 +1508,8 @@ if __name__ == "__main__":
                                             X_input=X_input,
                                             Y_target=Y_target,
                                             collect_h_k0=args.plot_temporal_kernels,
+                                            plot_from_npy=args.plot_from_npy,
+                                            keep_npy=args.keep_npy,
                                         )
                                         closed_form_feature_kernels = (
                                             _final_feature_kernels(
@@ -1442,6 +1649,8 @@ if __name__ == "__main__":
                                     X_input=X_input,
                                     Y_target=Y_target,
                                     collect_fields=collect_cf,
+                                    plot_from_npy=args.plot_from_npy,
+                                    keep_npy=args.keep_npy,
                                 )
                                 finite_records.extend(
                                     _loss_records(
@@ -1572,8 +1781,11 @@ if __name__ == "__main__":
         else:
             print("\nNo kernel-alignment records were collected.")
 
-    if args.cleanup_npy:
+    if args.keep_npy or args.plot_from_npy:
+        print(f"\nKeeping .npy files under {args.results_dir}.")
+    else:
         removed_dirs = cleanup_experiment_dirs(args.results_dir)
+        removed_dirs.extend(cleanup_theory_npy(args.results_dir))
         if removed_dirs:
             print(
                 f"\nRemoved {len(removed_dirs)} experiment dir(s) "

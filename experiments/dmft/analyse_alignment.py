@@ -86,6 +86,12 @@ at the same training snapshots as the train kernels: last step
 use different times). Additional seeds (``--n_seeds``) vary only the
 weight-init stream.
 
+``--keep_npy`` keeps finite-sim ``*_input_dim`` trees after plotting
+(default: delete them). ``--plot_from_npy`` skips PC and BP training
+and rebuilds every figure from those npy files (same hyperparameters;
+does not delete npy). Requires a prior run with ``--keep_npy``. The
+dataset is still loaded so ``C^x`` / ``C^y`` match the original seed.
+
 Use the ``PC_dmft_env`` conda environment:
     /data/ndcn-computational-neuroscience/mert5001/envs/PC_dmft_env/bin/python analyse_alignment.py
 """
@@ -115,6 +121,7 @@ from experiments.dmft.utils import (
     kernel_eigs,
     kernels_to_correlations,
     leading_evec_label_overlap,
+    load_required_npy,
     participation_ratio,
     participation_ratio_from_eigs,
     relative_frobenius_displacement,
@@ -126,6 +133,8 @@ from analyse_convergence import (
     _train_finite_pc,
     _feature_kernels_from_h,
     _sample_traced_feature_kernels_from_h_traj,
+    _stack_kernel_list,
+    _unstack_kernel_list,
 )
 import plot_style as ps
 from plot_dmft_results import (
@@ -1124,6 +1133,8 @@ def _train_finite_bp(
     phi_fn=None,
     collect_eval_kernels=False,
     momentum=0.9,
+    plot_from_npy=False,
+    keep_npy=False,
 ):
     """Run one finite-width BP training job.
 
@@ -1155,6 +1166,19 @@ def _train_finite_bp(
         loss_id=loss_id,
         seed=seed,
     )
+    if plot_from_npy:
+        losses = load_required_npy(os.path.join(save_dir, "losses.npy"))
+        h_k0_traj = None
+        if collect_h_k0:
+            h_k0_traj = load_required_npy(
+                os.path.join(save_dir, "h_k0_traj.npy")
+            )
+        eval_kernels = None
+        if collect_eval_kernels:
+            eval_kernels = _unstack_kernel_list(
+                load_required_npy(os.path.join(save_dir, "eval_kernels.npy"))
+            )
+        return losses, h_k0_traj, eval_kernels
     model = MLP(
         key=key,
         d_in=input_dim,
@@ -1211,6 +1235,14 @@ def _train_finite_bp(
     if collect_h_k0:
         h_k0_traj = np.stack(h_k0_steps, axis=1)
         h_k0_steps.clear()
+    if keep_npy:
+        if h_k0_traj is not None:
+            np.save(os.path.join(save_dir, "h_k0_traj.npy"), np.asarray(h_k0_traj))
+        if eval_kernels:
+            np.save(
+                os.path.join(save_dir, "eval_kernels.npy"),
+                _stack_kernel_list(eval_kernels),
+            )
     return losses, h_k0_traj, eval_kernels
 
 
@@ -1344,12 +1376,24 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--cleanup_npy",
+        "--keep_npy",
         action="store_true",
-        default=True,
+        default=False,
         help=(
-            "After the run, delete finite-sim result directories "
-            "(*_input_dim under results_dir), keeping plot pngs."
+            "Keep finite-sim result directories (*_input_dim) after "
+            "plotting, including extra arrays needed to rebuild figures. "
+            "By default they are deleted. Required for a later "
+            "--plot_from_npy run."
+        ),
+    )
+    parser.add_argument(
+        "--plot_from_npy",
+        action="store_true",
+        default=False,
+        help=(
+            "Skip PC and BP training; rebuild figures from saved .npy "
+            "files (same hyperparameters as the original --keep_npy "
+            "run). Does not delete .npy files."
         ),
     )
     args = parser.parse_args()
@@ -1362,6 +1406,11 @@ if __name__ == "__main__":
         parser.error("--n_seeds must be >= 1.")
     if args.n_loss_divisor < 1:
         parser.error("--n_loss_divisor must be >= 1.")
+    if args.plot_from_npy:
+        _term(
+            "plot_from_npy: skipping PC and BP training; "
+            "rebuilding figures from .npy files."
+        )
 
     os.makedirs(args.results_dir, exist_ok=True)
     loss_scales = _loss_matched_scales(args.plot_loss_matched)
@@ -1525,7 +1574,9 @@ if __name__ == "__main__":
         model_key = jax.random.fold_in(model_parent, int(seed))
 
         _term(
-            f"\nRunning finite-size PC ({args.pc_infer_mode}) simulation "
+            f"\n{'Loading' if args.plot_from_npy else 'Running'} "
+            f"finite-size PC ({args.pc_infer_mode}) "
+            f"{'results' if args.plot_from_npy else 'simulation'} "
             f"(N={width}, H={n_hidden})...\n"
         )
         pc_losses, pc_fields = _train_finite_pc(
@@ -1553,10 +1604,12 @@ if __name__ == "__main__":
             Y_target=Y_target,
             collect_fields=False,
             collect_h_k0=True,
-            collect_init_model=True,
+            collect_init_model=not args.plot_from_npy,
             X_eval=X_test_input if seed == plot_seed else None,
             phi_fn=phi_fn if seed == plot_seed else None,
             collect_eval_kernels=(seed == plot_seed),
+            plot_from_npy=args.plot_from_npy,
+            keep_npy=args.keep_npy,
         )
         pc_h_traj = pc_fields["h_k0_traj"]  # (n_hidden, T, P, N)
         pc_eval_kernels = pc_fields.get("eval_kernels")
@@ -1566,7 +1619,9 @@ if __name__ == "__main__":
         )
 
         _term(
-            f"\nRunning finite-size BP simulation "
+            f"\n{'Loading' if args.plot_from_npy else 'Running'} "
+            f"finite-size BP "
+            f"{'results' if args.plot_from_npy else 'simulation'} "
             f"(N={width}, H={n_hidden})...\n"
         )
         bp_losses, bp_h_traj, bp_eval_kernels = _train_finite_bp(
@@ -1590,10 +1645,14 @@ if __name__ == "__main__":
             X_input=X_input,
             Y_target=Y_target,
             collect_h_k0=True,
-            init_from=pc_fields["init_model"],
+            init_from=(
+                None if args.plot_from_npy else pc_fields["init_model"]
+            ),
             X_eval=X_test_input if seed == plot_seed else None,
             phi_fn=phi_fn if seed == plot_seed else None,
             collect_eval_kernels=(seed == plot_seed),
+            plot_from_npy=args.plot_from_npy,
+            keep_npy=args.keep_npy,
         )
         pc_fields.pop("init_model", None)
         _term(
@@ -1884,7 +1943,9 @@ if __name__ == "__main__":
             "(pass --n_seeds > 1 to enable)."
         )
 
-    if args.cleanup_npy:
+    if args.keep_npy or args.plot_from_npy:
+        _term(f"\nKeeping .npy files under {args.results_dir}.")
+    else:
         removed_dirs = cleanup_experiment_dirs(args.results_dir)
         if removed_dirs:
             _term(

@@ -671,6 +671,27 @@ def get_hidden_energy_scaling(param_type: str, depth: int) -> float:
     return float(depth) if param_type == "mupc" else 1.0
 
 
+def load_required_npy(path):
+    """Load a ``.npy`` file, or exit with a message if it is missing."""
+    if not os.path.isfile(path):
+        raise SystemExit(
+            f"Missing required file {path}. "
+            "Run once with --keep_npy, then replot with --plot_from_npy "
+            "using the same hyperparameters."
+        )
+    return np.load(path)
+
+
+def cleanup_theory_npy(results_dir: str):
+    """Remove the ``theory/`` npy cache under ``results_dir``."""
+    removed = []
+    theory = Path(results_dir) / "theory"
+    if theory.is_dir():
+        shutil.rmtree(theory)
+        removed.append(str(theory))
+    return removed
+
+
 def cleanup_experiment_dirs(results_dir: str):
     """Remove finite-sim result trees (``*_input_dim``), keeping plot pngs."""
     removed = []

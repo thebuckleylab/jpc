@@ -28,6 +28,11 @@ energy (requires ``--act_fn linear``, ``--loss_id mse``, and
 ``hp_sweep/{bp|pc}/key=value/.../seed=N`` with a compact
 ``sweep_summary.json``.
 
+``--keep_npy`` keeps per-run history ``*.npy`` files after plotting
+(default: delete them). ``--plot_from_npy`` skips training and rebuilds
+figures from those files (same hyperparameters; does not delete npy).
+Requires a prior run with ``--keep_npy``.
+
 Energy scalings match ``train.py`` / ``train_pcn`` for MLPs:
 
     λ = γ² N L    (µPC output precision)
@@ -1645,10 +1650,64 @@ def plot_metrics_mean_sem(
     return epoch_path, mini_path, step_path
 
 
+HISTORY_KEYS = (
+    "epoch_eval",
+    "epoch_train",
+    "mini_epoch",
+    "pc_train_loss_epoch",
+    "bp_train_loss_epoch",
+    "pc_train_acc_epoch",
+    "bp_train_acc_epoch",
+    "pc_test_loss",
+    "bp_test_loss",
+    "pc_test_acc",
+    "bp_test_acc",
+    "pc_train_loss_mini",
+    "bp_train_loss_mini",
+    "pc_train_acc_mini",
+    "bp_train_acc_mini",
+    "pc_test_loss_mini",
+    "bp_test_loss_mini",
+    "pc_test_acc_mini",
+    "bp_test_acc_mini",
+    "pc_train_loss_step",
+    "bp_train_loss_step",
+    "pc_train_acc_step",
+    "bp_train_acc_step",
+    "pc_energy_step",
+)
+
+
 def save_history(history, save_dir):
     os.makedirs(save_dir, exist_ok=True)
     for key, value in history.items():
         np.save(os.path.join(save_dir, f"{key}.npy"), np.asarray(value))
+
+
+def load_history(save_dir):
+    """Load metric history ``*.npy`` files written by ``save_history``."""
+    if not os.path.isdir(save_dir):
+        raise SystemExit(
+            f"Run directory not found: {save_dir}. "
+            "Run once with --keep_npy, then replot with --plot_from_npy "
+            "using the same hyperparameters."
+        )
+    history = {}
+    missing = []
+    for key in HISTORY_KEYS:
+        path = os.path.join(save_dir, f"{key}.npy")
+        if not os.path.isfile(path):
+            missing.append(path)
+            continue
+        history[key] = np.asarray(np.load(path)).tolist()
+    if missing:
+        listed = "\n  ".join(missing)
+        raise SystemExit(
+            f"Missing required .npy file(s) under {save_dir}:\n  {listed}\n"
+            "Run once with --keep_npy, then replot with --plot_from_npy "
+            "using the same hyperparameters."
+        )
+    return history
 
 
 def cleanup_npy_files(save_dir):
@@ -1775,6 +1834,31 @@ def run_benchmark(args, save_dir=None):
                 f"overrides --resnet_energy_l; L_energy={energy_depth}."
             )
 
+    if save_dir is None:
+        save_dir = setup_save_dir(args)
+    os.makedirs(save_dir, exist_ok=True)
+
+    if getattr(args, "plot_from_npy", False):
+        history = load_history(save_dir)
+        plot_metrics(
+            history,
+            os.path.join(save_dir, "plots"),
+            title_suffix=(
+                f" ({args.dataset}, {args.arch}, N={args.width}, "
+                + (
+                    _cnn_depth_title(fwd_depth, energy_depth)
+                    if args.arch == "cnn"
+                    else f"L={depth}"
+                )
+                + ")"
+            ),
+            log_steps=args.log_steps,
+            skip_pc=args.skip_pc,
+            skip_bp=args.skip_bp,
+        )
+        print(f"Done. Results in {save_dir}")
+        return save_dir, history
+
     output_energy_scaling = get_output_energy_scaling(
         args.param_type, args.gamma, args.width, energy_depth
     )
@@ -1811,9 +1895,6 @@ def run_benchmark(args, save_dir=None):
     else:
         bp_param_optim = bp_opt_state = bp_step = None
 
-    if save_dir is None:
-        save_dir = setup_save_dir(args)
-    os.makedirs(save_dir, exist_ok=True)
     args_to_save = {
         key: value
         for key, value in vars(args).items()
@@ -2442,7 +2523,18 @@ def parse_args():
         default=False,
         help=(
             "Keep history *.npy files under the run directory. "
-            "By default they are deleted after plots are written."
+            "By default they are deleted after plots are written. "
+            "Required for a later --plot_from_npy run."
+        ),
+    )
+    parser.add_argument(
+        "--plot_from_npy",
+        action="store_true",
+        default=False,
+        help=(
+            "Skip training; rebuild figures from saved history *.npy "
+            "files (same hyperparameters as the original --keep_npy "
+            "run). Does not delete .npy files."
         ),
     )
     parser.add_argument(
@@ -2987,24 +3079,33 @@ def run_hp_sweep(args):
     }
 
     summary_path = os.path.join(sweep_dir, "sweep_summary.json")
-    with open(summary_path, "w", encoding="utf-8") as handle:
-        json.dump(summary, handle, indent=2)
-    with open(os.path.join(sweep_dir, "best_bp.json"), "w", encoding="utf-8") as handle:
-        json.dump(summary["best"]["bp"], handle, indent=2)
-    with open(os.path.join(sweep_dir, "best_pc.json"), "w", encoding="utf-8") as handle:
-        json.dump(summary["best"]["pc"], handle, indent=2)
+    if not args.plot_from_npy:
+        with open(summary_path, "w", encoding="utf-8") as handle:
+            json.dump(summary, handle, indent=2)
+        with open(os.path.join(sweep_dir, "best_bp.json"), "w", encoding="utf-8") as handle:
+            json.dump(summary["best"]["bp"], handle, indent=2)
+        with open(os.path.join(sweep_dir, "best_pc.json"), "w", encoding="utf-8") as handle:
+            json.dump(summary["best"]["pc"], handle, indent=2)
 
     _print_ranked_table("BP sweep (mean final test accuracy)", bp_ranked)
     _print_ranked_table("PC sweep (mean final test accuracy)", pc_ranked)
     print(f"\nSweep wall time: {total_wall_time_s:.1f}s")
     print(f"Sweep runs: {os.path.join(sweep_dir, 'bp')} and {os.path.join(sweep_dir, 'pc')}")
-    print(f"Sweep summary written to {summary_path}")
+    if args.plot_from_npy:
+        print("plot_from_npy: skipped rewriting sweep_summary.json")
+    else:
+        print(f"Sweep summary written to {summary_path}")
     return summary
 
 
 if __name__ == "__main__":
     args = parse_args()
     args.dataset = normalize_dataset_id(args.dataset)
+    if args.plot_from_npy:
+        print(
+            "plot_from_npy: skipping training; "
+            "rebuilding figures from .npy files."
+        )
     if args.dataset == "tiny-CIFAR10":
         if args.arch is None:
             args.arch = "mlp"
