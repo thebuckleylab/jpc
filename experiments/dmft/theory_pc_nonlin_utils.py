@@ -408,6 +408,7 @@ def solve_pc_kernels_nonlin(
     cdelta_init_eps: float = 1e-2,
     resample_fields: bool = False,
     seed: int = 0,
+    key: Optional[Array] = None,
     hidden_energy_scaling: Optional[float] = None,
 ) -> Tuple[List[Array], List[Array], List[Array], List[Array], Array, Array, Array, dict]:
     """Solve the non-linear PC DMFT by sampled fixed-point iteration.
@@ -448,6 +449,11 @@ def solve_pc_kernels_nonlin(
       (stochastic approximation). The default reuses common random numbers,
       which makes the iteration a deterministic map and lets ``tolerance``
       detect convergence.
+    - `key`: optional JAX PRNG key for Monte-Carlo field samples. When given
+      it is used instead of ``random.PRNGKey(seed)``. Callers that also
+      sample the dataset from ``args.seed`` must pass an independent child
+      key here; reusing ``PRNGKey(args.seed)`` correlates the DMFT Gaussians
+      with the data (and, for a single trial, with weight init).
 
     **Returns:**
 
@@ -501,7 +507,8 @@ def solve_pc_kernels_nonlin(
         delta_projector=delta_projector,
     )
 
-    key = random.PRNGKey(seed)
+    if key is None:
+        key = random.PRNGKey(seed)
     key, init_key = random.split(key)
 
     Cphi0 = make_input_covariance(Kx, K, T)
