@@ -6,7 +6,7 @@
 # set the number of nodes
 #SBATCH --nodes=1
 # set memory per node
-#SBATCH --mem=16G     ### Note: Use --mem=32G for alignment analyses
+#SBATCH --mem=16G     ### Note: Use --mem=48G for alignment analyses
 # set max wallclock time
 #SBATCH --time=12:00:00
 # partition
@@ -54,29 +54,17 @@ cd ./jpc/experiments/dmft
 ############ CONVERGENCE (NONLINEAR) ##################
 #######################################################
 
-# # Single (final P x P kernels + sample-traced T x T temporal kernels)
-# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --plot_temporal_kernels --gamma_0s 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_nonlin_S --keep_npy
+# # Single (final P x P kernels + sample-traced T x T temporal kernels) Note: Use H100 (Takes ~20h otherwise)
+# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --plot_temporal_kernels --gamma_0s 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 2000 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_nonlin_S --keep_npy
 
 # # Across gamma (loss curves; includes DMFT) Note: Use H100 (Takes ~20h per gamma otherwise)
-# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 0.5 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 2500 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_nonlin_G --keep_npy
-
-# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 2000 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_nonlin_G_mc2000 --keep_npy
-# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 2500 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_nonlin_G_mc2500 --keep_npy
-# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 3000 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_nonlin_G_mc3000 --keep_npy
-
-# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 0.5 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 2000 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_nonlin_G_new --keep_npy
-# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 0.5 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 2500 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_nonlin_G_new_A100 --keep_npy
-
-# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 500 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --pc_tolerance 1e-10 --results_dir results_nonlin_G1 --keep_npy
-# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --num_mc_samples 2000 --pc_tolerance 1e-10 --results_dir results_nonlin_G2 --keep_npy
-# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --num_jacobian_samples 500 --pc_tolerance 1e-10 --results_dir results_nonlin_G3 --keep_npy
-# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 500 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --num_mc_samples 2000 --num_jacobian_samples 500 --pc_tolerance 1e-10 --results_dir results_nonlin_G4 --keep_npy
+# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 0.5 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 2000 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_nonlin_G --keep_npy
 
 # # Across K and gamma (last-layer displacement vs gamma with curves per K; excludes DMFT) 
-# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 0.5 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 5 10 20 50 200 500 --n_train_iters 30 --n_fixed_point_steps 250 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --skip_theory --results_dir results_nonlin_KG --keep_npy
+# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 0.5 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 5 10 20 50 200 500 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 2000 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --skip_theory --results_dir results_nonlin_KG --keep_npy
 
 # # Across widths (convergence of kernels + plot final kernels) Note: Use H100 (Takes ~40h otherwise)
-# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10 25 100 250 1000 2500 10000 --plot_mode both --gamma_0s 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 500 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --n_seeds 5 --results_dir results_nonlin_W --keep_npy
+# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10 25 100 250 1000 2500 10000 --plot_mode both --gamma_0s 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 500 --num_mc_samples 2000 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --n_seeds 5 --results_dir results_nonlin_W --keep_npy
 
 
 ############ ALIGNMENT ##################
