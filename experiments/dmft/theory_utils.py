@@ -147,11 +147,14 @@ def draw_nonlin_samples_init(H, func, key, samples):
 
 
 # computes kernels at init
-def initialize_kernels_sampling(Kx, depth, T, nonlin_fn, dnonlin_fn, samples = 1000):
+def initialize_kernels_sampling(
+    Kx, depth, T, nonlin_fn, dnonlin_fn, samples=1000, key=None
+):
     P = Kx.shape[0]
     H = Kx * 1.0
     all_Phi = []
-    key = random.PRNGKey(0)
+    if key is None:
+        key = random.PRNGKey(0)
     for l in range(depth):
         Phi = draw_nonlin_samples_init(H, nonlin_fn, key, samples)
         all_Phi += [Phi]
@@ -296,7 +299,21 @@ def solve_jacobians_batched(Phi_minus, G_plus, A, B, Delta, h, z, nonlin_fn, dno
 # need MCMC for layer 1, layers 1< l < L and layer L
 # for layer 1, chi does not need to be resampled. For layer L, xi does not need to be resample
 
-def solve_kernels_nonlin(Kx, y, depth=3, T=100, eta = 0.01, gamma=1.0, num_iter=15, samples = 1000, damping = 0.8, nonlin = 'softplus', beta = 1.0):
+def solve_kernels_nonlin(
+    Kx,
+    y,
+    depth=3,
+    T=100,
+    eta=0.01,
+    gamma=1.0,
+    num_iter=15,
+    samples=1000,
+    damping=0.8,
+    nonlin="softplus",
+    beta=1.0,
+    key=None,
+    seed=0,
+):
     P = Kx.shape[0]
     # initialize kernels
     #if nonlin == 'tanh':
@@ -308,7 +325,9 @@ def solve_kernels_nonlin(Kx, y, depth=3, T=100, eta = 0.01, gamma=1.0, num_iter=
     #print(all_Phi[0].shape)
     #print(all_G[0].shape)
     
-    key = random.PRNGKey(0)
+    if key is None:
+        key = random.PRNGKey(seed)
+    key, init_key = random.split(key)
     if nonlin == 'tanh':
         nonlin_fn = lambda h: jnp.tanh(h * beta) / beta
         dnonlin_fn = lambda h: 1.0 - jnp.tanh(h * beta)**2
@@ -320,7 +339,9 @@ def solve_kernels_nonlin(Kx, y, depth=3, T=100, eta = 0.01, gamma=1.0, num_iter=
         ddnonlin_fn = lambda h: jnp.sqrt(2.0)* beta * jnp.exp(-beta*h)/(1.0 + jnp.exp(-beta*h))**2
     
     # initialize kernels to static init ansatz
-    all_Phi, all_G, H0 = initialize_kernels_sampling(Kx, depth, T, nonlin_fn, dnonlin_fn)
+    all_Phi, all_G, H0 = initialize_kernels_sampling(
+        Kx, depth, T, nonlin_fn, dnonlin_fn, samples=samples, key=init_key
+    )
     all_A = [jnp.zeros((T,P,T,P)) for l in range(depth)]
     all_B = [jnp.zeros((T,P,T,P)) for l in range(depth)]
     Delta0 = solve_Delta(Kx, y, all_Phi, all_G, eta)

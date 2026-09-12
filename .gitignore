@@ -1,6 +1,8 @@
 **/.ipynb_checkpoints
 **/data/
 **/datasets/
+**/results_*/
+**/untracked/
 examples/data/
 *.egg-info/
 *.pdf
@@ -15,6 +17,7 @@ __pycache__/
 .all_objects.cache
 site/
 venv*/
+*.out
 *.log
 .pytest_cache/
 .coverage
