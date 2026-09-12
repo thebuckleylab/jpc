@@ -8,16 +8,25 @@ import numpy as np
 import optax
 
 from experiments.bregman_pc.bp import update_bp
-from experiments.bregman_pc.evaluate import evaluate_jpc_batch, feedforward_loss
+from experiments.bregman_pc.evaluate import (
+    _batch_accuracy,
+    evaluate_batch,
+    evaluate_jpc_batch,
+    feedforward_loss,
+    feedforward_preds,
+    predict_models,
+)
 from experiments.bregman_pc.model import BregmanMLP, layer_scalings, scaled_param_lr
 from experiments.bregman_pc.steps import (
     bregman_mlp_to_jpc,
     bregman_pc_bp_grad_cosine,
     bregman_pc_step,
+    bregman_pc_step_with_bp_cosine,
     init_jpc_opt_state,
     jpc_loss_id,
     standard_pc_bp_grad_cosine,
     standard_pc_step,
+    standard_pc_step_with_bp_cosine,
 )
 
 
@@ -63,6 +72,100 @@ def test_scaled_param_lr_mupc_sgd():
     )
     np.testing.assert_allclose(
         scaled_param_lr("mupc", "adam", 0.1, width=100, depth=4), 0.1 / 10.0
+    )
+    np.testing.assert_allclose(
+        scaled_param_lr("mupc", "adam", 0.1, width=100, depth=4, use_skips=True),
+        0.1 / (10.0 * 2.0),
+    )
+
+
+def test_mupc_residual_hidden_scaling():
+    sizes = (64, 32, 32, 16)
+    scales = layer_scalings(sizes, "mupc", gamma=1.0, use_skips=True)
+    np.testing.assert_allclose(scales[0], 1.0 / np.sqrt(64))
+    np.testing.assert_allclose(scales[1], 1.0 / np.sqrt(32 * 3))
+    np.testing.assert_allclose(scales[2], 1.0 / 32)
+    model = BregmanMLP(
+        jax.random.PRNGKey(0),
+        layer_sizes=sizes,
+        act_fn="tanh",
+        param_type="mupc",
+        use_skips=True,
+    )
+    assert not model.layers[0].use_skip
+    assert model.layers[1].use_skip
+    assert not model.layers[-1].use_skip
+    np.testing.assert_allclose(model.layers[1].scaling, 1.0 / np.sqrt(32 * 3))
+
+
+def test_residual_forward_differs_from_plain():
+    key = jax.random.PRNGKey(0)
+    sizes = (8, 12, 12, 4)
+    skipped = BregmanMLP(
+        key, layer_sizes=sizes, act_fn="tanh", output_loss="mse", use_skips=True
+    )
+    plain = BregmanMLP(
+        key, layer_sizes=sizes, act_fn="tanh", output_loss="mse", use_skips=False
+    )
+    x = jax.random.normal(jax.random.PRNGKey(1), (5, 8))
+    y_skip = np.asarray(skipped.forward(x))
+    y_plain = np.asarray(plain.forward(x))
+    assert not np.allclose(y_skip, y_plain, atol=1e-5)
+    np.testing.assert_allclose(
+        np.asarray(skipped.layers[1].linear.weight),
+        np.asarray(plain.layers[1].linear.weight),
+    )
+
+
+def test_binary_sign_accuracy():
+    y = jnp.array([[1.0], [-1.0], [1.0]])
+    preds = jnp.array([[0.5], [-0.2], [-0.1]])
+    np.testing.assert_allclose(float(_batch_accuracy(y, preds)), 2.0 / 3.0)
+    one_hot = jax.nn.one_hot(jnp.array([0, 1, 2]), 3)
+    logits = jnp.array([[3.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 1.0]])
+    np.testing.assert_allclose(float(_batch_accuracy(one_hot, logits)), 1.0)
+
+
+def test_binary_label_pc_step_runs():
+    key = jax.random.PRNGKey(8)
+    model = BregmanMLP(key, layer_sizes=(8, 6, 1), act_fn="tanh", output_loss="mse")
+    x0 = jax.random.normal(jax.random.PRNGKey(9), (4, 8))
+    y = jnp.array([[1.0], [-1.0], [1.0], [-1.0]])
+    optim = optax.adam(1e-3)
+    opt_state = init_jpc_opt_state(model.layers, optim)
+    model, _, energy = bregman_pc_step(
+        model, x0, y, optim, opt_state, n_iters=8, step_size=0.2
+    )
+    assert np.isfinite(float(energy))
+    assert model.forward(x0).shape == (4, 1)
+    loss, acc = evaluate_batch(model, x0, y)
+    assert np.isfinite(float(loss))
+    assert 0.0 <= float(acc) <= 1.0
+
+
+def test_generate_label_to_image_step():
+    key = jax.random.PRNGKey(12)
+    model = BregmanMLP(key, layer_sizes=(3, 6, 8), act_fn="tanh", output_loss="mse")
+    labels = jax.nn.one_hot(jnp.array([0, 1, 2, 0]), 3)
+    images = jax.random.normal(jax.random.PRNGKey(13), (4, 8))
+    optim = optax.sgd(1e-2)
+    opt_state = init_jpc_opt_state(model.layers, optim)
+    model, _, energy = bregman_pc_step(
+        model, labels, images, optim, opt_state, n_iters=8, step_size=0.2
+    )
+    assert np.isfinite(float(energy))
+    assert model.forward(labels).shape == (4, 8)
+    loss, acc = evaluate_batch(model, labels, images, task="generate")
+    assert np.isfinite(float(loss))
+    assert np.isnan(float(acc))
+    jpc_model = bregman_mlp_to_jpc(model)
+    preds = predict_models({"bregman": model, "std_pc": jpc_model, "bp": model}, labels)
+    for name, arr in preds.items():
+        assert arr.shape == (4, 8), name
+    np.testing.assert_allclose(
+        np.asarray(feedforward_preds(model, labels)),
+        np.asarray(preds["bregman"]),
+        atol=1e-5,
     )
 
 
@@ -116,6 +219,133 @@ def test_standard_pc_step_shares_weights_and_runs():
     loss, acc = evaluate_jpc_batch(jpc_model, x0, y, loss_id="ce")
     assert np.isfinite(float(loss))
     assert 0.0 <= float(acc) <= 1.0
+
+
+def test_step_with_bp_cosine_matches_standalone_cosine():
+    key = jax.random.PRNGKey(22)
+    model = BregmanMLP(
+        key, layer_sizes=(8, 12, 3), act_fn="tanh", output_loss="mse", param_type="mupc"
+    )
+    x0 = jax.random.normal(jax.random.PRNGKey(23), (4, 8))
+    y = jax.nn.one_hot(jnp.array([0, 1, 2, 0]), 3)
+    n_iters, step_size = 6, 5e-3
+    cos_b = float(bregman_pc_bp_grad_cosine(model, x0, y, n_iters, step_size))
+    optim = optax.sgd(1e-3)
+    opt_state = init_jpc_opt_state(model.layers, optim)
+    _, _, energy, cos_step = bregman_pc_step_with_bp_cosine(
+        model, x0, y, optim, opt_state, n_iters, step_size
+    )
+    np.testing.assert_allclose(float(cos_step), cos_b, atol=1e-4)
+    assert np.isfinite(float(energy))
+
+    jpc_model = bregman_mlp_to_jpc(model)
+    cos_s = float(
+        standard_pc_bp_grad_cosine(
+            jpc_model, x0, y, n_iters, step_size, loss_id="mse"
+        )
+    )
+    std_opt_state = init_jpc_opt_state(jpc_model, optim)
+    _, _, _, cos_std_step = standard_pc_step_with_bp_cosine(
+        jpc_model, x0, y, optim, std_opt_state, n_iters, step_size, "mse"
+    )
+    np.testing.assert_allclose(float(cos_std_step), cos_s, atol=1e-4)
+
+
+def test_residual_activity_grad_matches_autodiff():
+    key = jax.random.PRNGKey(30)
+    model = BregmanMLP(
+        key,
+        layer_sizes=(8, 6, 6, 3),
+        act_fn="tanh",
+        output_loss="mse",
+        use_skips=True,
+    )
+    x = jax.random.normal(jax.random.PRNGKey(31), (4, 8))
+    y = jax.nn.one_hot(jnp.array([0, 1, 2, 0]), 3)
+    us = tuple(
+        u + 0.2
+        for u in jpc.init_bregman_pc_activities(model.layers, x, act_fn="tanh")
+    )
+    _, explicit = jpc.compute_bregman_pc_activity_grad(
+        model.jpc_params(), us, y, x=x, act_fn="tanh", loss="mse"
+    )
+    dFdu = jax.grad(
+        lambda u: jpc.bregman_pc_energy_fn(
+            model.jpc_params(), u, y, x=x, act_fn="tanh", loss="mse"
+        )
+    )(us)
+    for e, g, u in zip(explicit, dFdu, us):
+        phi_p = 1.0 - jnp.tanh(u) ** 2
+        np.testing.assert_allclose(
+            np.asarray(g), np.asarray(phi_p * e / x.shape[0]), atol=1e-4, rtol=1e-4
+        )
+
+
+def test_mupc_width_bp_convergence_run_is_finite(tmp_path):
+    from experiments.bregman_pc.mupc_bp_convergence import train_width
+
+    key = jax.random.PRNGKey(24)
+    x = jax.random.normal(jax.random.PRNGKey(25), (6, 8))
+    y = jnp.where(jnp.arange(6) < 3, 1.0, -1.0)[:, None]
+    result = train_width(
+        key,
+        x,
+        y,
+        width=8,
+        n_hidden=1,
+        act_fn="tanh",
+        output_loss="mse",
+        param_type="mupc",
+        gamma_0=1.0,
+        param_optim_id="sgd",
+        param_lr=0.1,
+        activity_lr=0.2,
+        n_infer_iters=4,
+        n_train_iters=2,
+        save_dir=tmp_path,
+        log_every=1,
+    )
+    for name in (
+        "bregman_grad_cosine_similarities",
+        "std_pc_grad_cosine_similarities",
+        "bregman_train_losses",
+        "bp_losses",
+    ):
+        arr = result[name]
+        assert arr.shape == (2,)
+        assert np.all(np.isfinite(arr))
+    assert np.all(result["bregman_grad_cosine_similarities"] >= -1.0)
+    assert np.all(result["bregman_grad_cosine_similarities"] <= 1.0)
+
+
+def test_residual_mupc_bp_convergence_run_is_finite(tmp_path):
+    from experiments.bregman_pc.mupc_bp_convergence import train_width
+
+    key = jax.random.PRNGKey(26)
+    x = jax.random.normal(jax.random.PRNGKey(27), (6, 8))
+    y = jnp.where(jnp.arange(6) < 3, 1.0, -1.0)[:, None]
+    result = train_width(
+        key,
+        x,
+        y,
+        width=8,
+        n_hidden=2,
+        act_fn="tanh",
+        output_loss="mse",
+        param_type="mupc",
+        gamma_0=1.0,
+        param_optim_id="adam",
+        param_lr=1e-3,
+        activity_lr=0.2,
+        n_infer_iters=3,
+        n_train_iters=2,
+        save_dir=tmp_path / "residual",
+        log_every=1,
+        use_skips=True,
+    )
+    assert result["bregman_grad_cosine_similarities"].shape == (2,)
+    assert np.all(np.isfinite(result["bregman_grad_cosine_similarities"]))
+    assert np.all(np.isfinite(result["bp_losses"]))
 
 
 def test_mupc_pc_bp_cosine_is_finite():
@@ -183,4 +413,3 @@ def test_best_config_and_hparam_sweep_stats():
     xs, means, _ = hparam_sweep_stats(runs, "bregman", "activity_lr")
     np.testing.assert_allclose(xs, [1e-3, 1e-2])
     np.testing.assert_allclose(means, [0.51, 0.82])
-
