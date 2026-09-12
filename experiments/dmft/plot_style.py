@@ -2,8 +2,9 @@
 
 Panels are drawn at their final printed size so that ``\\includegraphics``
 never rescales them: font sizes in this module are the font sizes on the
-page. ``TEXT_WIDTH_IN`` is the ICLR text width, and ``PANEL_*`` give the
-figure sizes for one, two, or three panels per row.
+page. ``TEXT_WIDTH_IN`` is the ICLR text width. ``PANEL_*`` are narrower
+than a strict partition of that width so that two or three panels leave
+``PANEL_GUTTER_IN`` of space between them when assembled in Inkscape.
 
 Figures are laid out with constrained layout and saved without a tight
 bounding box, so the saved file is exactly ``figsize`` inches.
@@ -26,9 +27,27 @@ import numpy as np
 
 TEXT_WIDTH_IN = 5.5  # ICLR \textwidth
 
-PANEL_FULL = (TEXT_WIDTH_IN, 2.20)
-PANEL_HALF = (2.70, 1.95)
-PANEL_THIRD = (1.83, 1.62)
+#: Horizontal gap between adjacent panels when they are assembled
+#: side-by-side to fill the text width. About 4 mm: enough for a
+#: subfigure letter and a clear visual break in Inkscape.
+PANEL_GUTTER_IN = 0.15
+
+
+def panel_width(n_across):
+    """Width of one panel when ``n_across`` panels share the text width.
+
+    ``n_across == 1`` is the full text width. For two or three panels the
+    returned width already subtracts the inter-panel gutters, so placing
+    the PDFs on a 5.5 in canvas with ``PANEL_GUTTER_IN`` between them
+    lands flush with the margins.
+    """
+    n_across = max(int(n_across), 1)
+    return (TEXT_WIDTH_IN - (n_across - 1) * PANEL_GUTTER_IN) / n_across
+
+
+PANEL_FULL = (panel_width(1), 2.20)
+PANEL_HALF = (panel_width(2), 1.95)
+PANEL_THIRD = (panel_width(3), 1.62)
 
 #: Height of one row in a per-layer panel grid spanning the text width.
 PER_LAYER_ROW_HEIGHT = 1.75
@@ -46,7 +65,8 @@ COLOR_PC = "tab:blue"
 COLOR_BP = "tab:orange"
 COLOR_REFERENCE = "black"
 
-#: Diverging map for kernel heatmaps, always centred on zero.
+#: Diverging map for kernel heatmaps. Alignment plots centre it on zero;
+#: convergence plots stretch it over the data range.
 KERNEL_CMAP = "coolwarm"
 
 #: Sequential map for swept scalars (widths, depths, gammas, K).
@@ -73,9 +93,11 @@ TEX = {
 LOSS_LABEL = r"training loss $\mathcal{L}$"
 
 #: Legend labels for the three ways a kernel / loss can be obtained.
+#: ``NN*`` is finite-size closed-form inference (the long name is too
+#: wide for kernel-grid row labels).
 LABEL_DMFT = "DMFT"
 LABEL_NN = "NN"
-LABEL_NN_CLOSED_FORM = "NN (closed-form)"
+LABEL_NN_CLOSED_FORM = "NN*"
 LABEL_PC = "PC"
 LABEL_BP = "BP"
 
@@ -226,6 +248,24 @@ def integer_ticks(ax, values, axis="x"):
         ax.set_yticks(ticks)
 
 
+def _explicit_clim(vmin, vmax):
+    if vmin is None and vmax is None:
+        return None
+    limits = {}
+    if vmin is not None:
+        limits["vmin"] = vmin
+    if vmax is not None:
+        limits["vmax"] = vmax
+    return limits
+
+
+def _finite_kernel_values(arrays):
+    stacked = np.concatenate(
+        [np.asarray(a, dtype=float).ravel() for a in arrays]
+    )
+    return stacked[np.isfinite(stacked)]
+
+
 def symmetric_clim(arrays, *, vmin=None, vmax=None):
     """Colour limits centred on zero for a diverging kernel heatmap.
 
@@ -233,23 +273,35 @@ def symmetric_clim(arrays, *, vmin=None, vmax=None):
     ``(-m, m)`` with ``m`` the largest finite absolute value, so the
     midpoint of the diverging map sits at zero.
     """
-    if vmin is not None or vmax is not None:
-        limits = {}
-        if vmin is not None:
-            limits["vmin"] = vmin
-        if vmax is not None:
-            limits["vmax"] = vmax
-        return limits
-    stacked = np.concatenate(
-        [np.asarray(a, dtype=float).ravel() for a in arrays]
-    )
-    finite = stacked[np.isfinite(stacked)]
+    explicit = _explicit_clim(vmin, vmax)
+    if explicit is not None:
+        return explicit
+    finite = _finite_kernel_values(arrays)
     if not finite.size:
         return {}
     magnitude = float(np.max(np.abs(finite)))
     if magnitude == 0.0:
         return {}
     return {"vmin": -magnitude, "vmax": magnitude}
+
+
+def data_clim(arrays, *, vmin=None, vmax=None):
+    """Colour limits from the finite data range, not centred on zero.
+
+    Explicit ``vmin`` / ``vmax`` win. Used for raw feature kernels whose
+    scale is arbitrary, so that a diverging map uses its full range.
+    """
+    explicit = _explicit_clim(vmin, vmax)
+    if explicit is not None:
+        return explicit
+    finite = _finite_kernel_values(arrays)
+    if not finite.size:
+        return {}
+    lo = float(np.min(finite))
+    hi = float(np.max(finite))
+    if lo == hi:
+        return {}
+    return {"vmin": lo, "vmax": hi}
 
 
 def per_layer_figsize(ncols, nrows, width=TEXT_WIDTH_IN):
