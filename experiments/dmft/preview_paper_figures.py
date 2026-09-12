@@ -242,6 +242,8 @@ def preview_kernel_grids(out_dir):
         n_infer_iters=5,
         filename="final_pc_kernels_grid.png",
         dir_name="convergence",
+        cbar=False,
+        center_zero=False,
     )
     plot_temporal_kernel_grid(
         rows,
@@ -251,6 +253,8 @@ def preview_kernel_grids(out_dir):
         activity_lr=0.01,
         n_infer_iters=5,
         dir_name="convergence",
+        cbar=False,
+        center_zero=False,
     )
     # Supplementary Figure 2: a K sweep, so more rows than columns.
     k_rows = [(ps.k_label(5, prefix=ps.LABEL_DMFT),
@@ -270,6 +274,8 @@ def preview_kernel_grids(out_dir):
         activity_lr=0.01,
         filename="final_pc_kernels_grid.png",
         dir_name="convergence",
+        cbar=False,
+        center_zero=False,
     )
     # Figure 2 Row 3: PC vs BP at matched loss.
     for i in (0, 100, 199):

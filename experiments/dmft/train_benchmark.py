@@ -1149,7 +1149,9 @@ _TRAIN_ACC_YLABEL = "train accuracy (%)"
 
 #: Combined 2x2 (train+test) is supplementary; each cell is roughly half-width.
 _FIGSIZE_2x2 = ps.per_layer_figsize(2, 2)
-_FIGSIZE_1x2 = (2 * ps.PANEL_HALF[0], ps.PANEL_HALF[1])
+#: One matplotlib figure spanning the text width; internal spacing comes
+#: from constrained layout, not the Inkscape assembly gutter.
+_FIGSIZE_1x2 = (ps.TEXT_WIDTH_IN, ps.PANEL_HALF[1])
 
 
 def _markersize_for_n(n):

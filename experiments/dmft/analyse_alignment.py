@@ -591,8 +591,6 @@ def _plot_temporal_kernel_figures(
     plot_kw,
     feat_tex,
     *,
-    xlabel,
-    ylabel,
     title_note="",
 ):
     """Sample-traced temporal kernels, spectrum, rank, and PC–BP CKA."""
@@ -617,8 +615,6 @@ def _plot_temporal_kernel_figures(
         vmin=-1.0,
         vmax=1.0,
         title=title,
-        xlabel=xlabel,
-        ylabel=ylabel,
         **{k: plot_kw[k] for k in (
             "plots_dir", "gamma_0", "n_hidden", "activity_lr",
             "n_infer_iters", "width", "dir_name",
@@ -943,8 +939,6 @@ def _plot_loss_matched_suite(
         phi_fn,
         plot_kw,
         feat_tex,
-        xlabel=r"$L$",
-        ylabel=r"$L'$",
         title_note=" (loss-matched)",
     )
 
@@ -1825,8 +1819,6 @@ if __name__ == "__main__":
             phi_fn,
             plot_kw_time,
             feat_tex,
-            xlabel=r"$t$",
-            ylabel=r"$t'$",
         )
 
         print("Train vs test kernels (time-indexed)...")
