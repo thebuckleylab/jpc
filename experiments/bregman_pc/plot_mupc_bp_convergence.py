@@ -1,12 +1,4 @@
-"""Plot μPC BP-convergence cosine heatmaps in the limits-paper width/depth style.
-
-Reads ``results/mupc_bp_convergence`` (Bregman PC and standard PC vs BP) and
-saves one heatmap per method at t = 0, 50, 100, averaged over seeds.
-
-```
-python -m experiments.bregman_pc.plot_mupc_bp_convergence
-```
-"""
+"""Plot μPC BP-convergence cosine heatmaps in the limits-paper width/depth style."""
 
 import argparse
 import os
@@ -99,7 +91,7 @@ def _cosine_at_step(path, time_step):
     else:
         value = float(value)
     if value < 0:
-        return None
+        return 0.0
     return value
 
 
