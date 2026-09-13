@@ -26,7 +26,7 @@ def parse_args():
     add_common_args(parser)
     parser.set_defaults(
         widths=[2048],
-        gamma_0s=[0.1, 0.5, 1.0, 2.0, 3.0, 4.0],
+        gamma_0s=[0.1, 0.5, 1.0, 2.0, 4.0],
     )
     return parser.parse_args()
 

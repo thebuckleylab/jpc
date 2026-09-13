@@ -18,6 +18,6 @@ For the learning regimes results of Figure 2, run
 ```
 python train_toy.py \
   --widths 2048 \
-  --gamma_0s 0.1 0.5 1 2 3 4
+  --gamma_0s 0.1 0.5 1 2 4
 python plot_learning_regimes.py
 ```

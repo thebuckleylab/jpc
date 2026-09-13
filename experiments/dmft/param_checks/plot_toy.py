@@ -340,6 +340,92 @@ def plot_inv_rescaling_vs_width(data, plot_dir, gamma_0, param_type):
     toy_plots.save_plot(plot_dir, "inv_rescaling_vs_width.pdf", None)
 
 
+def _plot_gamma_pc_bp(
+    data,
+    plot_dir,
+    *,
+    pc_key,
+    filename,
+    ylabel,
+    log_y,
+    log_x_scale,
+    n_hidden,
+    bp_legend="BP",
+):
+    """PC/BP γ-sweep overlay for param_checks (dashed BP, ``γ`` legend, no theory)."""
+    pc_gammas = sorted(g for g in data["gamma_0s"] if g in data[pc_key])
+    bp_gammas = sorted(g for g in data["gamma_0s"] if g in data["bp_losses"])
+    all_gammas = sorted(set(pc_gammas + bp_gammas))
+    n_gammas = len(all_gammas)
+    plt.figure(figsize=(10, 6))
+    if all_gammas:
+        blue_cmap = plt.get_cmap("Blues")
+        red_cmap = plt.get_cmap("Reds")
+        for gamma_0 in pc_gammas:
+            values = np.array(data[pc_key][gamma_0]).flatten()
+            iterations = np.arange(1, len(values) + 1)
+            idx = all_gammas.index(gamma_0)
+            color = blue_cmap(gamma_plots.get_color_val(idx, n_gammas, "Blues"))
+            plt.plot(
+                iterations,
+                values,
+                "-",
+                alpha=gamma_plots.ALPHA,
+                linewidth=gamma_plots.LINE_WIDTH,
+                color=color,
+            )
+        for gamma_0 in bp_gammas:
+            bp_loss = np.array(data["bp_losses"][gamma_0]).flatten()
+            iterations = np.arange(1, len(bp_loss) + 1)
+            idx = all_gammas.index(gamma_0)
+            color = red_cmap(gamma_plots.get_color_val(idx, n_gammas, "Reds"))
+            plt.plot(
+                iterations,
+                bp_loss,
+                "--",
+                alpha=gamma_plots.ALPHA,
+                linewidth=gamma_plots.LINE_WIDTH,
+                color=color,
+            )
+    plt.xlabel("$t$", fontsize=gamma_plots.FONT_SIZES["label"], labelpad=gamma_plots.LABEL_PAD)
+    plt.ylabel(ylabel, fontsize=gamma_plots.FONT_SIZES["label"], labelpad=gamma_plots.LABEL_PAD)
+    if log_x_scale:
+        plt.xscale("log", base=10)
+    if log_y:
+        plt.yscale("log", base=10)
+    legend_elements = [
+        plt.Line2D(
+            [0], [0], color=plt.get_cmap("Blues")(0.5), linestyle="-",
+            linewidth=gamma_plots.LINE_WIDTH, label="PC",
+        ),
+        plt.Line2D(
+            [0], [0], color=plt.get_cmap("Reds")(0.5), linestyle="--",
+            linewidth=gamma_plots.LINE_WIDTH, label=bp_legend,
+        ),
+    ]
+    for idx, gamma_0 in enumerate(all_gammas):
+        grey_val = 0.8 - (idx / (n_gammas - 1)) * 0.6 if n_gammas > 1 else 0.5
+        legend_elements.append(
+            plt.Line2D(
+                [0], [0], color=(grey_val, grey_val, grey_val), linestyle="-",
+                linewidth=gamma_plots.LINE_WIDTH,
+                label=rf"$\gamma = {gamma_0}$",
+            )
+        )
+    plt.legend(
+        handles=legend_elements,
+        fontsize=gamma_plots.FONT_SIZES["legend"],
+        bbox_to_anchor=(1.05, 1),
+        loc="upper left",
+    )
+    plt.grid(True, which="both", ls="-", alpha=0.4)
+    plt.tick_params(axis="both", labelsize=gamma_plots.FONT_SIZES["tick"])
+    ax = plt.gca()
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    gamma_plots.save_plot(plot_dir, filename, n_hidden, add_suffix=False)
+
+
 def plot_losses_and_energies_logy(data, plot_dir, *, sweep, log_x_scale, n_hidden=None):
     """PC energies and BP losses on a log-y axis (same series as the linear overlay).
 
@@ -447,78 +533,21 @@ def plot_losses_and_energies_logy(data, plot_dir, *, sweep, log_x_scale, n_hidde
         toy_plots.save_plot(plot_dir, "losses_and_energies_logy.pdf", None)
         return
 
-    plt.figure(figsize=(10, 6))
-    pc_gammas = sorted([g for g in data["gamma_0s"] if g in data["pc_energies"]])
-    bp_gammas = sorted([g for g in data["gamma_0s"] if g in data["bp_losses"]])
-    all_gammas = sorted(set(pc_gammas + bp_gammas))
-    n_gammas = len(all_gammas)
-    if all_gammas:
-        blue_cmap = plt.get_cmap("Blues")
-        red_cmap = plt.get_cmap("Reds")
-        for gamma_0 in pc_gammas:
-            energies = np.array(data["pc_energies"][gamma_0]).flatten()
-            iterations = np.arange(1, len(energies) + 1)
-            idx = all_gammas.index(gamma_0)
-            color = blue_cmap(gamma_plots.get_color_val(idx, n_gammas, "Blues"))
-            plt.plot(
-                iterations, energies, "-",
-                alpha=gamma_plots.ALPHA, linewidth=gamma_plots.LINE_WIDTH, color=color,
-            )
-        for gamma_0 in bp_gammas:
-            bp_loss = np.array(data["bp_losses"][gamma_0]).flatten()
-            iterations = np.arange(1, len(bp_loss) + 1)
-            idx = all_gammas.index(gamma_0)
-            color = red_cmap(gamma_plots.get_color_val(idx, n_gammas, "Reds"))
-            plt.plot(
-                iterations, bp_loss, "--",
-                alpha=gamma_plots.ALPHA, linewidth=gamma_plots.LINE_WIDTH, color=color,
-            )
-    plt.xlabel("$t$", fontsize=gamma_plots.FONT_SIZES["label"], labelpad=gamma_plots.LABEL_PAD)
-    plt.ylabel(
-        r"$l(\boldsymbol{\theta}_t)$",
-        fontsize=gamma_plots.FONT_SIZES["label"],
-        labelpad=gamma_plots.LABEL_PAD,
+    bp_legend = (
+        rf"BP, $N = {data['width']}$"
+        if data.get("width") is not None
+        else "BP"
     )
-    if log_x_scale:
-        plt.xscale("log", base=10)
-    plt.yscale("log", base=10)
-    legend_elements = [
-        plt.Line2D(
-            [0], [0], color=plt.get_cmap("Blues")(0.5), linestyle="-",
-            linewidth=gamma_plots.LINE_WIDTH, label="PC",
-        ),
-        plt.Line2D(
-            [0], [0], color=plt.get_cmap("Reds")(0.5), linestyle="--",
-            linewidth=gamma_plots.LINE_WIDTH,
-            label=(
-                rf"BP, $N = {data['width']}$"
-                if data.get("width") is not None
-                else "BP"
-            ),
-        ),
-    ]
-    for idx, gamma_0 in enumerate(all_gammas):
-        grey_val = 0.8 - (idx / (n_gammas - 1)) * 0.6 if n_gammas > 1 else 0.5
-        legend_elements.append(
-            plt.Line2D(
-                [0], [0], color=(grey_val, grey_val, grey_val), linestyle="-",
-                linewidth=gamma_plots.LINE_WIDTH,
-                label=rf"$\gamma = {gamma_0}$",
-            )
-        )
-    plt.legend(
-        handles=legend_elements,
-        fontsize=gamma_plots.FONT_SIZES["legend"],
-        bbox_to_anchor=(1.05, 1),
-        loc="upper left",
-    )
-    plt.grid(True, which="both", ls="-", alpha=0.4)
-    plt.tick_params(axis="both", labelsize=gamma_plots.FONT_SIZES["tick"])
-    ax = plt.gca()
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    gamma_plots.save_plot(
-        plot_dir, "losses_and_energies_logy.pdf", n_hidden, add_suffix=False
+    _plot_gamma_pc_bp(
+        data,
+        plot_dir,
+        pc_key="pc_energies",
+        filename="losses_and_energies_logy.pdf",
+        ylabel=r"$l(\boldsymbol{\theta}_t)$",
+        log_y=True,
+        log_x_scale=log_x_scale,
+        n_hidden=n_hidden,
+        bp_legend=bp_legend,
     )
 
 
@@ -568,47 +597,52 @@ def plot_gamma_sweep(data, plot_dir, n_hidden, log_x_scale, use_skips, param_typ
 
     overlay = pc_energies_on_mse_scale(data, param_type, sweep="gamma")
     gamma_legend = r"$\gamma = {}$"
-    gamma_plots.plot_losses(
+    _plot_gamma_pc_bp(
         data,
         plot_dir,
-        "Blues",
-        n_hidden,
-        log_x_scale,
-        plot_theory=False,
-        gamma_legend=gamma_legend,
+        pc_key="pc_train_losses",
+        filename="losses.pdf",
+        ylabel=r"$\mathcal{L}(\boldsymbol{\theta}_t)$",
+        log_y=True,
+        log_x_scale=log_x_scale,
+        n_hidden=n_hidden,
     )
-    gamma_plots.plot_losses_and_energies(
+    _plot_gamma_pc_bp(
         overlay,
         plot_dir,
-        "Blues",
-        n_hidden,
-        log_x_scale,
-        plot_theory=False,
+        pc_key="pc_energies",
+        filename="losses_and_energies.pdf",
         ylabel=r"$l(\boldsymbol{\theta}_t)$",
-        gamma_legend=gamma_legend,
+        log_y=False,
+        log_x_scale=log_x_scale,
+        n_hidden=n_hidden,
     )
     plot_losses_and_energies_logy(
         overlay, plot_dir, sweep="gamma", log_x_scale=log_x_scale, n_hidden=n_hidden
     )
     similarities = gamma_plots.calculate_cosine_similarity(data)
     if similarities:
-        gamma_plots.plot_cosine_similarity(
-            data,
-            similarities,
+        gamma_plots.plot_gammas_series(
+            {"gamma_0s": data["gamma_0s"], "cosine": similarities},
+            "cosine",
             plot_dir,
             "Blues",
+            r"$\cos\left(\nabla_{\boldsymbol{\theta}} \mathcal{L}, \nabla_{\boldsymbol{\theta}} \mathcal{F}^*\right)$",
+            "grads_cosine_similarities.pdf",
             n_hidden,
             label_prefix=gamma_legend,
         )
     else:
         print("  Warning: no cosine similarity data for gamma sweep")
     if data["pc_rescalings"]:
-        gamma_plots.plot_rescalings(
+        gamma_plots.plot_gammas_series(
             data,
+            "pc_rescalings",
             plot_dir,
             "Blues",
+            r"$s(\boldsymbol{\theta}_t)$",
+            "pc_rescaling.pdf",
             n_hidden,
-            output_dim=1,
             label_prefix=gamma_legend,
         )
 
