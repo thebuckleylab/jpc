@@ -1,0 +1,46 @@
+# Requirements matching PC_dmft_env (Python 3.13), for use with uv.
+#
+# From the jpc repo root:
+#
+#   uv venv --python 3.13 .venv
+#   source .venv/bin/activate
+#   uv pip install -e .
+#   uv pip install -r experiments/dmft/requirements.txt
+#   uv pip install --upgrade "jax[cuda12]==0.5.2"   # GPU (optional; skip on CPU-only)
+#   uv pip install torch==2.13.0 torchvision==0.28.0 \
+#     --index-url https://download.pytorch.org/whl/cpu
+#
+# Notes:
+# - Install jpc editable first (`uv pip install -e .`); it pulls jax/equinox/optax/etc.
+# - Torch lines below omit the local `+cpu` build tag so plain PyPI pins work;
+#   prefer the --index-url command above to match PC_dmft_env's CPU wheels.
+# - Do not pin jax-cuda12-* here; use `jax[cuda12]==0.5.2` when you need GPU.
+
+# Scientific / plotting stack (conda-forge equivalents in PC_dmft_env)
+numpy==2.5.1
+pandas==3.0.3
+scipy==1.18.0
+scikit-learn==1.9.0
+matplotlib==3.11.0
+seaborn==0.13.2
+pillow==12.3.0
+ipykernel==7.3.0
+
+# JAX ecosystem (also pulled by jpc; pins match PC_dmft_env)
+jax==0.5.2
+jaxlib==0.5.1
+equinox==0.13.8
+diffrax==0.7.2
+optax==0.2.5
+jaxtyping==0.3.11
+chex==0.1.90
+lineax==0.0.8
+optimistix==0.1.0
+
+# PyTorch (CPU in PC_dmft_env; see install note above for pytorch.org wheels)
+torch==2.13.0
+torchvision==0.28.0
+
+# Tests (jpc / local dmft tests)
+pytest==9.1.1
+pytest-cov==7.1.0
