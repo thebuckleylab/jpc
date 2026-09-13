@@ -17,7 +17,7 @@ plt.rcParams.update({
     "text.latex.preamble": r"\usepackage{amsmath}\usepackage{amssymb}",
 })
 
-FIG_SIZE = (10, 6)
+FIG_SIZE = (11, 6)
 FONT_SIZES = {"label": 45, "legend": 25, "tick": 35}
 LABEL_PAD = 15
 LINE_WIDTH = 4
@@ -69,8 +69,10 @@ def _save_plot(save_dir, filename):
     plt.savefig(os.path.join(save_dir, filename), bbox_inches="tight")
     plt.close()
 
-_XLABEL = "$t$"
-_YLABEL = r"$\mathcal{L}(\boldsymbol{\theta}_t)$"
+_XLABEL = "Step"
+_YLABEL = "Training loss"
+_TOY_XLABEL = "$t$"
+_TOY_YLABEL = r"$\mathcal{L}(\boldsymbol{\theta}_t)$"
 _AXIS_COMBOS = (
     (False, False, "linx_liny"),
     (False, True, "linx_logy"),
@@ -200,7 +202,7 @@ def plot_width(
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
         ax.set_title(rf"$L = {n_layers}$", fontsize=32, pad=16)
-        ax.set_xlabel(_XLABEL, fontsize=FONT_SIZES["label"], labelpad=LABEL_PAD)
+        ax.set_xlabel(_TOY_XLABEL, fontsize=FONT_SIZES["label"], labelpad=LABEL_PAD)
         ax.grid(True, which="both", ls="-", alpha=0.4)
         ax.tick_params(axis="both", labelsize=FONT_SIZES["tick"])
         if not log_xaxis:
@@ -209,7 +211,7 @@ def plot_width(
             ax.set_xscale("log")
         if log_yaxis:
             ax.set_yscale("log", base=10)
-    axes[0].set_ylabel(_YLABEL, fontsize=FONT_SIZES["label"], labelpad=LABEL_PAD)
+    axes[0].set_ylabel(_TOY_YLABEL, fontsize=FONT_SIZES["label"], labelpad=LABEL_PAD)
     handles, labels = axes[0].get_legend_handles_labels()
     if handles:
         axes[-1].legend(
