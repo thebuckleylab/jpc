@@ -11,9 +11,12 @@ import os
 import sys
 from pathlib import Path
 
+_SCRIPT_DIR = Path(__file__).resolve().parent
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
+if str(_SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIR))
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -21,76 +24,7 @@ import numpy as np
 from experiments.limits_paper import plot_gamma0_sweep as gamma_plots
 from experiments.limits_paper import plot_toy_results as toy_plots
 from experiments.limits_paper.utils import setup_bp_experiment, setup_pc_experiment
-
-
-def parse_bool(value):
-    if isinstance(value, bool):
-        return value
-    lower = str(value).lower()
-    if lower in ("true", "1", "yes"):
-        return True
-    if lower in ("false", "0", "no"):
-        return False
-    raise argparse.ArgumentTypeError(
-        f"Invalid boolean {value!r}; use True/False."
-    )
-
-
-def add_common_args(parser):
-    parser.add_argument(
-        "--results_dir",
-        type=str,
-        default="results/toy_energy_scaled",
-    )
-    parser.add_argument("--input_dim", type=int, default=40)
-    parser.add_argument("--n_samples", type=int, default=20)
-    parser.add_argument(
-        "--act_fn",
-        type=str,
-        default="linear",
-        choices=["linear", "tanh", "relu"],
-    )
-    parser.add_argument(
-        "--param_types",
-        type=str,
-        nargs="+",
-        default=["mupc"],
-        choices=["mupc", "sp"],
-    )
-    parser.add_argument(
-        "--use_skips",
-        type=parse_bool,
-        nargs="+",
-        default=[False],
-    )
-    parser.add_argument(
-        "--param_optim",
-        type=str,
-        default="gd",
-        choices=["gd", "adam", "sgd_momentum"],
-    )
-    parser.add_argument("--param_lr", type=float, default=0.05)
-    parser.add_argument("--gamma_0s", type=float, nargs="+", default=[1.0])
-    parser.add_argument("--n_train_iters", type=int, default=100)
-    parser.add_argument(
-        "--infer_mode",
-        type=str,
-        default="closed_form",
-        choices=["optim", "closed_form"],
-    )
-    parser.add_argument("--n_infer_iters", type=int, default=20)
-    parser.add_argument("--activity_lrs", type=float, nargs="+", default=[5e-1])
-    parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--n_seeds", type=int, default=1)
-    parser.add_argument("--n_hiddens", type=int, nargs="+", default=[4])
-    parser.add_argument(
-        "--widths",
-        type=int,
-        nargs="+",
-        default=[8, 16, 32, 64, 128, 256, 512, 1024, 2048],
-    )
-    parser.add_argument("--log_x_scale", action="store_true", default=False)
-    return parser
+from train_toy import add_common_args, bp_dmft_loss_path, mup_loss_scale
 
 
 def parse_args():
@@ -112,23 +46,9 @@ def parse_args():
     return parser.parse_args()
 
 
-def bp_dmft_loss_path(results_dir, gamma_0, n_hidden, seed):
-    return os.path.join(
-        results_dir,
-        f"dmft_loss_{gamma_0}_gamma_0_{n_hidden}_n_hidden_seed_{seed}.npy",
-    )
-
-
 def load_bp_dmft_loss(results_dir, gamma_0, n_hidden, seed):
     path = bp_dmft_loss_path(results_dir, gamma_0, n_hidden, seed)
     return toy_plots._load_npy_safe(path)
-
-
-def mup_loss_scale(param_type, gamma_0, width):
-    """µP factor ``γ² N`` that BP GD puts in the LR (1 for SP)."""
-    if param_type == "sp":
-        return 1.0
-    return float(gamma_0) ** 2 * float(width)
 
 
 def pc_energies_on_mse_scale(data, param_type, *, sweep):
@@ -583,7 +503,7 @@ def plot_losses_and_energies_logy(data, plot_dir, *, sweep, log_x_scale, n_hidde
             plt.Line2D(
                 [0], [0], color=(grey_val, grey_val, grey_val), linestyle="-",
                 linewidth=gamma_plots.LINE_WIDTH,
-                label=rf"$\gamma_0 = {gamma_0}$",
+                label=rf"$\gamma = {gamma_0}$",
             )
         )
     plt.legend(
@@ -647,11 +567,15 @@ def plot_gamma_sweep(data, plot_dir, n_hidden, log_x_scale, use_skips, param_typ
         return
 
     overlay = pc_energies_on_mse_scale(data, param_type, sweep="gamma")
-    plot_theory = (not use_skips) and (
-        bool(data.get("dmft_losses")) or data.get("dmft_loss") is not None
-    )
+    gamma_legend = r"$\gamma = {}$"
     gamma_plots.plot_losses(
-        data, plot_dir, "Blues", n_hidden, log_x_scale, plot_theory=plot_theory
+        data,
+        plot_dir,
+        "Blues",
+        n_hidden,
+        log_x_scale,
+        plot_theory=False,
+        gamma_legend=gamma_legend,
     )
     gamma_plots.plot_losses_and_energies(
         overlay,
@@ -659,8 +583,9 @@ def plot_gamma_sweep(data, plot_dir, n_hidden, log_x_scale, use_skips, param_typ
         "Blues",
         n_hidden,
         log_x_scale,
-        plot_theory=plot_theory,
+        plot_theory=False,
         ylabel=r"$l(\boldsymbol{\theta}_t)$",
+        gamma_legend=gamma_legend,
     )
     plot_losses_and_energies_logy(
         overlay, plot_dir, sweep="gamma", log_x_scale=log_x_scale, n_hidden=n_hidden
@@ -668,12 +593,24 @@ def plot_gamma_sweep(data, plot_dir, n_hidden, log_x_scale, use_skips, param_typ
     similarities = gamma_plots.calculate_cosine_similarity(data)
     if similarities:
         gamma_plots.plot_cosine_similarity(
-            data, similarities, plot_dir, "Blues", n_hidden
+            data,
+            similarities,
+            plot_dir,
+            "Blues",
+            n_hidden,
+            label_prefix=gamma_legend,
         )
     else:
         print("  Warning: no cosine similarity data for gamma sweep")
     if data["pc_rescalings"]:
-        gamma_plots.plot_rescalings(data, plot_dir, "Blues", n_hidden, output_dim=1)
+        gamma_plots.plot_rescalings(
+            data,
+            plot_dir,
+            "Blues",
+            n_hidden,
+            output_dim=1,
+            label_prefix=gamma_legend,
+        )
 
 
 def make_plot_dir(plot_root, seed, n_hidden, use_skips, param_type, activity_lr):

@@ -53,12 +53,89 @@ from experiments.limits_paper.utils import (
 )
 from experiments.mupc_paper.utils import set_seed
 
-from plot_toy import (
-    add_common_args,
-    bp_dmft_loss_path,
-    generate_plots,
-    mup_loss_scale,
-)
+
+def parse_bool(value):
+    if isinstance(value, bool):
+        return value
+    lower = str(value).lower()
+    if lower in ("true", "1", "yes"):
+        return True
+    if lower in ("false", "0", "no"):
+        return False
+    raise argparse.ArgumentTypeError(
+        f"Invalid boolean {value!r}; use True/False."
+    )
+
+
+def add_common_args(parser):
+    parser.add_argument(
+        "--results_dir",
+        type=str,
+        default="results/toy_energy_scaled",
+    )
+    parser.add_argument("--input_dim", type=int, default=40)
+    parser.add_argument("--n_samples", type=int, default=20)
+    parser.add_argument(
+        "--act_fn",
+        type=str,
+        default="linear",
+        choices=["linear", "tanh", "relu"],
+    )
+    parser.add_argument(
+        "--param_types",
+        type=str,
+        nargs="+",
+        default=["mupc"],
+        choices=["mupc", "sp"],
+    )
+    parser.add_argument(
+        "--use_skips",
+        type=parse_bool,
+        nargs="+",
+        default=[False],
+    )
+    parser.add_argument(
+        "--param_optim",
+        type=str,
+        default="gd",
+        choices=["gd", "adam", "sgd_momentum"],
+    )
+    parser.add_argument("--param_lr", type=float, default=0.05)
+    parser.add_argument("--gamma_0s", type=float, nargs="+", default=[1.0])
+    parser.add_argument("--n_train_iters", type=int, default=100)
+    parser.add_argument(
+        "--infer_mode",
+        type=str,
+        default="closed_form",
+        choices=["optim", "closed_form"],
+    )
+    parser.add_argument("--n_infer_iters", type=int, default=20)
+    parser.add_argument("--activity_lrs", type=float, nargs="+", default=[5e-1])
+    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--n_seeds", type=int, default=1)
+    parser.add_argument("--n_hiddens", type=int, nargs="+", default=[4])
+    parser.add_argument(
+        "--widths",
+        type=int,
+        nargs="+",
+        default=[8, 16, 32, 64, 128, 256, 512, 1024, 2048],
+    )
+    parser.add_argument("--log_x_scale", action="store_true", default=False)
+    return parser
+
+
+def bp_dmft_loss_path(results_dir, gamma_0, n_hidden, seed):
+    return os.path.join(
+        results_dir,
+        f"dmft_loss_{gamma_0}_gamma_0_{n_hidden}_n_hidden_seed_{seed}.npy",
+    )
+
+
+def mup_loss_scale(param_type, gamma_0, width):
+    """µP factor ``γ² N`` that BP GD puts in the LR (1 for SP)."""
+    if param_type == "sp":
+        return 1.0
+    return float(gamma_0) ** 2 * float(width)
 
 
 def compute_bp_dmft_loss(
@@ -375,6 +452,7 @@ def main():
                                 )
 
     if not args.skip_plot:
+        from plot_toy import generate_plots
         generate_plots(args)
 
 
