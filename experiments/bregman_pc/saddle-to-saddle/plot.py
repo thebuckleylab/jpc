@@ -57,7 +57,7 @@ def _setup_plot(
     plt.grid(True, which="both", ls="-", alpha=0.4)
     plt.tick_params(axis="both", labelsize=FONT_SIZES["tick"])
     if integer_xticks:
-        ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+        ax.xaxis.set_major_locator(MaxNLocator(nbins=4, integer=True))
     if log_x:
         plt.xscale("log")
     if log_scale:
@@ -79,7 +79,7 @@ _AXIS_COMBOS = (
 )
 _HERE = Path(__file__).resolve().parent
 _DEFAULT_MNIST = _HERE / "results" / "mnist_origin_saddle"
-_DEFAULT_TOY = _HERE / "results" / "origin_saddle"
+_DEFAULT_TOY = _HERE / "results" / "toy_origin_saddle"
 
 
 def run_dir(base: Path, width: int, n_layers: int, seed: int) -> Path:
@@ -204,7 +204,7 @@ def plot_width(
         ax.grid(True, which="both", ls="-", alpha=0.4)
         ax.tick_params(axis="both", labelsize=FONT_SIZES["tick"])
         if not log_xaxis:
-            ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+            ax.xaxis.set_major_locator(MaxNLocator(nbins=3, integer=True))
         if log_xaxis:
             ax.set_xscale("log")
         if log_yaxis:

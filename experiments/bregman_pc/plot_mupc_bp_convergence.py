@@ -15,15 +15,17 @@ plt.rcParams.update({
 
 LABEL_PAD = 20
 
+_CBAR_LABEL = r"PC-BP alignment"
+
 _METHODS = (
     (
         "grad_cosine_similarities.npy",
-        r"$\cos(\nabla_{\boldsymbol{\theta}_t}\mathcal{F}_B^*, \nabla_{\boldsymbol{\theta}_t}\mathcal{L})$",
+        _CBAR_LABEL,
         "bregman_pc_grad_cosine_similarity_heatmap",
     ),
     (
         "std_pc_grad_cosine_similarities.npy",
-        r"$\cos(\nabla_{\boldsymbol{\theta}_t}\mathcal{F}^*, \nabla_{\boldsymbol{\theta}_t}\mathcal{L})$",
+        _CBAR_LABEL,
         "std_pc_grad_cosine_similarity_heatmap",
     ),
 )

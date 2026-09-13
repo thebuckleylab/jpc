@@ -90,7 +90,7 @@ def parse_args():
 
 
 def default_save_dir() -> Path:
-    return Path(__file__).resolve().parent / "results" / "origin_saddle"
+    return Path(__file__).resolve().parent / "results" / "toy_origin_saddle"
 
 
 def run_dir(base: Path, width: int, n_layers: int, seed: int) -> Path:
