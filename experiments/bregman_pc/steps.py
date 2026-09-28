@@ -19,11 +19,19 @@ def jpc_loss_id(output_loss: str) -> str:
     return "ce" if output_loss == "ce" else "mse"
 
 
+def clone_eqx(tree: PyTree) -> PyTree:
+    """Independent copy of array leaves so algorithms do not share weights."""
+    dyn, static = eqx.partition(tree, eqx.is_array)
+    dyn = jax.tree.map(lambda x: jnp.copy(x), dyn)
+    return eqx.combine(dyn, static)
+
+
 def bregman_mlp_to_jpc(model: BregmanMLP) -> list:
     """Same linear maps as BregmanMLP, with ``phi`` after each hidden ``W``."""
     phi_fn = jpc.get_bregman_phi(model.act_fn)
     layers = []
     for i, lin in enumerate(model.layers):
+        lin = clone_eqx(lin)
         if i < len(model.layers) - 1:
             layers.append(nn.Sequential([lin, nn.Lambda(phi_fn)]))
         else:
@@ -121,6 +129,26 @@ def standard_pc_energy(
     return energy
 
 
+def _bregman_param_update(
+    model: BregmanMLP,
+    us: PyTree,
+    optim: GradientTransformation,
+    opt_state: OptState,
+    x0: ArrayLike,
+    y: ArrayLike,
+):
+    return jpc.update_bregman_pc_params(
+        model.jpc_params(),
+        us,
+        optim,
+        opt_state,
+        y,
+        input=x0,
+        act_fn=model.act_fn,
+        loss=model.output_loss,
+    )
+
+
 @eqx.filter_jit
 def bregman_pc_step(
     model: BregmanMLP,
@@ -132,16 +160,7 @@ def bregman_pc_step(
     step_size: float,
 ) -> tuple[BregmanMLP, OptState, Array]:
     us, energy = _bregman_infer(model, x0, y, n_iters, step_size)
-    result = jpc.update_bregman_pc_params(
-        model.jpc_params(),
-        us,
-        optim,
-        opt_state,
-        y,
-        input=x0,
-        act_fn=model.act_fn,
-        loss=model.output_loss,
-    )
+    result = _bregman_param_update(model, us, optim, opt_state, x0, y)
     return model.replace_layers(result["model"]), result["opt_state"], energy
 
 
@@ -230,3 +249,50 @@ def standard_pc_bp_grad_cosine(
     )
     bp_grads = eqx.filter_grad(lambda m: _jpc_ff_loss(m, x0, y, loss_id))(model)
     return _cosine(_flat_params(pc_grads[0]), _flat_params(bp_grads))
+
+
+@eqx.filter_jit
+def bregman_pc_step_with_bp_cosine(
+    model: BregmanMLP,
+    x0: ArrayLike,
+    y: ArrayLike,
+    optim: GradientTransformation,
+    opt_state: OptState,
+    n_iters: int,
+    step_size: float,
+) -> tuple[BregmanMLP, OptState, Array, Array]:
+    """PC param step plus cosine of PC vs BP grads on the same weights."""
+    us, energy = _bregman_infer(model, x0, y, n_iters, step_size)
+    result = _bregman_param_update(model, us, optim, opt_state, x0, y)
+    bp_grads = eqx.filter_grad(feedforward_loss)(model, x0, y)
+    cos = _cosine(_flat_params(result["grads"][0]), _flat_params(bp_grads.layers))
+    return model.replace_layers(result["model"]), result["opt_state"], energy, cos
+
+
+@eqx.filter_jit
+def standard_pc_step_with_bp_cosine(
+    model: PyTree,
+    x0: ArrayLike,
+    y: ArrayLike,
+    optim: GradientTransformation,
+    opt_state: OptState,
+    n_iters: int,
+    step_size: float,
+    loss_id: str,
+) -> tuple[PyTree, OptState, Array, Array]:
+    """Standard-PC param step plus cosine of PC vs BP grads on the same weights."""
+    activities, energy = _standard_infer(
+        model, x0, y, n_iters, step_size, loss_id
+    )
+    result = jpc.update_pc_params(
+        params=(model, None),
+        activities=activities,
+        optim=optim,
+        opt_state=opt_state,
+        output=y,
+        input=x0,
+        loss_id=loss_id,
+    )
+    bp_grads = eqx.filter_grad(lambda m: _jpc_ff_loss(m, x0, y, loss_id))(model)
+    cos = _cosine(_flat_params(result["grads"][0]), _flat_params(bp_grads))
+    return result["model"], result["opt_state"], energy, cos

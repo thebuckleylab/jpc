@@ -44,30 +44,31 @@ def _compute_linear_equilib_rescaling(
     """
     L = len(Ws)
     d_y = Ws[-1].shape[0]
-    S = jnp.eye(d_y) / output_energy_scaling
+    S = jnp.eye(d_y, dtype=Ws[-1].dtype) / output_energy_scaling
     hidden_inv = 1.0 / hidden_energy_scaling
 
+    # Fold layer scalings into the products as we go. Forming the unscaled
+    # products first overflows in float32 at moderate width and depth
+    # (e.g. N=512, L=16 with Gaussian μPC weights).
     if use_skips:
-        S += hidden_inv * (scalings[-1] ** 2) * (Ws[-1] @ Ws[-1].T)
+        W_out = scalings[-1] * Ws[-1]
+        S += hidden_inv * (W_out @ W_out.T)
 
         for l in range(1, L - 1):
-            prod_term = jnp.eye(width)
+            prod_term = jnp.eye(width, dtype=Ws[-1].dtype)
             for k in range(l, L - 1):
-                prod_term = (jnp.eye(width) + scalings[k] * Ws[k]) @ prod_term
+                prod_term = (
+                    jnp.eye(width, dtype=Ws[-1].dtype) + scalings[k] * Ws[k]
+                ) @ prod_term
 
-            p_L_ell = scalings[-1] * Ws[-1] @ prod_term
+            p_L_ell = W_out @ prod_term
             S += hidden_inv * (p_L_ell @ p_L_ell.T)
 
     else:
-        cumulative_prod = jnp.eye(d_y)
+        scaled_prod = jnp.eye(d_y, dtype=Ws[-1].dtype)
         for i in range(L - 1, 0, -1):
-            cumulative_prod = cumulative_prod @ Ws[i]
-            cumulative_scaling = 1.0
-            for j in range(i, L):
-                cumulative_scaling *= scalings[j]
-            S += hidden_inv * (cumulative_scaling ** 2) * (
-                cumulative_prod @ cumulative_prod.T
-            )
+            scaled_prod = scaled_prod @ (scalings[i] * Ws[i])
+            S += hidden_inv * (scaled_prod @ scaled_prod.T)
 
     return S
 

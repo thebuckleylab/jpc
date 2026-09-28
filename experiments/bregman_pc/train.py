@@ -17,7 +17,9 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import optax
+import torch
 from torch import Generator, manual_seed
+from torch.utils.data import DataLoader, TensorDataset
 
 from experiments.bregman_pc.bp import update_bp
 from experiments.bregman_pc.evaluate import (
@@ -25,15 +27,16 @@ from experiments.bregman_pc.evaluate import (
     evaluate_jpc_batch,
     evaluate_models,
     feedforward_loss,
+    predict_models,
 )
 from experiments.datasets import get_dataloaders
 from experiments.bregman_pc.model import BregmanMLP, scaled_param_lr
-from experiments.bregman_pc.plot import plot_metrics, plot_sweep
 from experiments.bregman_pc.steps import (
     bregman_mlp_to_jpc,
     bregman_pc_bp_grad_cosine,
     bregman_pc_energy,
     bregman_pc_step,
+    clone_eqx,
     init_jpc_opt_state,
     jpc_loss_id,
     standard_pc_bp_grad_cosine,
@@ -42,14 +45,21 @@ from experiments.bregman_pc.steps import (
 )
 
 
-_DATASETS = ("MNIST", "Fashion-MNIST", "CIFAR10")
-_INPUT_DIMS = {"MNIST": 784, "Fashion-MNIST": 784, "CIFAR10": 3072}
-_N_CLASSES = 10
+_DATASETS = ("MNIST", "Fashion-MNIST", "CIFAR10", "toy")
+_INPUT_DIMS = {"MNIST": 784, "Fashion-MNIST": 784, "CIFAR10": 3072, "toy": 40}
+_OUTPUT_DIMS = {"MNIST": 10, "Fashion-MNIST": 10, "CIFAR10": 10, "toy": 1}
 _SAVE_SLUGS = {
     "MNIST": "mnist",
     "Fashion-MNIST": "fashion_mnist",
     "CIFAR10": "cifar10",
+    "toy": "toy",
 }
+_IMAGE_LAYOUT = {
+    "MNIST": ("hw", 28, 28, 0.1307, 0.3081),
+    "Fashion-MNIST": ("hw", 28, 28, 0.5, 0.5),
+    "CIFAR10": ("chw", 32, 32, 0.5, 0.5),
+}
+_PRED_PLOT_N = 8
 
 
 def set_seed(seed: int) -> None:
@@ -58,26 +68,77 @@ def set_seed(seed: int) -> None:
     manual_seed(seed)
 
 
+def create_toy_dataset(key, d: int, batch_size: int):
+    """Gaussian inputs with balanced ±1 labels, as in limits_paper."""
+    x = jax.random.normal(key, (d, batch_size))
+    y = jnp.where(jnp.arange(batch_size) < batch_size // 2, 1.0, -1.0)
+    return x, y
+
+
+def get_toy_dataloaders(key, input_dim: int, batch_size: int, generator=None):
+    x, y = create_toy_dataset(key, input_dim, batch_size)
+    x = torch.from_numpy(np.array(x.T, copy=True, dtype=np.float32))
+    y = torch.from_numpy(np.array(y[:, None], copy=True, dtype=np.float32))
+    dataset = TensorDataset(x, y)
+    loader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        drop_last=False,
+        generator=generator,
+    )
+    return loader, loader
+
+
+class _SwapXY:
+    """Yield (label, image) so supervised generation clamps labels as input."""
+
+    def __init__(self, loader):
+        self.loader = loader
+
+    def __iter__(self):
+        for image, label in self.loader:
+            yield label, image
+
+
 def parse_args():
     p = argparse.ArgumentParser(description="Activation-matched Bregman PC")
-    p.add_argument("--n-seeds", type=int, default=3)
+    p.add_argument("--n-seeds", type=int, default=1)
     p.add_argument(
         "--dataset",
         type=str,
-        default="Fashion-MNIST",
-        choices=list(_DATASETS)
+        default="MNIST",
+        choices=list(_DATASETS),
+    )
+    p.add_argument(
+        "--input-dim",
+        type=int,
+        default=40,
+        help="Input dimension for --dataset toy (ignored otherwise).",
+    )
+    p.add_argument(
+        "--task",
+        type=str,
+        default="classify",
+        choices=["classify", "generate"],
+        help="classify: image→label. generate: label→image (supervised generation).",
     )
     p.add_argument("--width", type=int, nargs="+", default=[256])
     p.add_argument("--n-hidden", type=int, default=3)
     p.add_argument("--act-fn", type=str, default="tanh", choices=["tanh", "sigmoid"])
     p.add_argument("--output-loss", type=str, default="mse", choices=["ce", "mse", "bregman"])
-    p.add_argument("--batch-size", type=int, default=64)
-    p.add_argument("--epochs", type=int, default=10)
+    p.add_argument(
+        "--batch-size",
+        type=int,
+        default=64,
+        help="Minibatch size. For --dataset toy this is also the number of samples.",
+    )
+    p.add_argument("--epochs", type=int, default=15)
     p.add_argument("--max-steps", type=int, default=None)
-    p.add_argument("--n-infer-iters", type=int, nargs="+", default=[5, 10, 20, 50])   
-    p.add_argument("--activity-lr", type=float, nargs="+", default=[5e-2, 1e-1,  5e-1])#1e-3, 5e-3, 1e-2]) # 5e-2, 1e-1,  5e-1
-    p.add_argument("--param-lr", type=float, nargs="+", default=[1e-3, 5e-3, 1e-2])  #5e-4, 
-    p.add_argument("--param-optim", type=str, default="adam", choices=["sgd", "adam"])
+    p.add_argument("--n-infer-iters", type=int, nargs="+", default=[50])   
+    p.add_argument("--activity-lr", type=float, nargs="+", default=[5e-1])  #1e-3, 5e-3, 1e-2, 5e-2, 1e-1,  5e-1, 
+    p.add_argument("--param-lr", type=float, nargs="+", default=[1e-3])
+    p.add_argument("--param-optim", type=str, default="sgd", choices=["sgd", "adam"])
     p.add_argument(
         "--param-type",
         type=str,
@@ -103,6 +164,11 @@ def parse_args():
         help="Record train energy/loss after each epoch or after each weight update. Test metrics are always logged per epoch (default: epoch).",
     )
     p.add_argument("--save-dir", type=str, default=None)
+    p.add_argument(
+        "--resume",
+        action="store_true",
+        help="Skip configs whose save dir already has metrics.json and history.pkl.",
+    )
     return p.parse_args()
 
 
@@ -143,6 +209,7 @@ def default_save_dir(dataset: str) -> Path:
 
 def run_save_dir(
     base: Path,
+    task: str,
     param_types: list[str],
     param_type: str,
     gamma_0s: list[float],
@@ -158,22 +225,33 @@ def run_save_dir(
     n_seeds: int,
     seed: int,
 ) -> str:
-    path = base
+    path = base / task
     if len(param_types) > 1:
         path = path / f"{param_type}_param_type"
     if len(gamma_0s) > 1:
         path = path / f"gamma_0_{gamma_0:g}"
     if len(widths) > 1:
         path = path / f"width_{width}"
-    if len(param_lrs) > 1:
-        path = path / f"param_lr_{param_lr:g}"
-    if len(activity_lrs) > 1:
-        path = path / f"activity_lr_{activity_lr:g}"
-    if len(n_infer_iters_list) > 1:
-        path = path / f"n_infer_iters_{n_infer_iters}"
-    if n_seeds > 1:
-        path = path / f"seed_{seed}"
+    # Always include swept knobs so sharded jobs (one value per process)
+    # do not overwrite each other.
+    path = path / f"param_lr_{param_lr:g}"
+    path = path / f"activity_lr_{activity_lr:g}"
+    path = path / f"n_infer_iters_{n_infer_iters}"
+    path = path / f"seed_{seed}"
     return str(path)
+
+
+def run_is_complete(save_dir: str) -> bool:
+    metrics_path = os.path.join(save_dir, "metrics.json")
+    history_path = os.path.join(save_dir, "history.pkl")
+    if not (os.path.isfile(metrics_path) and os.path.isfile(history_path)):
+        return False
+    try:
+        with open(metrics_path) as f:
+            json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return False
+    return True
 
 
 def _host_history(history: dict) -> dict:
@@ -189,6 +267,72 @@ def _host_history(history: dict) -> dict:
     return out
 
 
+def _batch_to_images(flat, dataset: str) -> np.ndarray:
+    x = np.asarray(flat)
+    kind, h, w, mean, std = _IMAGE_LAYOUT[dataset]
+    if kind == "chw":
+        x = x.reshape(x.shape[0], 3, h, w) * std + mean
+        x = np.transpose(x, (0, 2, 3, 1))
+    else:
+        x = x.reshape(x.shape[0], h, w) * std + mean
+    return np.clip(x, 0.0, 1.0)
+
+
+def _label_ids(labels) -> np.ndarray:
+    labels = np.asarray(labels)
+    if labels.ndim == 1 or labels.shape[-1] == 1:
+        return labels.reshape(-1)
+    return np.argmax(labels, axis=1)
+
+
+def save_generated_batch(save_dir: str, dataset: str, labels, targets, preds: dict):
+    labels = np.asarray(jax.device_get(labels))
+    targets = np.asarray(jax.device_get(targets))
+    preds_np = {
+        name: np.asarray(jax.device_get(arr)) for name, arr in preds.items()
+    }
+    np.savez(
+        os.path.join(save_dir, "predictions.npz"),
+        labels=labels,
+        targets=targets,
+        **{f"{name}_pred": arr for name, arr in preds_np.items()},
+    )
+    if dataset == "toy":
+        return
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    names = ("bregman", "std_pc", "bp")
+    n_plot = min(_PRED_PLOT_N, targets.shape[0])
+    cols = 1 + len(names)
+    target_img = _batch_to_images(targets[:n_plot], dataset)
+    pred_imgs = {
+        name: _batch_to_images(preds_np[name][:n_plot], dataset) for name in names
+    }
+    ids = _label_ids(labels[:n_plot])
+    fig, axes = plt.subplots(
+        n_plot, cols, figsize=(2.2 * cols, 2.2 * n_plot), squeeze=False
+    )
+    titles = ("target", "Bregman PC", "Std PC", "BP")
+    for row in range(n_plot):
+        panels = [target_img[row]] + [pred_imgs[name][row] for name in names]
+        for col, (ax, img) in enumerate(zip(axes[row], panels)):
+            cmap = None if img.ndim == 3 else "gray"
+            ax.imshow(img, cmap=cmap, vmin=0.0, vmax=1.0)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            if row == 0:
+                ax.set_title(titles[col])
+            if col == 0:
+                ax.set_ylabel(f"{ids[row]:g}")
+    fig.tight_layout()
+    fig.savefig(os.path.join(save_dir, "predictions.png"), bbox_inches="tight")
+    plt.close(fig)
+
+
 def train(
     args,
     seed: int,
@@ -202,9 +346,22 @@ def train(
 ) -> dict:
     set_seed(seed)
     os.makedirs(save_dir, exist_ok=True)
+    if args.task == "generate" and args.output_loss == "ce":
+        raise ValueError("--output-loss ce is not supported with --task generate")
 
     key = jax.random.PRNGKey(seed)
-    layer_sizes = [_INPUT_DIMS[args.dataset]] + [width] * args.n_hidden + [_N_CLASSES]
+    if args.dataset == "toy":
+        data_key, key = jax.random.split(key)
+        image_dim = args.input_dim
+    else:
+        data_key = None
+        image_dim = _INPUT_DIMS[args.dataset]
+    label_dim = _OUTPUT_DIMS[args.dataset]
+    if args.task == "generate":
+        input_dim, output_dim = label_dim, image_dim
+    else:
+        input_dim, output_dim = image_dim, label_dim
+    layer_sizes = [input_dim] + [width] * args.n_hidden + [output_dim]
     init_model = BregmanMLP(
         key=key,
         layer_sizes=layer_sizes,
@@ -214,10 +371,10 @@ def train(
         param_type=param_type,
         gamma=gamma_0,
     )
-    # Same initial weights; later updates return new pytrees.
-    bregman_model = init_model
+    # Independent copies of the same initial weights.
+    bregman_model = clone_eqx(init_model)
     std_pc_model = bregman_mlp_to_jpc(init_model)
-    bp_model = init_model
+    bp_model = clone_eqx(init_model)
     std_pc_loss = jpc_loss_id(args.output_loss)
     depth = args.n_hidden + 1
     lr = scaled_param_lr(
@@ -226,20 +383,28 @@ def train(
     bregman_optim = make_param_optim(args.param_optim, lr)
     std_pc_optim = make_param_optim(args.param_optim, lr)
     bp_optim = make_param_optim(args.param_optim, lr)
-    params0 = eqx.filter(init_model, eqx.is_array)
-    bregman_opt_state = init_jpc_opt_state(init_model.layers, bregman_optim)
+    params0 = eqx.filter(bp_model, eqx.is_array)
+    bregman_opt_state = init_jpc_opt_state(bregman_model.layers, bregman_optim)
     std_pc_opt_state = init_jpc_opt_state(std_pc_model, std_pc_optim)
     bp_opt_state = bp_optim.init(params0)
 
     generator = Generator()
     generator.manual_seed(seed)
-    train_loader, test_loader = get_dataloaders(
-        args.dataset, args.batch_size, flatten=True, generator=generator
-    )
+    if args.dataset == "toy":
+        train_loader, test_loader = get_toy_dataloaders(
+            data_key, args.input_dim, args.batch_size, generator
+        )
+    else:
+        train_loader, test_loader = get_dataloaders(
+            args.dataset, args.batch_size, flatten=True, generator=generator
+        )
+    if args.task == "generate":
+        train_loader = _SwapXY(train_loader)
+        test_loader = _SwapXY(test_loader)
     history = empty_history()
     step = 0
     print(
-        f"Bregman PC vs Std PC vs BP {args.dataset}: seed={seed}, "
+        f"Bregman PC vs Std PC vs BP {args.dataset} {args.task}: seed={seed}, "
         f"width={width}, n_hidden={args.n_hidden}, act={args.act_fn}, "
         f"output={args.output_loss}, init_scale={args.init_scale}, "
         f"param_type={param_type}, gamma_0={gamma_0}, "
@@ -256,9 +421,13 @@ def train(
         }
 
     def log_train(t, x, y, bregman_energy, std_energy, bp_loss):
-        bregman_loss, bregman_acc = evaluate_batch(bregman_model, x, y)
-        std_loss, std_acc = evaluate_jpc_batch(std_pc_model, x, y, std_pc_loss)
-        bp_ff_loss, bp_acc = evaluate_batch(bp_model, x, y)
+        bregman_loss, bregman_acc = evaluate_batch(
+            bregman_model, x, y, task=args.task
+        )
+        std_loss, std_acc = evaluate_jpc_batch(
+            std_pc_model, x, y, std_pc_loss, task=args.task
+        )
+        bp_ff_loss, bp_acc = evaluate_batch(bp_model, x, y, task=args.task)
         history["t"].append(t)
         history["bregman_train_energy"].append(bregman_energy)
         history["std_pc_train_energy"].append(std_energy)
@@ -285,26 +454,62 @@ def train(
             test_loader,
             max_batches=args.eval_batches,
             jpc_loss=std_pc_loss,
+            task=args.task,
         )
         history["epoch"].append(epoch)
         for name in ("bregman", "std_pc", "bp"):
             history[f"{name}_test_loss"].append(metrics[name][0])
             history[f"{name}_test_acc"].append(metrics[name][1])
-        bregman_acc = evaluate_batch(bregman_model, x, y)[1]
-        std_acc = evaluate_jpc_batch(std_pc_model, x, y, std_pc_loss)[1]
-        bp_acc = evaluate_batch(bp_model, x, y)[1]
-        bregman_energy, std_energy, bp_loss, bregman_acc, std_acc, bp_acc = jax.device_get(
-            (bregman_energy, std_energy, bp_loss, bregman_acc, std_acc, bp_acc)
+        bregman_loss, bregman_acc = evaluate_batch(
+            bregman_model, x, y, task=args.task
         )
-        print(
-            f"epoch {epoch:3d}  step {step:5d}  "
-            f"Bregman E={float(bregman_energy):.4f} acc={float(bregman_acc):.3f} "
-            f"test={metrics['bregman'][1]:.3f}  |  "
-            f"StdPC E={float(std_energy):.4f} acc={float(std_acc):.3f} "
-            f"test={metrics['std_pc'][1]:.3f}  |  "
-            f"BP L={float(bp_loss):.4f} acc={float(bp_acc):.3f} "
-            f"test={metrics['bp'][1]:.3f}"
+        std_loss, std_acc = evaluate_jpc_batch(
+            std_pc_model, x, y, std_pc_loss, task=args.task
         )
+        bp_ff_loss, bp_acc = evaluate_batch(bp_model, x, y, task=args.task)
+        (
+            bregman_energy,
+            std_energy,
+            bp_loss,
+            bregman_loss,
+            std_loss,
+            bp_ff_loss,
+            bregman_acc,
+            std_acc,
+            bp_acc,
+        ) = jax.device_get(
+            (
+                bregman_energy,
+                std_energy,
+                bp_loss,
+                bregman_loss,
+                std_loss,
+                bp_ff_loss,
+                bregman_acc,
+                std_acc,
+                bp_acc,
+            )
+        )
+        if args.task == "generate":
+            print(
+                f"epoch {epoch:3d}  step {step:5d}  "
+                f"Bregman E={float(bregman_energy):.4f} recon={float(bregman_loss):.4f} "
+                f"test={metrics['bregman'][0]:.4f}  |  "
+                f"StdPC E={float(std_energy):.4f} recon={float(std_loss):.4f} "
+                f"test={metrics['std_pc'][0]:.4f}  |  "
+                f"BP L={float(bp_loss):.4f} recon={float(bp_ff_loss):.4f} "
+                f"test={metrics['bp'][0]:.4f}"
+            )
+        else:
+            print(
+                f"epoch {epoch:3d}  step {step:5d}  "
+                f"Bregman E={float(bregman_energy):.4f} acc={float(bregman_acc):.3f} "
+                f"test={metrics['bregman'][1]:.3f}  |  "
+                f"StdPC E={float(std_energy):.4f} acc={float(std_acc):.3f} "
+                f"test={metrics['std_pc'][1]:.3f}  |  "
+                f"BP L={float(bp_loss):.4f} acc={float(bp_acc):.3f} "
+                f"test={metrics['bp'][1]:.3f}"
+            )
         return metrics
 
     x0, y0 = next(iter(train_loader))
@@ -369,16 +574,35 @@ def train(
         test_loader,
         max_batches=None,
         jpc_loss=std_pc_loss,
+        task=args.task,
     )
-    print(
-        f"final  Bregman test={metrics['bregman'][0]:.4f} acc={metrics['bregman'][1]:.3f}  |  "
-        f"StdPC test={metrics['std_pc'][0]:.4f} acc={metrics['std_pc'][1]:.3f}  |  "
-        f"BP test={metrics['bp'][0]:.4f} acc={metrics['bp'][1]:.3f}"
-    )
+    if args.task == "generate":
+        print(
+            f"final  Bregman test={metrics['bregman'][0]:.4f}  |  "
+            f"StdPC test={metrics['std_pc'][0]:.4f}  |  "
+            f"BP test={metrics['bp'][0]:.4f}"
+        )
+        x_vis, y_vis = next(iter(test_loader))
+        x_vis = jnp.asarray(x_vis.numpy())
+        y_vis = jnp.asarray(y_vis.numpy())
+        save_generated_batch(
+            save_dir,
+            args.dataset,
+            x_vis,
+            y_vis,
+            predict_models(current_models(), x_vis),
+        )
+    else:
+        print(
+            f"final  Bregman test={metrics['bregman'][0]:.4f} acc={metrics['bregman'][1]:.3f}  |  "
+            f"StdPC test={metrics['std_pc'][0]:.4f} acc={metrics['std_pc'][1]:.3f}  |  "
+            f"BP test={metrics['bp'][0]:.4f} acc={metrics['bp'][1]:.3f}"
+        )
 
     history = _host_history(history)
     history["log_every"] = np.asarray(args.log_every)
 
+    os.makedirs(save_dir, exist_ok=True)
     with open(os.path.join(save_dir, "history.pkl"), "wb") as f:
         pickle.dump(history, f)
     with open(os.path.join(save_dir, "metrics.json"), "w") as f:
@@ -386,6 +610,10 @@ def train(
             {
                 "seed": seed,
                 "dataset": args.dataset,
+                "task": args.task,
+                "input_dim": input_dim,
+                "output_dim": output_dim,
+                "batch_size": args.batch_size,
                 "n_steps": step,
                 "width": width,
                 "n_hidden": args.n_hidden,
@@ -401,16 +629,19 @@ def train(
                 "param_optim": args.param_optim,
                 "log_every": args.log_every,
                 "bregman_final_test_loss": metrics["bregman"][0],
-                "bregman_final_test_acc": metrics["bregman"][1],
+                "bregman_final_test_acc": (
+                    None if args.task == "generate" else metrics["bregman"][1]
+                ),
                 "std_pc_final_test_loss": metrics["std_pc"][0],
-                "std_pc_final_test_acc": metrics["std_pc"][1],
+                "std_pc_final_test_acc": (
+                    None if args.task == "generate" else metrics["std_pc"][1]
+                ),
                 "bp_final_test_loss": metrics["bp"][0],
-                "bp_final_test_acc": metrics["bp"][1],
+                "bp_final_test_acc": None if args.task == "generate" else metrics["bp"][1],
             },
             f,
             indent=2,
         )
-    plot_metrics(history, save_dir)
     np.savez(
         os.path.join(save_dir, "history.npz"),
         **{k: np.asarray(v) for k, v in history.items()},
@@ -428,6 +659,27 @@ if __name__ == "__main__":
                     for activity_lr in args.activity_lr:
                         for n_infer_iters in args.n_infer_iters:
                             for seed in range(args.n_seeds):
+                                save_dir = run_save_dir(
+                                    base,
+                                    args.task,
+                                    args.param_type,
+                                    param_type,
+                                    args.gamma_0,
+                                    gamma_0,
+                                    args.width,
+                                    width,
+                                    args.param_lr,
+                                    param_lr,
+                                    args.activity_lr,
+                                    activity_lr,
+                                    args.n_infer_iters,
+                                    n_infer_iters,
+                                    args.n_seeds,
+                                    seed,
+                                )
+                                if args.resume and run_is_complete(save_dir):
+                                    print(f"skip existing {save_dir}")
+                                    continue
                                 train(
                                     args,
                                     seed,
@@ -437,22 +689,5 @@ if __name__ == "__main__":
                                     param_lr,
                                     activity_lr,
                                     n_infer_iters,
-                                    run_save_dir(
-                                        base,
-                                        args.param_type,
-                                        param_type,
-                                        args.gamma_0,
-                                        gamma_0,
-                                        args.width,
-                                        width,
-                                        args.param_lr,
-                                        param_lr,
-                                        args.activity_lr,
-                                        activity_lr,
-                                        args.n_infer_iters,
-                                        n_infer_iters,
-                                        args.n_seeds,
-                                        seed,
-                                    ),
+                                    save_dir,
                                 )
-    plot_sweep(base)
