@@ -2652,8 +2652,13 @@ def plot_pc_bp_loss(
     width=None,
     dir_name="alignment",
     figsize=None,
+    time_offset=0,
 ):
-    """Overlay finite-size PC and BP training-loss curves vs time."""
+    """Overlay PC and BP training-loss curves vs time.
+
+    ``time_offset`` is added to the 0-based sample index. DMFT losses
+    use ``time_offset=1`` so the axis matches ``plot_dmft_loss``.
+    """
     pc_losses = np.asarray(pc_losses).flatten()
     bp_losses = np.asarray(bp_losses).flatten()
     _warn_if_nonfinite("pc_losses", pc_losses)
@@ -2661,8 +2666,8 @@ def plot_pc_bp_loss(
 
     plt.figure(figsize=figsize or ps.PANEL_THIRD)
     ax = plt.gca()
-    t_pc = np.arange(len(pc_losses))
-    t_bp = np.arange(len(bp_losses))
+    t_pc = np.arange(len(pc_losses)) + time_offset
+    t_bp = np.arange(len(bp_losses)) + time_offset
     markersize = _markersize_for_n(max(len(pc_losses), len(bp_losses)))
     ax.plot(
         t_pc,
