@@ -9,8 +9,8 @@ than a strict partition of that width so that two or three panels leave
 Figures are laid out with constrained layout and saved without a tight
 bounding box, so the saved file is exactly ``figsize`` inches.
 
-Notation follows the manuscript: ``$N$`` width, ``$H$`` hidden layers
-with ``$\\ell = 1, \\dots, H$``, ``$\\gamma_0$`` the output scaling,
+Notation follows the manuscript: ``$N$`` width, ``$L$`` hidden layers
+with ``$\\ell = 1, \\dots, L$``, ``$\\gamma$`` the output scaling,
 ``$\\beta$`` the activity (inference) learning rate, ``$K$`` inference
 steps, ``$t$`` training steps, ``$\\mathcal{L}$`` the loss, and
 ``$C^{h,\\ell}$`` / ``$C^{\\phi,\\ell}$`` the feature kernels.
@@ -80,9 +80,9 @@ _SEQUENCE_RANGE = (0.0, 0.88)
 
 TEX = {
     "width": r"$N$",
-    "n_hidden": r"$H$",
+    "n_hidden": r"$L$",
     "layer": r"$\ell$",
-    "gamma_0": r"$\gamma_0$",
+    "gamma_0": r"$\gamma$",
     "activity_lr": r"$\beta$",
     "n_infer_iters": r"$K$",
     "time": r"$t$",
@@ -149,8 +149,9 @@ _RC = {
     # Typography: STIX is metric-compatible with Times, so figure text
     # matches the ICLR body font.
     "font.family": "serif",
-    "font.serif": ["STIXGeneral", "DejaVu Serif"],
-    "mathtext.fontset": "stix",
+    "font.serif": ["Nimbus Roman","Times New Roman","STIXGeneral", "DejaVu Serif"],
+    "mathtext.fontset": "cm", # "stix",
+    "svg.fonttype": "none",     # Keep SVG text as text instead of converting it to paths.
     "axes.unicode_minus": False,
     "font.size": 8,
     "axes.labelsize": 8,

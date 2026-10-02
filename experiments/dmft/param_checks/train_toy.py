@@ -41,8 +41,8 @@ import jax.numpy as jnp
 import numpy as np
 
 import jpc
-from experiments.dmft.theory_utils import get_Delta, solve_kernels
-from experiments.dmft.utils import (
+from experiments.dmft.src.theory_utils import get_Delta, solve_kernels
+from experiments.dmft.src.utils import (
     MLP,
     forward_param_type,
     get_hidden_energy_scaling,

@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from matplotlib.lines import Line2D
 
-import plot_style as ps
+from . import plot_style as ps
 
 ps.apply_paper_style()
 
@@ -581,8 +581,8 @@ _SWEEP_META_COLS = (
 )
 
 _SWEEP_VALUE_LABEL = {
-    "n_hidden": lambda v: rf"$H = {int(v)}$",
-    "gamma_0": lambda v: rf"$\gamma_0 = {ps.fmt_number(v)}$",
+    "n_hidden": lambda v: rf"$L = {int(v)}$",
+    "gamma_0": lambda v: rf"$\gamma = {ps.fmt_number(v)}$",
     "n_infer_iters": lambda v: rf"$K = {int(v)}$",
 }
 
@@ -1187,7 +1187,7 @@ def plot_kernel_displacement(
                 values,
             )
             label = (
-                rf"$\gamma_0 = {ps.fmt_number(row.gamma_0)}$, "
+                rf"$\gamma = {ps.fmt_number(row.gamma_0)}$, "
                 rf"$K = {int(row.n_infer_iters)}$"
             )
             ax.plot(layers, values, marker="o", color=color, label=label)
@@ -2302,11 +2302,14 @@ def plot_kernel_target_alignment_test_vs_layer(
     return save_path
 
 
+# Colour is the method (PC / BP). Marker and line style are the reference
+# kernel: one shape and a solid line for C^y, one shape and a dotted line
+# for C^x, shared by both methods.
 _TARGET_INPUT_STYLES = (
     ("pc", "target", ps.COLOR_PC, "o", "-", r"PC, $C^{y}$"),
-    ("bp", "target", ps.COLOR_BP, "s", "-", r"BP, $C^{y}$"),
-    ("pc", "input", ps.COLOR_PC, "^", "--", r"PC, $C^{x}$"),
-    ("bp", "input", ps.COLOR_BP, "D", "--", r"BP, $C^{x}$"),
+    ("bp", "target", ps.COLOR_BP, "o", "-", r"BP, $C^{y}$"),
+    ("pc", "input", ps.COLOR_PC, "^", ":", r"PC, $C^{x}$"),
+    ("bp", "input", ps.COLOR_BP, "^", ":", r"BP, $C^{x}$"),
 )
 
 
@@ -2382,7 +2385,12 @@ def plot_kernel_target_input_alignment_final(
         lo, hi = ylim
         ylim = (lo, hi + 0.28 * (hi - lo))
     _maybe_set_ylim(ax, ylim)
-    ax.legend(ncol=2, loc="upper right")
+    ax.legend(
+        ncol=2,
+        loc="upper right",
+        handlelength=2.8,
+        handletextpad=0.4,
+    )
     ps.style_axes(ax)
     save_path = os.path.join(out_dir, filename)
     ps.save_figure(plt.gcf(), save_path)
@@ -2652,8 +2660,13 @@ def plot_pc_bp_loss(
     width=None,
     dir_name="alignment",
     figsize=None,
+    time_offset=0,
 ):
-    """Overlay finite-size PC and BP training-loss curves vs time."""
+    """Overlay PC and BP training-loss curves vs time.
+
+    ``time_offset`` is added to the 0-based sample index. DMFT losses
+    use ``time_offset=1`` so the axis matches ``plot_dmft_loss``.
+    """
     pc_losses = np.asarray(pc_losses).flatten()
     bp_losses = np.asarray(bp_losses).flatten()
     _warn_if_nonfinite("pc_losses", pc_losses)
@@ -2661,8 +2674,8 @@ def plot_pc_bp_loss(
 
     plt.figure(figsize=figsize or ps.PANEL_THIRD)
     ax = plt.gca()
-    t_pc = np.arange(len(pc_losses))
-    t_bp = np.arange(len(bp_losses))
+    t_pc = np.arange(len(pc_losses)) + time_offset
+    t_bp = np.arange(len(bp_losses)) + time_offset
     markersize = _markersize_for_n(max(len(pc_losses), len(bp_losses)))
     ax.plot(
         t_pc,
@@ -2822,7 +2835,7 @@ def plot_pc_last_layer_displacement_vs_gamma(
     (``"dmft"``, ``"infer"``, or ``"closed_form"``), ``n_infer_iters``,
     ``gamma_0``, and ``displacement`` / ``rel_displacement`` (selected
     by ``metric``). Only the deepest hidden layer (``layer == max(layer)``,
-    i.e. ``ℓ = H``) is drawn. DMFT is the black dashed reference at the
+    i.e. ``ℓ = L``) is drawn. DMFT is the black dashed reference at the
     smallest ``K``; finite-size infer is solid for increasing ``K``;
     closed-form is black dash-dot in the linear case.
 
@@ -2840,7 +2853,7 @@ def plot_pc_last_layer_displacement_vs_gamma(
         return None
 
     value_col, ylabel, invert = _displacement_metric_spec(
-        metric, feature_symbol, layer="H"
+        metric, feature_symbol, layer="L"
     )
     ylim = _data_ylim(df[value_col], invert=invert)
     plt.figure(figsize=figsize or ps.PANEL_THIRD)
@@ -2990,7 +3003,7 @@ def plot_pc_bp_kernel_alignment(
             values,
         )
         label = (
-            rf"$\gamma_0 = {ps.fmt_number(row.gamma_0)}$, "
+            rf"$\gamma = {ps.fmt_number(row.gamma_0)}$, "
             rf"$K = {int(row.n_infer_iters)}$"
         )
         ax.plot(layers, values, marker="o", color=color, label=label)

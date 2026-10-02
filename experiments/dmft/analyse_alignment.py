@@ -109,7 +109,7 @@ import pandas as pd
 from experiments.datasets import get_dataloaders
 from experiments.mupc_paper.utils import set_seed
 from experiments.limits_paper.utils import setup_bp_experiment
-from experiments.dmft.utils import (
+from experiments.dmft.src.utils import (
     CIFAR_GRAY_DIM,
     MLP,
     centered_kernel_alignment,
@@ -128,7 +128,7 @@ from experiments.dmft.utils import (
     subspace_overlap,
     train_bpn,
 )
-from theory_pc_nonlin_utils import get_nonlinearity
+from src.theory_pc_nonlin_utils import get_nonlinearity
 from analyse_convergence import (
     _train_finite_pc,
     _feature_kernels_from_h,
@@ -136,8 +136,8 @@ from analyse_convergence import (
     _stack_kernel_list,
     _unstack_kernel_list,
 )
-import plot_style as ps
-from plot_dmft_results import (
+from src import plot_style as ps
+from src.plot_dmft_results import (
     _alignment_plots_dir,
     feature_kernel_symbol,
     plot_final_kernel_grid,
@@ -877,7 +877,7 @@ def _plot_loss_matched_suite(
             vmax=1.0,
             title=(
                 rf"$C^{{{feat_tex}}}$ feature kernels "
-                rf"($L={L_star:.2e}$, $t_{{\mathrm{{PC}}}}={t_pc_i}$, "
+                rf"($\mathcal{{L}}={L_star:.2e}$, $t_{{\mathrm{{PC}}}}={t_pc_i}$, "
                 rf"$t_{{\mathrm{{BP}}}}={t_bp_i}$, correlation)"
             ),
             dir_name=dir_name,
@@ -896,9 +896,9 @@ def _plot_loss_matched_suite(
         x_col="loss",
     )
     evec_ylabel_loss = (
-        r"$\left|\cos(v_1^{\ell}(L), y)\right|$"
+        r"$\left|\cos(v_1^{\ell}(\mathcal{L}), y)\right|$"
         if n_label_cols == 1
-        else r"$\|U_y^{\top} v_1^{\ell}(L)\|$"
+        else r"$\|U_y^{\top} v_1^{\ell}(\mathcal{L})\|$"
     )
     _plot_alignment_suite(
         loss_records,
@@ -907,7 +907,7 @@ def _plot_loss_matched_suite(
         evec_ylabel_loss,
         vs="loss",
         x_col="loss",
-        xlabel="$L$",
+        xlabel=r"$\mathcal{L}$",
         xscale=scale,
         invert_x=True,
     )
@@ -925,7 +925,7 @@ def _plot_loss_matched_suite(
         ylabel=rf"$\lambda_i(C^{{{feat_tex},\ell}})$",
         title=(
             rf"$C^{{{feat_tex}}}$ feature-kernel spectrum "
-            rf"at last overlap ($L={L_lo:.2e}$)"
+            rf"at last overlap ($\mathcal{{L}}={L_lo:.2e}$)"
         ),
         filename="kernel_spectrum_final.png",
         annotate_rank=True,
@@ -944,7 +944,7 @@ def _plot_loss_matched_suite(
 
     print(f"Train vs test kernels (loss-matched, {scale})...")
     title_note = (
-        rf" ($L={L_lo:.2e}$, $t_{{\mathrm{{PC}}}}={t_pc_lo}$, "
+        rf" ($\mathcal{{L}}={L_lo:.2e}$, $t_{{\mathrm{{PC}}}}={t_pc_lo}$, "
         rf"$t_{{\mathrm{{BP}}}}={t_bp_lo}$)"
     )
     _plot_train_test_kernel_suite(
@@ -1134,7 +1134,7 @@ def _train_finite_bp(
 
     Returns ``(losses, h_k0_traj, eval_kernels)``. ``h_k0_traj`` has
     shape ``(n_hidden, T, P, N)`` — the hidden pre-activations ``h^l``
-    (see ``bp_hidden_preactivations`` in ``experiments.dmft.utils``) at
+    (see ``bp_hidden_preactivations`` in ``experiments.dmft.src.utils``) at
     every training step, before that step's parameter update — or
     ``None`` if ``collect_h_k0`` is False. ``eval_kernels`` is a list of
     per-layer test-set feature kernels, one list per training step, or
@@ -1242,7 +1242,7 @@ def _train_finite_bp(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--results_dir", type=str, default="results")
+    parser.add_argument("--results_dir", type=str, default="results_temp")
 
     # Dataset parameters
     parser.add_argument("--dataset", type=str, default="toy", choices=["toy", "tiny-CIFAR10", "Fashion-MNIST", "CIFAR10"])
@@ -1924,7 +1924,7 @@ if __name__ == "__main__":
                 n_seeds,
                 plot_kw_loss_by_scale[scale],
                 x_col="loss",
-                xlabel="$L$",
+                xlabel=r"$\mathcal{L}$",
                 xscale=scale,
                 invert_x=True,
                 filename="kernel_concentration_vs_loss.png",
@@ -1956,13 +1956,13 @@ if __name__ == "__main__":
 ### Note: Not yet optimised
 
 # Iterative inference (toy dataset)
-# CUDA_VISIBLE_DEVICES=1 python analyse_alignment.py --n_samples 20 --n_hidden 5 --width 10000 --gamma_0 1.0 --param_lr 0.1 --param_lr_pc 0.2 --pc_infer_mode infer --activity_lr 0.01 --n_infer_iters 5 --n_train_iters 21 --results_dir results_align_linear_I
+# python analyse_alignment.py --n_samples 20 --n_hidden 5 --width 10000 --gamma_0 1.0 --param_lr 0.1 --param_lr_pc 0.2 --pc_infer_mode infer --activity_lr 0.01 --n_infer_iters 5 --n_train_iters 21 --results_dir results_align_linear_I
 
 # Closed-form inference (toy dataset)
-# CUDA_VISIBLE_DEVICES=1 python analyse_alignment.py --n_samples 20 --n_hidden 5 --width 10000 --gamma_0 1.0 --param_lr 0.1 --param_lr_pc 0.2 --pc_infer_mode closed_form --n_train_iters 21 --results_dir results_align_linear_C
+# python analyse_alignment.py --n_samples 20 --n_hidden 5 --width 10000 --gamma_0 1.0 --param_lr 0.1 --param_lr_pc 0.2 --pc_infer_mode closed_form --n_train_iters 21 --results_dir results_align_linear_C
 
 # Closed-form inference (tiny-CIFAR10)
-# CUDA_VISIBLE_DEVICES=1 python analyse_alignment.py --n_samples 40 --n_hidden 3 --width 10000 --gamma_0 1.0 --param_lr 0.05 --param_lr_pc 0.5 --pc_infer_mode closed_form --n_train_iters 501 --dataset tiny-CIFAR10 --results_dir results_align_linear_C_tiny
+# python analyse_alignment.py --n_samples 40 --n_hidden 3 --width 10000 --gamma_0 1.0 --param_lr 0.05 --param_lr_pc 0.5 --pc_infer_mode closed_form --n_train_iters 501 --dataset tiny-CIFAR10 --results_dir results_align_linear_C_tiny
 
 
 ############ NONLINEAR ##################

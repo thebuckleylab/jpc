@@ -32,6 +32,40 @@ cd $DATA
 cd ./jpc/experiments/dmft
 
 
+# 0 = train into the short --results_dir (e.g., results_D)
+# 1 = replot from the saved paper runs (e.g., results/results_convergence/results_D)
+REPLOT=0
+
+python() {
+  if [[ "$REPLOT" != 1 ]]; then
+    command python "$@"
+    return
+  fi
+  local script="$1"
+  shift
+  local -a args=()
+  while [[ $# -gt 0 ]]; do
+    if [[ "$1" == "--results_dir" ]]; then
+      case "$script" in
+        analyse_convergence.py)
+          args+=(--results_dir "results/results_convergence/$2") ;;
+        analyse_alignment.py)
+          args+=(--results_dir "results/results_alignment") ;;
+        train_benchmark.py)
+          args+=(--results_dir "results/results_benchmark/$2") ;;
+        *)
+          args+=(--results_dir "$2") ;;
+      esac
+      shift 2
+    else
+      args+=("$1")
+      shift
+    fi
+  done
+  command python "$script" "${args[@]}" --plot_from_npy
+}
+
+
 ######### CONVERGENCE (LINEAR) ##########
 #########################################
 
@@ -72,7 +106,7 @@ cd ./jpc/experiments/dmft
 
 ### Iterative inference (tiny-CIFAR10) 
 
-# # Include both logarithmic and linear loss-matched plots
+# # Include both logarithmic and linear loss-matched plots (Optional if running the command below)
 # python analyse_alignment.py --n_samples 40 --n_hidden 3 --width 10000 --gamma_0 1.0 --param_lr 0.05 --param_lr_pc 0.5 --activity_lr 0.1 --pc_infer_mode infer --n_infer_iters 500 --n_train_iters 1001 --act_fn tanh --plot_loss_matched both --dataset tiny-CIFAR10 --results_dir results_align --keep_npy
 
 # # Same as above, but also assess kernel concentration

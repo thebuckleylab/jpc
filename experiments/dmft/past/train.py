@@ -7,14 +7,21 @@ import jpc
 import equinox as eqx
 
 import os
+import sys
 import argparse
+from pathlib import Path
+
+_DMFT_DIR = Path(__file__).resolve().parents[1]
+if str(_DMFT_DIR) not in sys.path:
+    sys.path.insert(0, str(_DMFT_DIR))
+
 from experiments.datasets import get_dataloaders
 from experiments.mupc_paper.utils import set_seed
 from experiments.limits_paper.utils import (
     setup_pc_experiment,
     setup_bp_experiment,
 )
-from experiments.dmft.utils import (
+from experiments.dmft.src.utils import (
     CIFAR_GRAY_DIM,
     create_tiny_cifar10_dataset,
     create_toy_dataset,
@@ -24,10 +31,10 @@ from experiments.dmft.utils import (
     train_bpn,
     train_pcn,
 )
-from theory_utils import solve_kernels, solve_kernels_nonlin, get_Delta, solve_Delta
-from theory_pc_utils import solve_pc_kernels
-from theory_pc_nonlin_utils import solve_pc_kernels_nonlin
-from plot_dmft_results import (
+from src.theory_utils import solve_kernels, solve_kernels_nonlin, get_Delta, solve_Delta
+from src.theory_pc_utils import solve_pc_kernels
+from src.theory_pc_nonlin_utils import solve_pc_kernels_nonlin
+from src.plot_dmft_results import (
     plot_dmft_kernels_and_loss,
     plot_pc_dmft_kernels_and_loss,
     plot_pc_theory_vs_finite_loss,
@@ -38,7 +45,7 @@ from plot_dmft_results import (
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--results_dir", type=str, default="results")
+    parser.add_argument("--results_dir", type=str, default="results_temp")
 
     # Dataset parameters
     parser.add_argument("--dataset", type=str, default="toy", choices=["toy", "tiny-CIFAR10", "Fashion-MNIST", "CIFAR10"])
