@@ -877,7 +877,7 @@ def _plot_loss_matched_suite(
             vmax=1.0,
             title=(
                 rf"$C^{{{feat_tex}}}$ feature kernels "
-                rf"($L={L_star:.2e}$, $t_{{\mathrm{{PC}}}}={t_pc_i}$, "
+                rf"($\mathcal{{L}}={L_star:.2e}$, $t_{{\mathrm{{PC}}}}={t_pc_i}$, "
                 rf"$t_{{\mathrm{{BP}}}}={t_bp_i}$, correlation)"
             ),
             dir_name=dir_name,
@@ -896,9 +896,9 @@ def _plot_loss_matched_suite(
         x_col="loss",
     )
     evec_ylabel_loss = (
-        r"$\left|\cos(v_1^{\ell}(L), y)\right|$"
+        r"$\left|\cos(v_1^{\ell}(\mathcal{L}), y)\right|$"
         if n_label_cols == 1
-        else r"$\|U_y^{\top} v_1^{\ell}(L)\|$"
+        else r"$\|U_y^{\top} v_1^{\ell}(\mathcal{L})\|$"
     )
     _plot_alignment_suite(
         loss_records,
@@ -907,7 +907,7 @@ def _plot_loss_matched_suite(
         evec_ylabel_loss,
         vs="loss",
         x_col="loss",
-        xlabel="$L$",
+        xlabel=r"$\mathcal{L}$",
         xscale=scale,
         invert_x=True,
     )
@@ -925,7 +925,7 @@ def _plot_loss_matched_suite(
         ylabel=rf"$\lambda_i(C^{{{feat_tex},\ell}})$",
         title=(
             rf"$C^{{{feat_tex}}}$ feature-kernel spectrum "
-            rf"at last overlap ($L={L_lo:.2e}$)"
+            rf"at last overlap ($\mathcal{{L}}={L_lo:.2e}$)"
         ),
         filename="kernel_spectrum_final.png",
         annotate_rank=True,
@@ -944,7 +944,7 @@ def _plot_loss_matched_suite(
 
     print(f"Train vs test kernels (loss-matched, {scale})...")
     title_note = (
-        rf" ($L={L_lo:.2e}$, $t_{{\mathrm{{PC}}}}={t_pc_lo}$, "
+        rf" ($\mathcal{{L}}={L_lo:.2e}$, $t_{{\mathrm{{PC}}}}={t_pc_lo}$, "
         rf"$t_{{\mathrm{{BP}}}}={t_bp_lo}$)"
     )
     _plot_train_test_kernel_suite(
@@ -1924,7 +1924,7 @@ if __name__ == "__main__":
                 n_seeds,
                 plot_kw_loss_by_scale[scale],
                 x_col="loss",
-                xlabel="$L$",
+                xlabel=r"$\mathcal{L}$",
                 xscale=scale,
                 invert_x=True,
                 filename="kernel_concentration_vs_loss.png",

@@ -49,7 +49,7 @@ Loss figures:
   of ``K``).
 - Several ``--n_infer_iters`` and several ``--gamma_0s``: the ``K``-sweep
   figures above are produced per ``gamma_0``, and one extra plot shows
-  last-hidden-layer (``ℓ = H``) displacement vs ``gamma_0`` with one
+  last-hidden-layer (``ℓ = L``) displacement vs ``gamma_0`` with one
   curve per ``K`` (DMFT at the smallest ``K``, finite infer, closed-form
   in the linear case), for both cosine and relative Frobenius.
   ``--skip_theory`` omits the DMFT curve.
