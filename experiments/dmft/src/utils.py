@@ -37,6 +37,29 @@ def bp_gd_style_lr(param_lr, param_type, gamma_0, width):
     return param_lr * (gamma_0 ** 2) * width
 
 
+def forward_param_type(param_type: str) -> str:
+    """jpc forward-pass parameterisation for a config ``param_type``.
+
+    ``mupc_old`` is the limits-paper µPC: the same forward scalings as
+    ``mupc``, with ``γ² N`` in the GD learning rate and no energy precisions.
+    """
+    if param_type == "mupc_old":
+        return "mupc"
+    return param_type
+
+
+def pc_gd_style_lr(param_lr, param_type, gamma_0, width):
+    """PC GD / SGD+momentum LR.
+
+    Energy-scaled µPC keeps a plain ``param_lr`` (the ``γ² N L`` factor
+    lives in the energy). ``mupc_old`` matches limits-paper µPC and bakes
+    ``γ² N`` into the learning rate.
+    """
+    if param_type == "mupc_old":
+        return bp_gd_style_lr(param_lr, "mupc", gamma_0, width)
+    return param_lr
+
+
 def make_sgd_param_optim(learning_rate, param_optim_id, momentum=0.9):
     """Vanilla GD or SGD+momentum. No Adam-style ``1/√N`` rescaling."""
     if param_optim_id == "sgd_momentum":
@@ -662,12 +685,12 @@ class MLP(LimitsMLP):
 def get_output_energy_scaling(
     param_type: str, gamma_0: float, width: int, depth: int
 ) -> float:
-    """µPC output precision λ = γ² N L (SP: 1)."""
+    """µPC output precision λ = γ² N L (SP and ``mupc_old``: 1)."""
     return (gamma_0 ** 2) * width * depth if param_type == "mupc" else 1.0
 
 
 def get_hidden_energy_scaling(param_type: str, depth: int) -> float:
-    """µPC hidden precision κ = L (SP: 1)."""
+    """µPC hidden precision κ = L (SP and ``mupc_old``: 1)."""
     return float(depth) if param_type == "mupc" else 1.0
 
 
@@ -732,10 +755,12 @@ def train_pcn(
     Parameter / activity updates follow the finite-size convention used by
     ``get_coord_data``: GD and SGD+momentum use plain ``param_lr`` with
     ``output_energy_scaling = gamma^2 * width * depth`` and
-    ``hidden_energy_scaling = depth`` for µPC (scale lives in the energy).
-    Adam divides the PC LR the same way as BP (``1/√N``, or ``1/√(N L)``
-    with MLP skips). Note that depth includes the output layer here, as
-    opposed to depth in theory_utils.py.
+    ``hidden_energy_scaling = depth`` for energy-scaled µPC (the scale lives
+    in the energy). ``param_type="mupc_old"`` is the limits-paper µPC: the
+    same forward pass, energy precisions of 1, and ``γ² N`` in the GD
+    learning rate. Adam divides the PC LR the same way as BP (``1/√N``, or
+    ``1/√(N L)`` with MLP skips). Note that depth includes the output layer
+    here, as opposed to depth in theory_utils.py.
 
     Returns ``(pc_grads, model, skip_model)``. ``pc_grads`` is ``None``
     unless ``store_grads`` is True. If ``h_k0_steps`` is a list, each
@@ -751,22 +776,26 @@ def train_pcn(
 
     depth = len(model)
     skip_model = jpc.make_skip_model(depth) if use_skips else None
+    fwd_param = forward_param_type(param_type)
     output_energy_scaling = get_output_energy_scaling(
         param_type, gamma_0, width, depth
     )
     hidden_energy_scaling = get_hidden_energy_scaling(param_type, depth)
 
-    # GD / SGD+momentum: plain lr; µPC width/gamma/depth live in the energy.
+    # GD / SGD+momentum: plain lr for energy-scaled µPC (width/gamma/depth
+    # live in the energy). ``mupc_old`` puts ``γ² N`` in the LR instead.
     # Adam: divide like BP (``1/√N``, or ``1/√(N L)`` with skips).
     batch_size = X_input.shape[0]
     activity_optim = optax.sgd(activity_lr * batch_size)
     if param_optim_id in ("gd", "sgd_momentum"):
         param_optim = make_sgd_param_optim(
-            param_lr, param_optim_id, momentum
+            pc_gd_style_lr(param_lr, param_type, gamma_0, width),
+            param_optim_id,
+            momentum,
         )
     elif param_optim_id == "adam":
         param_optim = optax.adam(
-            mlp_adam_lr(param_lr, param_type, use_skips, width, depth)
+            mlp_adam_lr(param_lr, fwd_param, use_skips, width, depth)
         )
     else:
         raise ValueError(f"Invalid optimiser: {param_optim_id}")
@@ -787,7 +816,7 @@ def train_pcn(
             model=model,
             input=X_input,
             skip_model=skip_model,
-            param_type=param_type,
+            param_type=fwd_param,
             gamma=gamma_0
         )
         if h_k0_steps is not None:
@@ -796,7 +825,7 @@ def train_pcn(
                 skip_model=skip_model,
                 activities=activities,
                 x=X_input,
-                param_type=param_type,
+                param_type=fwd_param,
                 gamma=gamma_0,
             )
             h_k0_steps.append(
@@ -810,7 +839,7 @@ def train_pcn(
                 model=model,
                 input=X_eval,
                 skip_model=skip_model,
-                param_type=param_type,
+                param_type=fwd_param,
                 gamma=gamma_0,
             )
             hs_eval, _ = pc_hidden_preactivations_and_errors(
@@ -818,7 +847,7 @@ def train_pcn(
                 skip_model=skip_model,
                 activities=activities_eval,
                 x=X_eval,
-                param_type=param_type,
+                param_type=fwd_param,
                 gamma=gamma_0,
             )
             h_k0_eval_callback(hs_eval)
@@ -833,7 +862,7 @@ def train_pcn(
                 params=(model, skip_model),
                 x=X_input,
                 y=Y_target,
-                param_type=param_type,
+                param_type=fwd_param,
                 gamma=gamma_0,
                 return_rescaling=True,
                 output_energy_scaling=output_energy_scaling,
@@ -854,7 +883,7 @@ def train_pcn(
                     opt_state=activity_opt_state,
                     output=Y_target,
                     input=X_input,
-                    param_type=param_type,
+                    param_type=fwd_param,
                     gamma=gamma_0,
                     loss_id=loss_id,
                     output_energy_scaling=output_energy_scaling,
@@ -873,7 +902,7 @@ def train_pcn(
                 opt_state=param_opt_state,
                 output=Y_target,
                 input=X_input,
-                param_type=param_type,
+                param_type=fwd_param,
                 gamma=gamma_0,
                 loss_id=loss_id,
                 output_energy_scaling=output_energy_scaling,
@@ -888,7 +917,7 @@ def train_pcn(
                 opt_state=param_opt_state,
                 y=Y_target,
                 x=X_input,
-                param_type=param_type,
+                param_type=fwd_param,
                 gamma=gamma_0,
                 output_energy_scaling=output_energy_scaling,
                 hidden_energy_scaling=hidden_energy_scaling,
