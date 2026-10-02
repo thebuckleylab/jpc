@@ -1956,13 +1956,13 @@ if __name__ == "__main__":
 ### Note: Not yet optimised
 
 # Iterative inference (toy dataset)
-# CUDA_VISIBLE_DEVICES=1 python analyse_alignment.py --n_samples 20 --n_hidden 5 --width 10000 --gamma_0 1.0 --param_lr 0.1 --param_lr_pc 0.2 --pc_infer_mode infer --activity_lr 0.01 --n_infer_iters 5 --n_train_iters 21 --results_dir results_align_linear_I
+# python analyse_alignment.py --n_samples 20 --n_hidden 5 --width 10000 --gamma_0 1.0 --param_lr 0.1 --param_lr_pc 0.2 --pc_infer_mode infer --activity_lr 0.01 --n_infer_iters 5 --n_train_iters 21 --results_dir results_align_linear_I
 
 # Closed-form inference (toy dataset)
-# CUDA_VISIBLE_DEVICES=1 python analyse_alignment.py --n_samples 20 --n_hidden 5 --width 10000 --gamma_0 1.0 --param_lr 0.1 --param_lr_pc 0.2 --pc_infer_mode closed_form --n_train_iters 21 --results_dir results_align_linear_C
+# python analyse_alignment.py --n_samples 20 --n_hidden 5 --width 10000 --gamma_0 1.0 --param_lr 0.1 --param_lr_pc 0.2 --pc_infer_mode closed_form --n_train_iters 21 --results_dir results_align_linear_C
 
 # Closed-form inference (tiny-CIFAR10)
-# CUDA_VISIBLE_DEVICES=1 python analyse_alignment.py --n_samples 40 --n_hidden 3 --width 10000 --gamma_0 1.0 --param_lr 0.05 --param_lr_pc 0.5 --pc_infer_mode closed_form --n_train_iters 501 --dataset tiny-CIFAR10 --results_dir results_align_linear_C_tiny
+# python analyse_alignment.py --n_samples 40 --n_hidden 3 --width 10000 --gamma_0 1.0 --param_lr 0.05 --param_lr_pc 0.5 --pc_infer_mode closed_form --n_train_iters 501 --dataset tiny-CIFAR10 --results_dir results_align_linear_C_tiny
 
 
 ############ NONLINEAR ##################

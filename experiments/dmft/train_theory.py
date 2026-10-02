@@ -447,12 +447,12 @@ if __name__ == "__main__":
 ############ LINEAR ##############
 ##################################
 
-# CUDA_VISIBLE_DEVICES=1 python train_theory.py --n_samples 5 --n_hiddens 5 --gamma_0s 1.0 --param_lr 0.2 --param_lr_pc 0.2 --activity_lrs 0.01 --n_infer_iters 5 --n_train_iters 10 --n_fixed_point_steps 10 --pc_damping 0.2 --dataset toy --results_dir results_theory_linear
+# python train_theory.py --n_samples 5 --n_hiddens 5 --gamma_0s 1.0 --param_lr 0.2 --param_lr_pc 0.2 --activity_lrs 0.01 --n_infer_iters 5 --n_train_iters 10 --n_fixed_point_steps 10 --pc_damping 0.2 --dataset toy --results_dir results_theory_linear
 
 
 ############ NONLINEAR #################
 ########################################
 
-# CUDA_VISIBLE_DEVICES=1 python train_theory.py --n_samples 3 --n_hiddens 3 --gamma_0s 1.0 --param_lr 0.2 --param_lr_pc 0.2 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 10 --n_fixed_point_steps 100 --num_mc_samples 3000 --pc_damping 0.1 --act_fn tanh --dataset toy --results_dir results_theory_nonlin
+# python train_theory.py --n_samples 3 --n_hiddens 3 --gamma_0s 1.0 --param_lr 0.2 --param_lr_pc 0.2 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 10 --n_fixed_point_steps 100 --num_mc_samples 3000 --pc_damping 0.1 --act_fn tanh --dataset toy --results_dir results_theory_nonlin
 
 

@@ -1809,47 +1809,47 @@ if __name__ == "__main__":
 ###########################
 
 # # Single (final P x P kernels + sample-traced T x T temporal kernels)
-# CUDA_VISIBLE_DEVICES=1 python analyse_convergence.py --n_samples 20 --n_hiddens 5 --widths 10000 --plot_temporal_kernels --gamma_0s 1.0 --param_lr_pc 0.2 --activity_lrs 0.01 --n_infer_iters 5 --n_train_iters 20 --n_fixed_point_steps 100 --pc_damping 0.05 --results_dir results_S
+# python analyse_convergence.py --n_samples 20 --n_hiddens 5 --widths 10000 --plot_temporal_kernels --gamma_0s 1.0 --param_lr_pc 0.2 --activity_lrs 0.01 --n_infer_iters 5 --n_train_iters 20 --n_fixed_point_steps 100 --pc_damping 0.05 --results_dir results_S
 
 # # Single (final P x P kernels only; no DMFT row) for testing
-# CUDA_VISIBLE_DEVICES=1 python analyse_convergence.py --n_samples 20 --n_hiddens 5 --widths 10000 --gamma_0s 1.0 --param_lr_pc 0.2 --activity_lrs 0.01 --n_infer_iters 5 --n_train_iters 20 --n_fixed_point_steps 100 --pc_damping 0.05 --skip_theory --results_dir results_T
+# python analyse_convergence.py --n_samples 20 --n_hiddens 5 --widths 10000 --gamma_0s 1.0 --param_lr_pc 0.2 --activity_lrs 0.01 --n_infer_iters 5 --n_train_iters 20 --n_fixed_point_steps 100 --pc_damping 0.05 --skip_theory --results_dir results_T
 
 # # Across depth (loss curves)
-# CUDA_VISIBLE_DEVICES=1 python analyse_convergence.py --n_samples 20 --n_hiddens 2 3 4 5 --widths 10000 --gamma_0s 1.0 --param_lr_pc 0.2 --activity_lrs 0.01 --n_infer_iters 5 --n_train_iters 20 --n_fixed_point_steps 100 --pc_damping 0.05 --results_dir results_D
+# python analyse_convergence.py --n_samples 20 --n_hiddens 2 3 4 5 --widths 10000 --gamma_0s 1.0 --param_lr_pc 0.2 --activity_lrs 0.01 --n_infer_iters 5 --n_train_iters 20 --n_fixed_point_steps 100 --pc_damping 0.05 --results_dir results_D
 
 # # Across gamma (loss curves; includes DMFT)
-# CUDA_VISIBLE_DEVICES=1 python analyse_convergence.py --n_samples 20 --n_hiddens 5 --widths 10000 --gamma_0s 0.1 0.5 1.0 --param_lr_pc 0.2 --activity_lrs 0.01 --n_infer_iters 5 --n_train_iters 20 --n_fixed_point_steps 100 --pc_damping 0.05 --results_dir results_G
+# python analyse_convergence.py --n_samples 20 --n_hiddens 5 --widths 10000 --gamma_0s 0.1 0.5 1.0 --param_lr_pc 0.2 --activity_lrs 0.01 --n_infer_iters 5 --n_train_iters 20 --n_fixed_point_steps 100 --pc_damping 0.05 --results_dir results_G
 
 # # Across K (loss curves, stacked kernel grid + displacement; excludes DMFT) OPTIONAL
-# CUDA_VISIBLE_DEVICES=1 python analyse_convergence.py --n_samples 20 --n_hiddens 5 --widths 10000 --gamma_0s 1.0 --param_lr_pc 0.2 --activity_lrs 0.01 --n_infer_iters 5 20 50 200 500 --n_train_iters 20 --n_fixed_point_steps 100 --pc_damping 0.05 --skip_theory --results_dir results_K
+# python analyse_convergence.py --n_samples 20 --n_hiddens 5 --widths 10000 --gamma_0s 1.0 --param_lr_pc 0.2 --activity_lrs 0.01 --n_infer_iters 5 20 50 200 500 --n_train_iters 20 --n_fixed_point_steps 100 --pc_damping 0.05 --skip_theory --results_dir results_K
 
 # # Across K and gamma (last-layer displacement vs gamma with curves per K; excludes DMFT) 
-# CUDA_VISIBLE_DEVICES=1 python analyse_convergence.py --n_samples 20 --n_hiddens 5 --widths 10000 --gamma_0s 0.1 0.5 1.0 --param_lr_pc 0.2 --activity_lrs 0.01 --n_infer_iters 5 20 50 200 500 --n_train_iters 20 --n_fixed_point_steps 100 --pc_damping 0.05 --skip_theory --results_dir results_KG
+# python analyse_convergence.py --n_samples 20 --n_hiddens 5 --widths 10000 --gamma_0s 0.1 0.5 1.0 --param_lr_pc 0.2 --activity_lrs 0.01 --n_infer_iters 5 20 50 200 500 --n_train_iters 20 --n_fixed_point_steps 100 --pc_damping 0.05 --skip_theory --results_dir results_KG
 
 # # Across widths (convergence of kernels + plot final kernels; plots for various depths)
-# CUDA_VISIBLE_DEVICES=1 python analyse_convergence.py --n_samples 20 --n_hiddens 2 3 4 5 --widths 10 25 100 250 1000 2500 10000 --plot_mode both --gamma_0s 1.0 --param_lr_pc 0.2 --activity_lrs 0.01 --n_infer_iters 5 --n_train_iters 20 --n_fixed_point_steps 500 --pc_damping 0.05 --pc_tolerance 1e-10 --n_seeds 5 --results_dir results_W
+# python analyse_convergence.py --n_samples 20 --n_hiddens 2 3 4 5 --widths 10 25 100 250 1000 2500 10000 --plot_mode both --gamma_0s 1.0 --param_lr_pc 0.2 --activity_lrs 0.01 --n_infer_iters 5 --n_train_iters 20 --n_fixed_point_steps 500 --pc_damping 0.05 --pc_tolerance 1e-10 --n_seeds 5 --results_dir results_W
 
 
 ############ NONLINEAR ##################
 #########################################
 
 # # Single (final P x P kernels + sample-traced T x T temporal kernels) Note: Use H100 (Takes ~20h otherwise)
-# CUDA_VISIBLE_DEVICES=1 python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --plot_temporal_kernels --gamma_0s 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 2000 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_nonlin_S
+# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --plot_temporal_kernels --gamma_0s 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 2000 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_nonlin_S
 
 # # Single (final P x P kernels only; no DMFT row) for testing
-# CUDA_VISIBLE_DEVICES=1 python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 2000 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --skip_theory --results_dir results_nonlin_T
+# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 2000 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --skip_theory --results_dir results_nonlin_T
 
 # # Across depth (loss curves) OPTIONAL
-# CUDA_VISIBLE_DEVICES=1 python analyse_convergence.py --n_samples 8 --n_hiddens 1 2 3  --widths 10000 --gamma_0s 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 2000 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_nonlin_D
+# python analyse_convergence.py --n_samples 8 --n_hiddens 1 2 3  --widths 10000 --gamma_0s 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 2000 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_nonlin_D
 
 # # Across gamma (loss curves; includes DMFT) Note: Use H100 (Takes ~20h per gamma otherwise)
-# CUDA_VISIBLE_DEVICES=1 python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 0.5 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 2000 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_nonlin_G
+# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 0.5 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 2000 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --results_dir results_nonlin_G
 
 # # Across K (loss curves, stacked kernel grid + displacement; excludes DMFT) OPTIONAL
-# CUDA_VISIBLE_DEVICES=1 python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 5 10 20 50 200 500 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 2000 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --skip_theory --results_dir results_nonlin_K
+# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 5 10 20 50 200 500 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 2000 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --skip_theory --results_dir results_nonlin_K
 
 # # Across K and gamma (last-layer displacement vs gamma with curves per K; excludes DMFT) 
-# CUDA_VISIBLE_DEVICES=1 python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 0.5 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 5 10 20 50 200 500 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 2000 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --skip_theory --results_dir results_nonlin_KG
+# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10000 --gamma_0s 0.1 0.5 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 5 10 20 50 200 500 --n_train_iters 30 --n_fixed_point_steps 250 --num_mc_samples 2000 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --skip_theory --results_dir results_nonlin_KG
 
 # # Across widths (convergence of kernels + plot final kernels) Note: Use H100 (Takes ~40h otherwise)
-# CUDA_VISIBLE_DEVICES=1 python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10 25 100 250 1000 2500 10000 --plot_mode both --gamma_0s 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 500 --num_mc_samples 2000 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --n_seeds 5 --results_dir results_nonlin_W
+# python analyse_convergence.py --n_samples 8 --n_hiddens 3 --widths 10 25 100 250 1000 2500 10000 --plot_mode both --gamma_0s 1.0 --param_lr_pc 1.0 --activity_lrs 0.05 --n_infer_iters 10 --n_train_iters 30 --n_fixed_point_steps 500 --num_mc_samples 2000 --pc_damping 0.05 --act_fn tanh --dataset tiny-CIFAR10 --n_seeds 5 --results_dir results_nonlin_W

@@ -147,31 +147,31 @@ FIGURES = [
     (
         "results/results_alignment/plots/10000_width/infer_pc_infer_mode/3_n_hidden/"
         "gamma_1.0/activity_lr_0.1/500_n_infer_iters/alignment/by_loss_linear/"
+        "kernel_concentration_cka_vs_loss.pdf",
+        "supfig4",
+    ),
+    (
+        "results/results_alignment/plots/10000_width/infer_pc_infer_mode/3_n_hidden/"
+        "gamma_1.0/activity_lr_0.1/500_n_infer_iters/alignment/by_loss_linear/"
         "kernel_target_alignment_vs_loss.pdf",
-        "supfig4a",
+        "supfig5a",
     ),
     (
         "results/results_alignment/plots/10000_width/infer_pc_infer_mode/3_n_hidden/"
         "gamma_1.0/activity_lr_0.1/500_n_infer_iters/alignment/by_loss_linear/"
         "kernel_input_alignment_vs_loss.pdf",
-        "supfig4b",
+        "supfig5b",
     ),
     (
         "results/results_alignment/plots/10000_width/infer_pc_infer_mode/3_n_hidden/"
         "gamma_1.0/activity_lr_0.1/500_n_infer_iters/alignment/by_loss_linear/"
         "kernel_displacement_vs_loss.pdf",
-        "supfig5",
-    ),
-    (
-        "results/results_alignment/plots/10000_width/infer_pc_infer_mode/3_n_hidden/"
-        "gamma_1.0/activity_lr_0.1/500_n_infer_iters/alignment/by_loss_linear/"
-        "kernel_spectrum_final.pdf",
         "supfig6",
     ),
     (
         "results/results_alignment/plots/10000_width/infer_pc_infer_mode/3_n_hidden/"
         "gamma_1.0/activity_lr_0.1/500_n_infer_iters/alignment/by_loss_linear/"
-        "kernel_concentration_cka_vs_loss.pdf",
+        "kernel_spectrum_final.pdf",
         "supfig7",
     ),
     (
