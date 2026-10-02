@@ -285,7 +285,7 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--results_dir", type=str, default="pc_results")
+    parser.add_argument("--results_dir", type=str, default="pc_results_temp")
     parser.add_argument(
         "--dataset",
         type=str,

@@ -45,7 +45,7 @@ from src.plot_dmft_results import (
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--results_dir", type=str, default="results")
+    parser.add_argument("--results_dir", type=str, default="results_temp")
 
     # Dataset parameters
     parser.add_argument("--dataset", type=str, default="toy", choices=["toy", "tiny-CIFAR10", "Fashion-MNIST", "CIFAR10"])

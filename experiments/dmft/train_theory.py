@@ -97,7 +97,7 @@ def _feature_kernel_cosine_frames(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--results_dir", type=str, default="results")
+    parser.add_argument("--results_dir", type=str, default="results_temp")
 
     # Dataset parameters
     parser.add_argument("--dataset", type=str, default="toy", choices=["toy", "tiny-CIFAR10"])

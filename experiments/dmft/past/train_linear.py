@@ -354,7 +354,7 @@ def run(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--results_dir", type=str, default="results")
+    parser.add_argument("--results_dir", type=str, default="results_temp")
 
     # Model parameters
     parser.add_argument("--input_dim", type=int, default=32)

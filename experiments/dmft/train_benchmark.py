@@ -2311,7 +2311,7 @@ def parse_args():
             "Cartesian search (BP and PC independently)."
         ),
     )
-    parser.add_argument("--results_dir", type=str, default="results_benchmark")
+    parser.add_argument("--results_dir", type=str, default="results_temp")
     parser.add_argument(
         "--dataset",
         type=str,
