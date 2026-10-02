@@ -34,7 +34,7 @@ cd ./jpc/experiments/dmft
 
 # 0 = train into the short --results_dir (e.g., results_D)
 # 1 = replot from the saved paper runs (e.g., results/results_convergence/results_D)
-REPLOT=0
+REPLOT=1
 
 python() {
   if [[ "$REPLOT" != 1 ]]; then

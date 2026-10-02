@@ -507,7 +507,7 @@ def _plot_alignment_suite(
 ):
     """Line plots for displacement, alignment, rank, and PC–BP pairing."""
     suffix = "time" if vs == "time" else "loss"
-    t_sub = "t" if vs == "time" else "L"
+    t_sub = "t" if vs == "time" else r"\mathcal{L}"
     arg = "t" if vs == "time" else "L"
     axis = dict(x_col=x_col, xlabel=xlabel, xscale=xscale, invert_x=invert_x)
     plot_kernel_displacement_per_timepoint(
