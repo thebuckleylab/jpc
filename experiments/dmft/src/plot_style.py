@@ -149,8 +149,9 @@ _RC = {
     # Typography: STIX is metric-compatible with Times, so figure text
     # matches the ICLR body font.
     "font.family": "serif",
-    "font.serif": ["STIXGeneral", "DejaVu Serif"],
-    "mathtext.fontset": "stix",
+    "font.serif": ["Nimbus Roman","Times New Roman","STIXGeneral", "DejaVu Serif"],
+    "mathtext.fontset": "cm", # "stix",
+    "svg.fonttype": "none",     # Keep SVG text as text instead of converting it to paths.
     "axes.unicode_minus": False,
     "font.size": 8,
     "axes.labelsize": 8,
