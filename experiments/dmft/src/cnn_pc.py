@@ -27,7 +27,7 @@ from jax import vmap
 from jaxtyping import Array, ArrayLike, PyTree, Scalar
 from typing import Callable, Optional, Sequence, Tuple, Union
 
-_CNN_DIR = Path(__file__).resolve().parents[1] / "limits_paper" / "cnn"
+_CNN_DIR = Path(__file__).resolve().parents[2] / "limits_paper" / "cnn"
 if str(_CNN_DIR) not in sys.path:
     sys.path.insert(0, str(_CNN_DIR))
 

@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from matplotlib.lines import Line2D
 
-import plot_style as ps
+from . import plot_style as ps
 
 ps.apply_paper_style()
 

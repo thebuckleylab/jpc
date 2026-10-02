@@ -85,7 +85,7 @@ def create_tiny_cifar10_dataset(key, D, P, class0=0, class1=1, train=True):
         train=train,
         normalise=False,
         flatten=False,
-        save_dir=str(Path(__file__).resolve().parent / "datasets" / "cifar10"),
+        save_dir=str(Path(__file__).resolve().parents[1] / "datasets" / "cifar10"),
     )
     X_rgb = np.asarray(dataset.data, dtype=np.float32) / 255.0
     labels = np.asarray(dataset.targets)

@@ -18,8 +18,8 @@ import os
 import numpy as np
 import pandas as pd
 
-import plot_style as ps
-from plot_dmft_results import (
+from src import plot_style as ps
+from src.plot_dmft_results import (
     plot_final_kernel_grid,
     plot_kernel_concentration_vs_time,
     plot_kernel_displacement_per_timepoint,

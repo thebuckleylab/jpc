@@ -63,7 +63,7 @@ import jax
 import jax.numpy as jnp
 from jax import random
 
-from theory_pc_utils import (
+from .theory_pc_utils import (
     damp,
     make_delta0_projector,
     make_endpoint_memory_operator,

@@ -93,7 +93,7 @@ import jpc
 from experiments.datasets import get_dataloaders
 from experiments.mupc_paper.utils import set_seed
 from experiments.limits_paper.utils import setup_pc_experiment
-from experiments.dmft.utils import (
+from experiments.dmft.src.utils import (
     CIFAR_GRAY_DIM,
     create_tiny_cifar10_dataset,
     create_toy_dataset,
@@ -110,10 +110,10 @@ from experiments.dmft.utils import (
     sample_traced_empirical_pc_kernel,
     sample_traced_pc_kernel,
 )
-from theory_pc_utils import solve_pc_kernels
-from theory_pc_nonlin_utils import solve_pc_kernels_nonlin, get_nonlinearity
-import plot_style as ps
-from plot_dmft_results import (
+from src.theory_pc_utils import solve_pc_kernels
+from src.theory_pc_nonlin_utils import solve_pc_kernels_nonlin, get_nonlinearity
+from src import plot_style as ps
+from src.plot_dmft_results import (
     feature_kernel_symbol,
     plot_pc_theory_vs_finite_loss,
     plot_pc_param_sweep_loss,

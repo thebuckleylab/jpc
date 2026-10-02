@@ -4,7 +4,7 @@ import pandas as pd
 
 import os
 import argparse
-from experiments.dmft.utils import (
+from experiments.dmft.src.utils import (
     CIFAR_GRAY_DIM,
     bp_sample_kernel_at,
     cosine_similarity,
@@ -12,10 +12,10 @@ from experiments.dmft.utils import (
     create_toy_dataset,
     final_time_pc_kernel,
 )
-from theory_utils import solve_kernels, solve_kernels_nonlin, get_Delta, solve_Delta
-from theory_pc_utils import solve_pc_kernels
-from theory_pc_nonlin_utils import solve_pc_kernels_nonlin
-from plot_dmft_results import (
+from src.theory_utils import solve_kernels, solve_kernels_nonlin, get_Delta, solve_Delta
+from src.theory_pc_utils import solve_pc_kernels
+from src.theory_pc_nonlin_utils import solve_pc_kernels_nonlin
+from src.plot_dmft_results import (
     feature_kernel_symbol,
     plot_dmft_kernels_and_loss,
     plot_kernel_displacement_per_timepoint,

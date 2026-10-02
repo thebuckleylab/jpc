@@ -109,7 +109,7 @@ import pandas as pd
 from experiments.datasets import get_dataloaders
 from experiments.mupc_paper.utils import set_seed
 from experiments.limits_paper.utils import setup_bp_experiment
-from experiments.dmft.utils import (
+from experiments.dmft.src.utils import (
     CIFAR_GRAY_DIM,
     MLP,
     centered_kernel_alignment,
@@ -128,7 +128,7 @@ from experiments.dmft.utils import (
     subspace_overlap,
     train_bpn,
 )
-from theory_pc_nonlin_utils import get_nonlinearity
+from src.theory_pc_nonlin_utils import get_nonlinearity
 from analyse_convergence import (
     _train_finite_pc,
     _feature_kernels_from_h,
@@ -136,8 +136,8 @@ from analyse_convergence import (
     _stack_kernel_list,
     _unstack_kernel_list,
 )
-import plot_style as ps
-from plot_dmft_results import (
+from src import plot_style as ps
+from src.plot_dmft_results import (
     _alignment_plots_dir,
     feature_kernel_symbol,
     plot_final_kernel_grid,
@@ -1134,7 +1134,7 @@ def _train_finite_bp(
 
     Returns ``(losses, h_k0_traj, eval_kernels)``. ``h_k0_traj`` has
     shape ``(n_hidden, T, P, N)`` — the hidden pre-activations ``h^l``
-    (see ``bp_hidden_preactivations`` in ``experiments.dmft.utils``) at
+    (see ``bp_hidden_preactivations`` in ``experiments.dmft.src.utils``) at
     every training step, before that step's parameter update — or
     ``None`` if ``collect_h_k0`` is False. ``eval_kernels`` is a list of
     per-layer test-set feature kernels, one list per training step, or

@@ -87,7 +87,7 @@ from experiments.datasets import (
     get_tinyimagenet_loaders,
     TinyImageNet,
 )
-from experiments.dmft.utils import (
+from experiments.dmft.src.utils import (
     CIFAR_GRAY_DIM,
     MLP,
     copy_mlp_linear_params,
@@ -99,9 +99,9 @@ from experiments.limits_paper.utils import configure_param_optim
 from experiments.mupc_paper.utils import set_seed
 
 try:
-    from experiments.dmft import cnn_pc
+    from experiments.dmft.src import cnn_pc
 except ImportError:
-    import cnn_pc
+    from src import cnn_pc
 
 _CNN_DIR = Path(__file__).resolve().parents[1] / "limits_paper" / "cnn"
 if str(_CNN_DIR) not in sys.path:
@@ -111,7 +111,7 @@ from model import ResNet  # noqa: E402
 from optim import configure_cnn_param_optim  # noqa: E402
 from experiments.limits_paper.cnn.utils import _import_hf_load_dataset  # noqa: E402
 
-import plot_style as ps
+from src import plot_style as ps
 
 ps.apply_paper_style()
 
