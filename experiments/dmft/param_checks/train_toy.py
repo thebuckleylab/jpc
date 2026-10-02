@@ -4,17 +4,21 @@ Mirrors ``experiments/limits_paper/train.py``: sweep width at fixed γ
 and/or γ at fixed width on the Gaussian ±1 toy task and save PC/BP
 metrics. Plot with ``plot_toy.py``.
 
-The new PC parameterisation puts width, depth, and γ in the energy rather
-than the PC learning rate:
+``param_type="mupc"`` puts width, depth, and γ in the energy rather than
+the PC learning rate:
 
-* output precision ``λ = γ² N L``
-* hidden precision ``κ = L``
+    * output precision ``λ = γ² N L``
+    * hidden precision ``κ = L``
 
-PC GD uses plain ``param_lr`` on ``F*``. BP GD puts the µP factor
-``γ² N`` in the learning rate and trains unscaled MSE (as in
-``limits_paper``). Without skips, the infinite-width BP DMFT loss is the
-unscaled MSE from ``limits_paper/train.py``. Both nets share the same
-initial weights.
+PC GD then uses plain ``param_lr`` on ``F*``. ``param_type="mupc_old"`` is
+the limits-paper µPC: the same forward pass, no energy scalings
+(``λ = κ = 1``), and ``γ² N`` in the PC GD learning rate. BP GD puts
+``γ² N`` in the learning rate for both and trains unscaled MSE. Without
+skips, the infinite-width BP DMFT loss is the unscaled MSE from
+``limits_paper/train.py``. Both nets share the same initial weights.
+
+Results go to ``results/toy_energy_scaled`` for ``mupc`` / ``sp``, and to
+``results/toy_mupc_old`` when ``mupc_old`` is the only parameterisation.
 """
 
 from __future__ import annotations
@@ -40,6 +44,7 @@ import jpc
 from experiments.dmft.theory_utils import get_Delta, solve_kernels
 from experiments.dmft.utils import (
     MLP,
+    forward_param_type,
     get_hidden_energy_scaling,
     get_output_energy_scaling,
     train_bpn,
@@ -71,7 +76,13 @@ def add_common_args(parser):
     parser.add_argument(
         "--results_dir",
         type=str,
-        default="results/toy_energy_scaled",
+        default=None,
+        help=(
+            "Output directory. Default depends on --param_types: "
+            "results/toy_mupc_old when only mupc_old is selected, "
+            "results/toy_energy_scaled otherwise "
+            "(results/toy_mixed if mupc_old is combined with another type)."
+        ),
     )
     parser.add_argument("--input_dim", type=int, default=40)
     parser.add_argument("--n_samples", type=int, default=20)
@@ -86,7 +97,12 @@ def add_common_args(parser):
         type=str,
         nargs="+",
         default=["mupc"],
-        choices=["mupc", "sp"],
+        choices=["mupc", "mupc_old", "sp"],
+        help=(
+            "mupc: energy precisions λ=γ²NL, κ=L, plain PC GD lr. "
+            "mupc_old: limits-paper µPC (no energy scalings; γ²N in the GD lr). "
+            "sp: standard parameterisation."
+        ),
     )
     parser.add_argument(
         "--use_skips",
@@ -136,6 +152,32 @@ def mup_loss_scale(param_type, gamma_0, width):
     if param_type == "sp":
         return 1.0
     return float(gamma_0) ** 2 * float(width)
+
+
+def default_results_dir(param_types):
+    """Results root for a ``--param_types`` selection."""
+    if list(param_types) == ["mupc_old"]:
+        return "results/toy_mupc_old"
+    if "mupc_old" in param_types:
+        return "results/toy_mixed"
+    return "results/toy_energy_scaled"
+
+
+def resolve_results_dir(args):
+    if args.results_dir is None:
+        args.results_dir = default_results_dir(args.param_types)
+    return args
+
+
+def divides_plotted_energy_by_n(param_type):
+    """Energy-scaled µPC stores ``F*`` with a factor of ``N``; ``mupc_old`` does not."""
+    return param_type == "mupc"
+
+
+def pc_energy_legend(param_type):
+    if divides_plotted_energy_by_n(param_type):
+        return r"$\mathcal{F}^*(\boldsymbol{\theta})/N$ (PC)"
+    return r"$\mathcal{F}^*(\boldsymbol{\theta})$ (PC)"
 
 
 def compute_bp_dmft_loss(
@@ -236,11 +278,21 @@ def run_one(
     compute_cos_sims,
 ):
     depth = n_hidden + 1
+    fwd_param = forward_param_type(param_type)
     lam, kappa = energy_scalings(param_type, gamma_0, width, depth)
     bp_lr_scale = mup_loss_scale(param_type, gamma_0, width)
+    pc_lr_scale = (
+        bp_lr_scale
+        if param_type == "mupc_old" and param_optim in ("gd", "sgd_momentum")
+        else 1.0
+    )
+    if param_optim in ("gd", "sgd_momentum"):
+        lr_msg = f"PC lr×{pc_lr_scale:g}, BP lr×{bp_lr_scale:g}"
+    else:
+        lr_msg = "Adam"
     print(
         f"\t\t\t\t\tN={width}, γ={gamma_0}, λ={lam:g}, κ={kappa:g}, "
-        f"BP lr×{bp_lr_scale:g}, infer={infer_mode}"
+        f"{lr_msg}, infer={infer_mode}"
     )
 
     pc_save_dir = setup_pc_experiment(
@@ -270,7 +322,7 @@ def run_one(
         output_dim=output_dim,
         act_fn=act_fn,
         use_bias=False,
-        param_type=param_type,
+        param_type=fwd_param,
     )
     pc_grads, _, _ = train_pcn(
         model=pc_model,
@@ -314,7 +366,7 @@ def run_one(
         L=depth,
         d_out=output_dim,
         act_fn=act_fn,
-        param_type=param_type,
+        param_type=fwd_param,
         gamma=gamma_0,
         use_bias=False,
         use_skips=use_skips,
@@ -352,8 +404,8 @@ def run_one(
 def parse_args():
     parser = argparse.ArgumentParser(
         description=(
-            "Toy µPC vs BP with output energy scaling λ=γ²NL, "
-            "hidden energy scaling κ=L, and BP GD LR × γ²N."
+            "Toy µPC vs BP. mupc uses energy precisions λ=γ²NL and κ=L; "
+            "mupc_old is the limits-paper µPC with no energy scalings."
         )
     )
     add_common_args(parser)
@@ -378,7 +430,7 @@ def parse_args():
 
 
 def main():
-    args = parse_args()
+    args = resolve_results_dir(parse_args())
     if len(args.n_hiddens) > 1 and len(args.widths) > 1:
         jax.config.update("jax_enable_x64", True)
 
@@ -471,6 +523,13 @@ if __name__ == "__main__":
 # Gamma sweep at fixed width:
 # python experiments/dmft/param_checks/train_toy.py \
 #   --widths 128 --gamma_0s 0.1 0.5 1 2 3 4 --n_hiddens 3 --n_train_iters 100
+
+# Limits-paper µPC (no energy scalings; γ²N in the GD learning rate).
+# Energies are plotted raw, without dividing by N. Results land in
+# results/toy_mupc_old.
+# python experiments/dmft/param_checks/train_toy.py \
+#   --param_types mupc_old \
+#   --widths 8 16 32 64 128 --gamma_0s 1 --n_hiddens 3 --n_train_iters 100
 
 # Closed-form inference is the default (exact F*, s(θ)). For iterative
 # inference, pass --infer_mode optim --n_infer_iters 50 --activity_lrs 0.5

@@ -24,7 +24,16 @@ import numpy as np
 from experiments.limits_paper import plot_gamma0_sweep as gamma_plots
 from experiments.limits_paper import plot_toy_results as toy_plots
 from experiments.limits_paper.utils import setup_bp_experiment, setup_pc_experiment
-from train_toy import add_common_args, bp_dmft_loss_path, mup_loss_scale
+from train_toy import (
+    add_common_args,
+    bp_dmft_loss_path,
+    divides_plotted_energy_by_n,
+    mup_loss_scale,
+    pc_energy_legend,
+    resolve_results_dir,
+)
+
+LOSSES_AND_ENERGIES_YLABEL = "Energy / Loss"
 
 
 def parse_args():
@@ -38,9 +47,9 @@ def parse_args():
         nargs="+",
         default=None,
         help=(
-            "Subset of --widths for losses.pdf, losses_and_energies*.pdf, "
-            "and grads_cosine_similarities.pdf (default: all). "
-            "Rescaling plots keep every width."
+            "Widths to draw on the width-sweep plots, in this order "
+            "(default: every --widths). Widths listed here are loaded "
+            "even if they are absent from --widths."
         ),
     )
     return parser.parse_args()
@@ -52,7 +61,13 @@ def load_bp_dmft_loss(results_dir, gamma_0, n_hidden, seed):
 
 
 def pc_energies_on_mse_scale(data, param_type, *, sweep):
-    """Copy of ``data`` with ``F*`` divided by ``γ² N`` for MSE-scale overlays."""
+    """Copy of ``data`` with energy-scaled µPC ``F*`` divided by ``γ² N``.
+
+    ``mupc_old`` (limits-paper µPC, no energy precisions) and SP are left
+    unchanged: their equilibrated energy is not divided by ``N``.
+    """
+    if not divides_plotted_energy_by_n(param_type):
+        return data
     data = dict(data)
     energies = data.get("pc_energies") or {}
     scaled = {}
@@ -75,12 +90,13 @@ def pc_energies_on_mse_scale(data, param_type, *, sweep):
 
 
 def data_for_widths(data, widths):
-    """Copy of width-sweep ``data`` containing only ``widths``."""
+    """Copy of width-sweep ``data`` containing only ``widths``, in that order."""
     if not widths:
         return data
-    width_set = set(widths)
     data = dict(data)
-    data["widths"] = [w for w in data["widths"] if w in width_set]
+    available = set(data["widths"])
+    data["widths"] = [w for w in widths if w in available]
+    width_set = set(data["widths"])
     for key in (
         "pc_energies",
         "pc_train_losses",
@@ -188,7 +204,12 @@ def load_width_data(args, *, seed, n_hidden, use_skips, param_type, activity_lr,
         "dmft_loss": None,
         "gamma_0": gamma_0,
     }
-    for width in args.widths:
+    widths = list(args.widths)
+    for width in getattr(args, "plot_widths", None) or []:
+        if width not in widths:
+            widths.append(width)
+    data["widths"] = widths
+    for width in widths:
         pc_dir, bp_dir = experiment_dirs(
             args.results_dir,
             input_dim=args.input_dim,
@@ -282,7 +303,11 @@ def load_gamma_data(args, *, seed, n_hidden, use_skips, param_type, activity_lr,
 
 
 def plot_inv_rescaling_vs_width(data, plot_dir, gamma_0, param_type):
-    """Plot ``1/s(θ_0)`` vs width, with infinite-width theory ``γ² N``."""
+    """Plot ``1/s(θ_0)`` vs width.
+
+    Energy-scaled µPC uses the infinite-width line ``γ² N``. ``mupc_old``
+    uses a constant line at 1.
+    """
     rescalings = data.get("pc_rescalings") or {}
     widths = sorted(w for w in data["widths"] if w in rescalings)
     first = []
@@ -312,14 +337,19 @@ def plot_inv_rescaling_vs_width(data, plot_dir, gamma_0, param_type):
     )
     if param_type != "sp":
         theory_widths = np.logspace(np.log10(min(valid)), np.log10(max(valid)), 100)
-        theory = (gamma_0 ** 2) * theory_widths
+        if param_type == "mupc_old":
+            theory = np.ones_like(theory_widths)
+            theory_label = r"Theory: $\Theta_N(1)$"
+        else:
+            theory = (gamma_0 ** 2) * theory_widths
+            theory_label = r"Theory: $\Theta(N)$"
         plt.plot(
             theory_widths,
             theory,
             "--",
             color="black",
             linewidth=toy_plots.LINE_WIDTH,
-            label=r"Theory: $\Theta(N)$",
+            label=theory_label,
             alpha=0.8,
             zorder=2,
         )
@@ -328,7 +358,7 @@ def plot_inv_rescaling_vs_width(data, plot_dir, gamma_0, param_type):
     ax.spines["right"].set_visible(False)
     plt.xlabel("$N$", fontsize=toy_plots.FONT_SIZES["label"], labelpad=toy_plots.LABEL_PAD)
     plt.ylabel(
-        r"$1/s(\boldsymbol{\theta}_0)$",
+        r"$1/s(\boldsymbol{\theta})$",
         fontsize=toy_plots.FONT_SIZES["label"],
         labelpad=toy_plots.LABEL_PAD,
     )
@@ -426,10 +456,20 @@ def _plot_gamma_pc_bp(
     gamma_plots.save_plot(plot_dir, filename, n_hidden, add_suffix=False)
 
 
-def plot_losses_and_energies_logy(data, plot_dir, *, sweep, log_x_scale, n_hidden=None):
+def plot_losses_and_energies_logy(
+    data,
+    plot_dir,
+    *,
+    sweep,
+    log_x_scale,
+    n_hidden=None,
+    pc_legend_label=None,
+):
     """PC energies and BP losses on a log-y axis (same series as the linear overlay).
 
-    Callers should pass PC energies already divided by ``γ² N``.
+    Callers that use energy-scaled µPC should pass PC energies already
+    divided by ``γ² N`` and the ``F*/N`` legend. ``mupc_old`` passes the
+    raw equilibrated energy.
     """
     if sweep == "width":
         plt.figure(figsize=(12.5, 6))
@@ -473,7 +513,9 @@ def plot_losses_and_energies_logy(data, plot_dir, *, sweep, log_x_scale, n_hidde
                 )
             )
             legend_labels.append(
-                r"$\mathcal{F}^*(\boldsymbol{\theta})/N$ (PC)"
+                pc_legend_label
+                if pc_legend_label is not None
+                else r"$\mathcal{F}^*(\boldsymbol{\theta})/N$ (PC)"
             )
         if max_width in data["bp_losses"]:
             legend_handles.append(
@@ -516,7 +558,11 @@ def plot_losses_and_energies_logy(data, plot_dir, *, sweep, log_x_scale, n_hidde
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
         plt.xlabel("$t$", fontsize=toy_plots.FONT_SIZES["label"], labelpad=toy_plots.LABEL_PAD)
-        plt.ylabel(r"$l(\boldsymbol{\theta}_t)$", fontsize=toy_plots.FONT_SIZES["label"], labelpad=toy_plots.LABEL_PAD)
+        plt.ylabel(
+            LOSSES_AND_ENERGIES_YLABEL,
+            fontsize=toy_plots.FONT_SIZES["label"],
+            labelpad=toy_plots.LABEL_PAD,
+        )
         if log_x_scale:
             plt.xscale("log", base=10)
         plt.yscale("log", base=10)
@@ -543,7 +589,7 @@ def plot_losses_and_energies_logy(data, plot_dir, *, sweep, log_x_scale, n_hidde
         plot_dir,
         pc_key="pc_energies",
         filename="losses_and_energies_logy.pdf",
-        ylabel=r"$l(\boldsymbol{\theta}_t)$",
+        ylabel=LOSSES_AND_ENERGIES_YLABEL,
         log_y=True,
         log_x_scale=log_x_scale,
         n_hidden=n_hidden,
@@ -560,6 +606,7 @@ def plot_width_sweep(data, plot_dir, param_type, use_skips, log_x_scale, plot_wi
 
     loss_data = data_for_widths(data, plot_widths)
     overlay = pc_energies_on_mse_scale(loss_data, param_type, sweep="width")
+    energy_legend = pc_energy_legend(param_type)
     toy_plots.plot_losses(
         loss_data, plot_dir, "Blues", None, log_x_scale, param_type, use_skips
     )
@@ -571,20 +618,25 @@ def plot_width_sweep(data, plot_dir, param_type, use_skips, log_x_scale, plot_wi
         log_x_scale,
         param_type,
         use_skips,
-        pc_legend_label=r"$\mathcal{F}^*(\boldsymbol{\theta})/N$ (PC)",
+        pc_legend_label=energy_legend,
+        ylabel=LOSSES_AND_ENERGIES_YLABEL,
     )
     plot_losses_and_energies_logy(
-        overlay, plot_dir, sweep="width", log_x_scale=log_x_scale
+        overlay,
+        plot_dir,
+        sweep="width",
+        log_x_scale=log_x_scale,
+        pc_legend_label=energy_legend,
     )
     similarities = toy_plots.calculate_cosine_similarity(loss_data)
     if similarities:
         toy_plots.plot_cosine_similarity(loss_data, similarities, plot_dir, "Blues", None)
     else:
         print("  Warning: no cosine similarity data for width sweep")
-    if data["pc_rescalings"]:
-        toy_plots.plot_rescalings(data, plot_dir, "Blues", None, output_dim=1)
+    if loss_data["pc_rescalings"]:
+        toy_plots.plot_rescalings(loss_data, plot_dir, "Blues", None, output_dim=1)
         plot_inv_rescaling_vs_width(
-            data, plot_dir, data["gamma_0"], param_type
+            loss_data, plot_dir, loss_data["gamma_0"], param_type
         )
 
 
@@ -612,7 +664,7 @@ def plot_gamma_sweep(data, plot_dir, n_hidden, log_x_scale, use_skips, param_typ
         plot_dir,
         pc_key="pc_energies",
         filename="losses_and_energies.pdf",
-        ylabel=r"$l(\boldsymbol{\theta}_t)$",
+        ylabel=LOSSES_AND_ENERGIES_YLABEL,
         log_y=False,
         log_x_scale=log_x_scale,
         n_hidden=n_hidden,
@@ -627,7 +679,7 @@ def plot_gamma_sweep(data, plot_dir, n_hidden, log_x_scale, use_skips, param_typ
             "cosine",
             plot_dir,
             "Blues",
-            r"$\cos\left(\nabla_{\boldsymbol{\theta}} \mathcal{L}, \nabla_{\boldsymbol{\theta}} \mathcal{F}^*\right)$",
+            "PC-BP alignment",
             "grads_cosine_similarities.pdf",
             n_hidden,
             label_prefix=gamma_legend,
@@ -659,6 +711,7 @@ def make_plot_dir(plot_root, seed, n_hidden, use_skips, param_type, activity_lr)
 
 
 def generate_plots(args):
+    args = resolve_results_dir(args)
     data_results_dir = os.path.join(args.results_dir, f"{args.input_dim}_input_dim")
     if not os.path.isdir(data_results_dir):
         print(f"No results at {data_results_dir}; skipping plots.")
