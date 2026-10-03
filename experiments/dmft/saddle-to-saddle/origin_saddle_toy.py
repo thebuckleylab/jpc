@@ -28,7 +28,7 @@ import numpy as np
 import optax
 
 import jpc
-from experiments.dmft.utils import (
+from experiments.dmft.src.utils import (
     MLP,
     bp_gd_style_lr,
     get_hidden_energy_scaling,
