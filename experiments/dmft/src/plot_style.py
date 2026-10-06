@@ -50,7 +50,7 @@ PANEL_HALF = (panel_width(2), 1.95)
 PANEL_THIRD = (panel_width(3), 1.62)
 
 #: Height of one row in a per-layer panel grid spanning the text width.
-PER_LAYER_ROW_HEIGHT = 1.75
+PER_LAYER_ROW_HEIGHT = 1.65
 
 #: Font size for in-axes annotations (row labels, effective ranks).
 ANNOTATION_SIZE = 6.5
@@ -70,10 +70,13 @@ COLOR_REFERENCE = "black"
 KERNEL_CMAP = "coolwarm"
 
 #: Sequential map for swept scalars (widths, depths, gammas, K).
-SEQUENCE_CMAP = "viridis"
+SEQUENCE_CMAP = "plasma"
 
-# The top of viridis is a pale yellow that disappears against white.
-_SEQUENCE_RANGE = (0.0, 0.88)
+#: Trim the very dark and very bright ends for good contrast on white.
+_SEQUENCE_RANGE = (0.08, 0.82)
+
+#: Plasma is dense on white, so sweep curves are drawn slightly transparent.
+SEQUENCE_ALPHA = {"plasma": 0.7}
 
 
 # --- Notation -------------------------------------------------------------
@@ -225,8 +228,13 @@ def sequence_colors(n, cmap_name=SEQUENCE_CMAP):
     cmap = plt.get_cmap(cmap_name)
     lo, hi = _SEQUENCE_RANGE
     if n <= 1:
-        return [cmap(lo)]
-    return [cmap(lo + (hi - lo) * i / (n - 1)) for i in range(n)]
+        colors = [cmap(lo)]
+    else:
+        colors = [cmap(lo + (hi - lo) * i / (n - 1)) for i in range(n)]
+    alpha = SEQUENCE_ALPHA.get(cmap_name)
+    if alpha is None:
+        return colors
+    return [(*color[:3], alpha) for color in colors]
 
 
 def style_axes(ax, *, grid=True):

@@ -1375,7 +1375,7 @@ def plot_kernel_displacement_per_timepoint(
 
     ``feature_symbol`` is ``"h"`` (linear) or ``"phi"`` (nonlinear).
     ``t_sub`` is the TeX subscript for the current kernel (``t`` or
-    ``L``). High-to-low loss axes should pass ``invert_x=True`` so
+    ``\\mathcal{L}``). High-to-low loss axes should pass ``invert_x=True`` so
     training still reads left to right.
     """
     if displacement_df is None or len(displacement_df) == 0:
@@ -2303,13 +2303,13 @@ def plot_kernel_target_alignment_test_vs_layer(
 
 
 # Colour is the method (PC / BP). Marker and line style are the reference
-# kernel: one shape and a solid line for C^y, one shape and a dotted line
+# kernel: one shape and a solid line for C^y, one shape and a dashed line
 # for C^x, shared by both methods.
 _TARGET_INPUT_STYLES = (
     ("pc", "target", ps.COLOR_PC, "o", "-", r"PC, $C^{y}$"),
     ("bp", "target", ps.COLOR_BP, "o", "-", r"BP, $C^{y}$"),
-    ("pc", "input", ps.COLOR_PC, "^", ":", r"PC, $C^{x}$"),
-    ("bp", "input", ps.COLOR_BP, "^", ":", r"BP, $C^{x}$"),
+    ("pc", "input", ps.COLOR_PC, "^", "--", r"PC, $C^{x}$"),
+    ("bp", "input", ps.COLOR_BP, "^", "--", r"BP, $C^{x}$"),
 )
 
 
@@ -2388,7 +2388,7 @@ def plot_kernel_target_input_alignment_final(
     ax.legend(
         ncol=2,
         loc="upper right",
-        handlelength=2.8,
+        handlelength=2.0,
         handletextpad=0.4,
     )
     ps.style_axes(ax)

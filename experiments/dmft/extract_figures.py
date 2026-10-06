@@ -5,11 +5,17 @@ named as ``.pdf``. The matching ``.png`` is taken from the same stem.
 Missing files are skipped; a found / not-found list is printed and
 written to ``figures/extract_status.txt``.
 
+By default the sources are the short directories written by
+``--results_dir`` (for example ``results_D``). ``--full`` reads the same
+plots after those directories have been moved under ``results/`` (i.e. uses the full path)
+
     python extract_figures.py
+    python extract_figures.py --full
 """
 
 from __future__ import annotations
 
+import argparse
 import shutil
 from pathlib import Path
 
@@ -194,6 +200,22 @@ FIGURES = [
 ]
 
 
+# full layout prefix -> prefix used for the short ``--results_dir`` name.
+# ``results/results_convergence/results_D/...`` becomes ``results_D/...``.
+_FULL_TO_SHORT = (
+    ("results/results_benchmark/", ""),
+    ("results/results_alignment/", "results_alignment/"),
+    ("results/results_convergence/", ""),
+)
+
+
+def short_name(rel: str) -> str:
+    for full_prefix, short_prefix in _FULL_TO_SHORT:
+        if rel.startswith(full_prefix):
+            return short_prefix + rel[len(full_prefix):]
+    return rel
+
+
 def copy_if_exists(src: Path, dst: Path) -> bool:
     if not src.exists():
         return False
@@ -203,6 +225,19 @@ def copy_if_exists(src: Path, dst: Path) -> bool:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--full",
+        action="store_true",
+        help=(
+            "Read plots from the moved layout "
+            "(results/results_convergence, results/results_alignment, "
+            "results/results_benchmark) instead of the short "
+            "--results_dir directories."
+        ),
+    )
+    args = parser.parse_args()
+
     pdf_dir = OUT_DIR / "pdf"
     png_dir = OUT_DIR / "png"
     pdf_dir.mkdir(parents=True, exist_ok=True)
@@ -212,6 +247,8 @@ def main() -> None:
     missing: list[str] = []
 
     for rel, stem in FIGURES:
+        if not args.full:
+            rel = short_name(rel)
         src_pdf = HERE / rel
         src_png = src_pdf.with_suffix(".png")
         for src, dst in (
