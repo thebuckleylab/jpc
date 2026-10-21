@@ -1234,7 +1234,9 @@ def _panel_spec(xs_pc, ys_pc, xs_bp, ys_bp, xlabel, ylabel, yerr_pc=None, yerr_b
     return (xs_pc, ys_pc, xs_bp, ys_bp, xlabel, ylabel, yerr_pc, yerr_bp)
 
 
-def _save_overlay_figure(shape, figsize, panels, save_path, plot_kw):
+def _save_overlay_figure(
+    shape, figsize, panels, save_path, plot_kw, formats=("pdf", "png")
+):
     fig, axes = plt.subplots(*shape, figsize=figsize)
     axes_flat = np.atleast_1d(axes).ravel()
     for ax, panel in zip(axes_flat, panels):
@@ -1251,11 +1253,11 @@ def _save_overlay_figure(shape, figsize, panels, save_path, plot_kw):
             yerr_bp=yerr_bp,
             **plot_kw,
         )
-    ps.save_figure(fig, save_path)
+    ps.save_figure(fig, save_path, formats=formats)
     return save_path
 
 
-def _split_train_test_panels(
+def _combined_metric_panels(
     *,
     xs_train,
     xs_eval,
@@ -1269,7 +1271,7 @@ def _split_train_test_panels(
     test_acc_bp,
     yerr=None,
 ):
-    """Return (combined 2x2, test-loss, test-acc, train 1x2) panel lists."""
+    """2×2 panels: train loss, test loss, train accuracy, test accuracy."""
 
     def err(key):
         if yerr is None:
@@ -1280,7 +1282,7 @@ def _split_train_test_panels(
     e_te_l = err("test_loss")
     e_tr_a = err("train_acc")
     e_te_a = err("test_acc")
-    combined = [
+    return [
         _panel_spec(
             xs_train, train_loss_pc, xs_train, train_loss_bp,
             _EPOCH_XLABEL, ps.LOSS_LABEL, *e_tr_l,
@@ -1298,80 +1300,13 @@ def _split_train_test_panels(
             _EPOCH_XLABEL, _TEST_ACC_YLABEL, *e_te_a,
         ),
     ]
-    test_loss = [
-        _panel_spec(
-            xs_eval, test_loss_pc, xs_eval, test_loss_bp,
-            _EPOCH_XLABEL, _TEST_LOSS_YLABEL, *e_te_l,
-        )
-    ]
-    test_acc = [
-        _panel_spec(
-            xs_eval, test_acc_pc, xs_eval, test_acc_bp,
-            _EPOCH_XLABEL, _TEST_ACC_YLABEL, *e_te_a,
-        )
-    ]
-    train = [
-        _panel_spec(
-            xs_train, train_loss_pc, xs_train, train_loss_bp,
-            _EPOCH_XLABEL, ps.LOSS_LABEL, *e_tr_l,
-        ),
-        _panel_spec(
-            xs_train, train_acc_pc, xs_train, train_acc_bp,
-            _EPOCH_XLABEL, _TRAIN_ACC_YLABEL, *e_tr_a,
-        ),
-    ]
-    return combined, test_loss, test_acc, train
 
 
-def _write_metric_figures(
-    save_dir,
-    stem,
-    combined_name,
-    combined,
-    test_loss,
-    test_acc,
-    train,
-    plot_kw,
-    *,
-    tag="",
-    test_prefix="",
-    train_name="train_metrics",
-):
-    """Write the combined 2x2 plus the split test / train figures.
-
-    ``tag`` is appended to the split filenames (``_mean_sem`` for seed
-    aggregates). ``test_prefix`` distinguishes mini-epoch splits from the
-    main-text epoch panels.
-    """
-    combined_path = _save_overlay_figure(
-        (2, 2),
-        _FIGSIZE_2x2,
-        combined,
-        os.path.join(save_dir, f"{stem}_{combined_name}.png"),
-        plot_kw,
-    )
-    test_loss_path = _save_overlay_figure(
-        (1, 1),
-        ps.PANEL_THIRD,
-        test_loss,
-        os.path.join(save_dir, f"{stem}_{test_prefix}test_loss{tag}.png"),
-        plot_kw,
-    )
-    test_acc_path = _save_overlay_figure(
-        (1, 1),
-        ps.PANEL_THIRD,
-        test_acc,
-        os.path.join(save_dir, f"{stem}_{test_prefix}test_accuracy{tag}.png"),
-        plot_kw,
-    )
-    train_path = _save_overlay_figure(
-        (1, 2),
-        _FIGSIZE_1x2,
-        train,
-        os.path.join(save_dir, f"{stem}_{train_name}{tag}.png"),
-        plot_kw,
-    )
-    return combined_path, test_loss_path, test_acc_path, train_path
+def _metric_plot_formats(n_seeds, *, final):
+    """PDF alongside PNG only for a one-shot single-seed figure."""
+    if final and n_seeds <= 1:
+        return ("pdf", "png")
+    return ("png",)
 
 
 def plot_metrics(
@@ -1381,58 +1316,56 @@ def plot_metrics(
     log_steps=False,
     skip_pc=False,
     skip_bp=False,
+    formats=("png",),
 ):
+    """Write the three combined metric figures.
+
+    ``formats`` defaults to PNG. Pass ``("pdf", "png")`` for a one-shot
+    figure (single-seed final plot, or ``--plot_from_npy`` with one seed).
+    """
     del title_suffix
     os.makedirs(save_dir, exist_ok=True)
     plot_kw = dict(skip_pc=skip_pc, skip_bp=skip_bp)
     stem = _metric_plot_stem(skip_pc, skip_bp)
 
-    combined, test_loss, test_acc, train = _split_train_test_panels(
-        xs_train=history["epoch_train"],
-        xs_eval=history["epoch_eval"],
-        train_loss_pc=history["pc_train_loss_epoch"],
-        train_loss_bp=history["bp_train_loss_epoch"],
-        test_loss_pc=history["pc_test_loss"],
-        test_loss_bp=history["bp_test_loss"],
-        train_acc_pc=history["pc_train_acc_epoch"],
-        train_acc_bp=history["bp_train_acc_epoch"],
-        test_acc_pc=history["pc_test_acc"],
-        test_acc_bp=history["bp_test_acc"],
-    )
-    epoch_path, _, _, _ = _write_metric_figures(
-        save_dir,
-        stem,
-        "epoch_metrics",
-        combined,
-        test_loss,
-        test_acc,
-        train,
+    epoch_path = _save_overlay_figure(
+        (2, 2),
+        _FIGSIZE_2x2,
+        _combined_metric_panels(
+            xs_train=history["epoch_train"],
+            xs_eval=history["epoch_eval"],
+            train_loss_pc=history["pc_train_loss_epoch"],
+            train_loss_bp=history["bp_train_loss_epoch"],
+            test_loss_pc=history["pc_test_loss"],
+            test_loss_bp=history["bp_test_loss"],
+            train_acc_pc=history["pc_train_acc_epoch"],
+            train_acc_bp=history["bp_train_acc_epoch"],
+            test_acc_pc=history["pc_test_acc"],
+            test_acc_bp=history["bp_test_acc"],
+        ),
+        os.path.join(save_dir, f"{stem}_epoch_metrics.png"),
         plot_kw,
+        formats=formats,
     )
 
-    combined, test_loss, test_acc, train = _split_train_test_panels(
-        xs_train=history["mini_epoch"],
-        xs_eval=history["mini_epoch"],
-        train_loss_pc=history["pc_train_loss_mini"],
-        train_loss_bp=history["bp_train_loss_mini"],
-        test_loss_pc=history["pc_test_loss_mini"],
-        test_loss_bp=history["bp_test_loss_mini"],
-        train_acc_pc=history["pc_train_acc_mini"],
-        train_acc_bp=history["bp_train_acc_mini"],
-        test_acc_pc=history["pc_test_acc_mini"],
-        test_acc_bp=history["bp_test_acc_mini"],
-    )
-    mini_path, _, _, _ = _write_metric_figures(
-        save_dir,
-        stem,
-        "mini_epoch_metrics",
-        combined,
-        test_loss,
-        test_acc,
-        train,
+    mini_path = _save_overlay_figure(
+        (2, 2),
+        _FIGSIZE_2x2,
+        _combined_metric_panels(
+            xs_train=history["mini_epoch"],
+            xs_eval=history["mini_epoch"],
+            train_loss_pc=history["pc_train_loss_mini"],
+            train_loss_bp=history["bp_train_loss_mini"],
+            test_loss_pc=history["pc_test_loss_mini"],
+            test_loss_bp=history["bp_test_loss_mini"],
+            train_acc_pc=history["pc_train_acc_mini"],
+            train_acc_bp=history["bp_train_acc_mini"],
+            test_acc_pc=history["pc_test_acc_mini"],
+            test_acc_bp=history["bp_test_acc_mini"],
+        ),
+        os.path.join(save_dir, f"{stem}_mini_epoch_metrics.png"),
         plot_kw,
-        test_prefix="mini_epoch_",
-        train_name="mini_epoch_train_metrics",
+        formats=formats,
     )
 
     step_key = "pc_train_loss_step" if skip_bp else "bp_train_loss_step"
@@ -1460,6 +1393,7 @@ def plot_metrics(
         ],
         os.path.join(save_dir, f"{stem}_step_metrics.png"),
         plot_kw,
+        formats=formats,
     )
     if log_steps:
         print(f"Saved plots to {epoch_path}, {mini_path}, and {step_path}")
@@ -1485,8 +1419,13 @@ def plot_metrics_mean_sem(
     log_steps=False,
     skip_pc=False,
     skip_bp=False,
+    formats=("pdf", "png"),
 ):
-    """Plot mean ± SEM across seeds (shaded bands)."""
+    """Plot mean ± SEM across seeds (shaded bands).
+
+    Writes PDF and PNG. These figures are produced once, after every seed
+    has finished.
+    """
     del title_suffix
     os.makedirs(save_dir, exist_ok=True)
     plot_kw = dict(skip_pc=skip_pc, skip_bp=skip_bp)
@@ -1513,38 +1452,34 @@ def plot_metrics_mean_sem(
     _, te_a_pc, te_a_bp, te_a_pc_e, te_a_bp_e = series(
         "pc_test_acc", "bp_test_acc", epoch_eval
     )
-    combined, test_loss, test_acc, train = _split_train_test_panels(
-        xs_train=xs_tr,
-        xs_eval=xs_te,
-        train_loss_pc=tr_l_pc,
-        train_loss_bp=tr_l_bp,
-        test_loss_pc=te_l_pc,
-        test_loss_bp=te_l_bp,
-        train_acc_pc=tr_a_pc,
-        train_acc_bp=tr_a_bp,
-        test_acc_pc=te_a_pc,
-        test_acc_bp=te_a_bp,
-        yerr=dict(
-            train_loss_pc=tr_l_pc_e,
-            train_loss_bp=tr_l_bp_e,
-            test_loss_pc=te_l_pc_e,
-            test_loss_bp=te_l_bp_e,
-            train_acc_pc=tr_a_pc_e,
-            train_acc_bp=tr_a_bp_e,
-            test_acc_pc=te_a_pc_e,
-            test_acc_bp=te_a_bp_e,
+    epoch_path = _save_overlay_figure(
+        (2, 2),
+        _FIGSIZE_2x2,
+        _combined_metric_panels(
+            xs_train=xs_tr,
+            xs_eval=xs_te,
+            train_loss_pc=tr_l_pc,
+            train_loss_bp=tr_l_bp,
+            test_loss_pc=te_l_pc,
+            test_loss_bp=te_l_bp,
+            train_acc_pc=tr_a_pc,
+            train_acc_bp=tr_a_bp,
+            test_acc_pc=te_a_pc,
+            test_acc_bp=te_a_bp,
+            yerr=dict(
+                train_loss_pc=tr_l_pc_e,
+                train_loss_bp=tr_l_bp_e,
+                test_loss_pc=te_l_pc_e,
+                test_loss_bp=te_l_bp_e,
+                train_acc_pc=tr_a_pc_e,
+                train_acc_bp=tr_a_bp_e,
+                test_acc_pc=te_a_pc_e,
+                test_acc_bp=te_a_bp_e,
+            ),
         ),
-    )
-    epoch_path, _, _, _ = _write_metric_figures(
-        save_dir,
-        stem,
-        "epoch_metrics_mean_sem",
-        combined,
-        test_loss,
-        test_acc,
-        train,
+        os.path.join(save_dir, f"{stem}_epoch_metrics_mean_sem.png"),
         plot_kw,
-        tag="_mean_sem",
+        formats=formats,
     )
 
     mini_epoch = np.asarray(histories[0]["mini_epoch"])
@@ -1560,40 +1495,34 @@ def plot_metrics_mean_sem(
     _, m_te_a_pc, m_te_a_bp, m_te_a_pc_e, m_te_a_bp_e = series(
         "pc_test_acc_mini", "bp_test_acc_mini", mini_epoch
     )
-    combined, test_loss, test_acc, train = _split_train_test_panels(
-        xs_train=xs_m,
-        xs_eval=xs_m,
-        train_loss_pc=m_tr_l_pc,
-        train_loss_bp=m_tr_l_bp,
-        test_loss_pc=m_te_l_pc,
-        test_loss_bp=m_te_l_bp,
-        train_acc_pc=m_tr_a_pc,
-        train_acc_bp=m_tr_a_bp,
-        test_acc_pc=m_te_a_pc,
-        test_acc_bp=m_te_a_bp,
-        yerr=dict(
-            train_loss_pc=m_tr_l_pc_e,
-            train_loss_bp=m_tr_l_bp_e,
-            test_loss_pc=m_te_l_pc_e,
-            test_loss_bp=m_te_l_bp_e,
-            train_acc_pc=m_tr_a_pc_e,
-            train_acc_bp=m_tr_a_bp_e,
-            test_acc_pc=m_te_a_pc_e,
-            test_acc_bp=m_te_a_bp_e,
+    mini_path = _save_overlay_figure(
+        (2, 2),
+        _FIGSIZE_2x2,
+        _combined_metric_panels(
+            xs_train=xs_m,
+            xs_eval=xs_m,
+            train_loss_pc=m_tr_l_pc,
+            train_loss_bp=m_tr_l_bp,
+            test_loss_pc=m_te_l_pc,
+            test_loss_bp=m_te_l_bp,
+            train_acc_pc=m_tr_a_pc,
+            train_acc_bp=m_tr_a_bp,
+            test_acc_pc=m_te_a_pc,
+            test_acc_bp=m_te_a_bp,
+            yerr=dict(
+                train_loss_pc=m_tr_l_pc_e,
+                train_loss_bp=m_tr_l_bp_e,
+                test_loss_pc=m_te_l_pc_e,
+                test_loss_bp=m_te_l_bp_e,
+                train_acc_pc=m_tr_a_pc_e,
+                train_acc_bp=m_tr_a_bp_e,
+                test_acc_pc=m_te_a_pc_e,
+                test_acc_bp=m_te_a_bp_e,
+            ),
         ),
-    )
-    mini_path, _, _, _ = _write_metric_figures(
-        save_dir,
-        stem,
-        "mini_epoch_metrics_mean_sem",
-        combined,
-        test_loss,
-        test_acc,
-        train,
+        os.path.join(save_dir, f"{stem}_mini_epoch_metrics_mean_sem.png"),
         plot_kw,
-        tag="_mean_sem",
-        test_prefix="mini_epoch_",
-        train_name="mini_epoch_train_metrics",
+        formats=formats,
     )
 
     mean_pc, sem_pc, mean_bp, sem_bp, n_t = _mean_sem_method_curves(
@@ -1635,14 +1564,8 @@ def plot_metrics_mean_sem(
         ],
         os.path.join(save_dir, f"{stem}_step_metrics_mean_sem.png"),
         plot_kw,
+        formats=formats,
     )
-    if log_steps:
-        print(
-            f"Saved mean±SEM plots to {epoch_path}, {mini_path}, and {step_path}"
-        )
-    else:
-        print(f"Saved mean±SEM plots to {save_dir}")
-    return epoch_path, mini_path, step_path
     if log_steps:
         print(
             f"Saved mean±SEM plots to {epoch_path}, {mini_path}, and {step_path}"
@@ -1857,6 +1780,7 @@ def run_benchmark(args, save_dir=None):
             log_steps=args.log_steps,
             skip_pc=args.skip_pc,
             skip_bp=args.skip_bp,
+            formats=_metric_plot_formats(args.n_seeds, final=True),
         )
         print(f"Done. Results in {save_dir}")
         return save_dir, history
@@ -2290,6 +2214,9 @@ def run_benchmark(args, save_dir=None):
             log_steps=args.log_steps,
             skip_pc=args.skip_pc,
             skip_bp=args.skip_bp,
+            formats=_metric_plot_formats(
+                args.n_seeds, final=(epoch == args.n_epochs)
+            ),
         )
 
     if not args.keep_npy:
@@ -2756,6 +2683,61 @@ def _mean_sem(values):
     return mean, float(finite.std(ddof=1) / np.sqrt(finite.size))
 
 
+_FINAL_METRIC_KEYS = (
+    ("train_loss", "train_loss_epoch"),
+    ("test_loss", "test_loss"),
+    ("train_acc", "train_acc_epoch"),
+    ("test_acc", "test_acc"),
+)
+
+
+def final_metrics_mean_sem(histories, *, skip_pc, skip_bp):
+    """Last-epoch mean ± SEM of train/test loss and accuracy.
+
+    PC and BP are reported separately. A skipped method is omitted.
+    With one seed, ``sem`` is 0.
+    """
+    summary = {"n_seeds": len(histories)}
+    methods = []
+    if not skip_pc:
+        methods.append("pc")
+    if not skip_bp:
+        methods.append("bp")
+    for method in methods:
+        block = {}
+        for metric, suffix in _FINAL_METRIC_KEYS:
+            values = [
+                _history_last(history, f"{method}_{suffix}")
+                for history in histories
+            ]
+            mean, sem = _mean_sem(values)
+            block[metric] = {"mean": mean, "sem": sem}
+        summary[method] = block
+    return summary
+
+
+def _print_final_mean_sem(summary):
+    print(f"\nFinal mean ± SEM over {summary['n_seeds']} seed(s)")
+    for method in ("pc", "bp"):
+        block = summary.get(method)
+        if block is None:
+            continue
+        print(
+            f"  {method.upper()}  "
+            f"train loss {block['train_loss']['mean']:.4f} "
+            f"± {block['train_loss']['sem']:.4f}   "
+            f"test loss {block['test_loss']['mean']:.4f} "
+            f"± {block['test_loss']['sem']:.4f}"
+        )
+        print(
+            f"       "
+            f"train acc  {block['train_acc']['mean']:.2f}% "
+            f"± {block['train_acc']['sem']:.2f}   "
+            f"test acc  {block['test_acc']['mean']:.2f}% "
+            f"± {block['test_acc']['sem']:.2f}"
+        )
+
+
 def aggregate_seed_records(records):
     summary = {}
     for key in (
@@ -3100,6 +3082,28 @@ def run_hp_sweep(args):
     return summary
 
 
+def run_scalar_config(args):
+    """Train every seed of one hyperparameter config.
+
+    Returns the last-epoch mean ± SEM of train and test loss and accuracy
+    for each method that was trained. Also printed.
+    """
+    histories = []
+    base_seed = args.seed
+    for seed in range(base_seed, base_seed + args.n_seeds):
+        run_args = make_run_args(args, seed=seed)
+        _, history = run_benchmark(run_args)
+        histories.append(history)
+    plot_seed_aggregate(args, histories)
+    summary = final_metrics_mean_sem(
+        histories,
+        skip_pc=args.skip_pc,
+        skip_bp=getattr(args, "skip_bp", False),
+    )
+    _print_final_mean_sem(summary)
+    return summary
+
+
 if __name__ == "__main__":
     args = parse_args()
     args.dataset = normalize_dataset_id(args.dataset)
@@ -3150,13 +3154,7 @@ if __name__ == "__main__":
         run_hp_sweep(args)
     else:
         _scalarize_sweep_fields(args)
-        histories = []
-        base_seed = args.seed
-        for seed in range(base_seed, base_seed + args.n_seeds):
-            run_args = make_run_args(args, seed=seed)
-            _, history = run_benchmark(run_args)
-            histories.append(history)
-        plot_seed_aggregate(args, histories)
+        run_scalar_config(args)
 
 
 

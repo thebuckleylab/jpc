@@ -34,7 +34,7 @@ cd ./jpc/experiments/dmft
 
 # 0 = train into the short --results_dir (e.g., results_D)
 # 1 = replot from the saved paper runs (e.g., results/results_convergence/results_D)
-REPLOT=0
+REPLOT=1
 
 python() {
   if [[ "$REPLOT" != 1 ]]; then
@@ -107,10 +107,10 @@ python() {
 ### Iterative inference (tiny-CIFAR10) 
 
 # # Include both logarithmic and linear loss-matched plots (Optional if running the command below)
-# python analyse_alignment.py --n_samples 40 --n_hidden 3 --width 10000 --gamma_0 1.0 --param_lr 0.05 --param_lr_pc 0.5 --activity_lr 0.1 --pc_infer_mode infer --n_infer_iters 500 --n_train_iters 1001 --act_fn tanh --plot_loss_matched both --dataset tiny-CIFAR10 --results_dir results_align --keep_npy
+# python analyse_alignment.py --n_samples 40 --n_hidden 3 --width 10000 --gamma_0 1.0 --param_lr 0.05 --param_lr_pc 0.5 --activity_lr 0.1 --pc_infer_mode infer --n_infer_iters 500 --n_train_iters 1001 --act_fn tanh --plot_loss_matched both --dataset tiny-CIFAR10 --results_dir results_alignment --keep_npy
 
 # # Same as above, but also assess kernel concentration
-# python analyse_alignment.py --n_samples 40 --n_hidden 3 --width 10000 --gamma_0 1.0 --param_lr 0.05 --param_lr_pc 0.5 --activity_lr 0.1 --pc_infer_mode infer --n_infer_iters 500 --n_train_iters 1001 --act_fn tanh --plot_loss_matched both --dataset tiny-CIFAR10 --results_dir results_align --n_seeds 3 --keep_npy
+# python analyse_alignment.py --n_samples 40 --n_hidden 3 --width 10000 --gamma_0 1.0 --param_lr 0.05 --param_lr_pc 0.5 --activity_lr 0.1 --pc_infer_mode infer --n_infer_iters 500 --n_train_iters 1001 --act_fn tanh --plot_loss_matched both --dataset tiny-CIFAR10 --results_dir results_alignment --n_seeds 3 --keep_npy
 
 
 ############ BENCHMARKING ##############

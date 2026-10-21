@@ -507,7 +507,7 @@ def _plot_alignment_suite(
 ):
     """Line plots for displacement, alignment, rank, and PC–BP pairing."""
     suffix = "time" if vs == "time" else "loss"
-    t_sub = "t" if vs == "time" else "L"
+    t_sub = "t" if vs == "time" else r"\mathcal{L}"
     arg = "t" if vs == "time" else "L"
     axis = dict(x_col=x_col, xlabel=xlabel, xscale=xscale, invert_x=invert_x)
     plot_kernel_displacement_per_timepoint(
@@ -1956,13 +1956,13 @@ if __name__ == "__main__":
 ### Note: Not yet optimised
 
 # Iterative inference (toy dataset)
-# python analyse_alignment.py --n_samples 20 --n_hidden 5 --width 10000 --gamma_0 1.0 --param_lr 0.1 --param_lr_pc 0.2 --pc_infer_mode infer --activity_lr 0.01 --n_infer_iters 5 --n_train_iters 21 --results_dir results_align_linear_I
+# python analyse_alignment.py --n_samples 20 --n_hidden 5 --width 10000 --gamma_0 1.0 --param_lr 0.1 --param_lr_pc 0.2 --pc_infer_mode infer --activity_lr 0.01 --n_infer_iters 5 --n_train_iters 21 --results_dir results_alignment_linear_I
 
 # Closed-form inference (toy dataset)
-# python analyse_alignment.py --n_samples 20 --n_hidden 5 --width 10000 --gamma_0 1.0 --param_lr 0.1 --param_lr_pc 0.2 --pc_infer_mode closed_form --n_train_iters 21 --results_dir results_align_linear_C
+# python analyse_alignment.py --n_samples 20 --n_hidden 5 --width 10000 --gamma_0 1.0 --param_lr 0.1 --param_lr_pc 0.2 --pc_infer_mode closed_form --n_train_iters 21 --results_dir results_alignment_linear_C
 
 # Closed-form inference (tiny-CIFAR10)
-# python analyse_alignment.py --n_samples 40 --n_hidden 3 --width 10000 --gamma_0 1.0 --param_lr 0.05 --param_lr_pc 0.5 --pc_infer_mode closed_form --n_train_iters 501 --dataset tiny-CIFAR10 --results_dir results_align_linear_C_tiny
+# python analyse_alignment.py --n_samples 40 --n_hidden 3 --width 10000 --gamma_0 1.0 --param_lr 0.05 --param_lr_pc 0.5 --pc_infer_mode closed_form --n_train_iters 501 --dataset tiny-CIFAR10 --results_dir results_alignment_linear_C_tiny
 
 
 ############ NONLINEAR ##################
@@ -1971,7 +1971,7 @@ if __name__ == "__main__":
 ### Iterative inference (tiny-CIFAR10) 
 
 # # Include both logarithmic and linear loss-matched plots
-# python analyse_alignment.py --n_samples 40 --n_hidden 3 --width 10000 --gamma_0 1.0 --param_lr 0.05 --param_lr_pc 0.5 --activity_lr 0.1 --pc_infer_mode infer --n_infer_iters 500 --n_train_iters 1001 --act_fn tanh --plot_loss_matched both --dataset tiny-CIFAR10 --results_dir results_align 
+# python analyse_alignment.py --n_samples 40 --n_hidden 3 --width 10000 --gamma_0 1.0 --param_lr 0.05 --param_lr_pc 0.5 --activity_lr 0.1 --pc_infer_mode infer --n_infer_iters 500 --n_train_iters 1001 --act_fn tanh --plot_loss_matched both --dataset tiny-CIFAR10 --results_dir results_alignment 
 
 # # Same as above, but also assess kernel concentration
-# python analyse_alignment.py --n_samples 40 --n_hidden 3 --width 10000 --gamma_0 1.0 --param_lr 0.05 --param_lr_pc 0.5 --activity_lr 0.1 --pc_infer_mode infer --n_infer_iters 500 --n_train_iters 1001 --act_fn tanh --plot_loss_matched both --dataset tiny-CIFAR10 --results_dir results_align --n_seeds 3
+# python analyse_alignment.py --n_samples 40 --n_hidden 3 --width 10000 --gamma_0 1.0 --param_lr 0.05 --param_lr_pc 0.5 --activity_lr 0.1 --pc_infer_mode infer --n_infer_iters 500 --n_train_iters 1001 --act_fn tanh --plot_loss_matched both --dataset tiny-CIFAR10 --results_dir results_alignment --n_seeds 3
