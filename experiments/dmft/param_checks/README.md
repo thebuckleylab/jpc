@@ -24,3 +24,9 @@ python plot_learning_regimes.py
 
 To reproduce the plots of Figure A.3, run the same commands above with the 
 `--param_types mupc_old` flag.
+
+Finally, to reproduce Figure A.4:
+```
+python origin_saddle_mnist.py \
+python plot_saddle.py
+```
