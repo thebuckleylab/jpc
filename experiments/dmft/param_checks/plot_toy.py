@@ -1,9 +1,3 @@
-"""Plot toy µPC vs BP results saved by ``train_toy.py``.
-
-    python plot_toy.py
-    python plot_toy.py --plot_widths 256 512 1024
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -18,27 +12,56 @@ if str(_REPO_ROOT) not in sys.path:
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.lines import Line2D
 
-from experiments.limits_paper import plot_gamma0_sweep as gamma_plots
-from experiments.limits_paper import plot_toy_results as toy_plots
-from experiments.limits_paper.utils import setup_bp_experiment, setup_pc_experiment
-from train_toy import (
-    add_common_args,
-    bp_dmft_loss_path,
-    divides_plotted_energy_by_n,
-    mup_loss_scale,
-    pc_energy_legend,
-    resolve_results_dir,
+from experiments.dmft.src import plot_style as ps
+from plot_toy import (
+    LOSSES_AND_ENERGIES_YLABEL,
+    data_for_widths,
+    load_gamma_data,
+    load_width_data,
+    make_plot_dir,
+    pc_energies_on_mse_scale,
 )
+from train_toy import add_common_args, pc_energy_legend, resolve_results_dir
 
-LOSSES_AND_ENERGIES_YLABEL = "Energy / Loss"
+# Figure 1 places these curves three across the text width.
+PANEL = ps.PANEL_THIRD
+
+# Colours from the param_checks plots: PC widths on Blues, BP in crimson,
+# width legend entries on Greys. γ sweeps use Blues for PC and Reds for BP.
+PC_LEGEND_COLOR = "#4A90E2"
+BP_COLOR = "#DC143C"
+DATA_COLOR = "#1E88E5"
+
+BP_LOSS_LABEL = r"$\mathcal{L}(\boldsymbol{\theta})$ (BP)"
+ALIGNMENT_YLABEL = "PC-BP alignment"
+RESCALING_YLABEL = r"$s(\boldsymbol{\theta}_t)$"
+
+
+def use_paper_style():
+    """Install the DMFT paper style.
+
+    Importing ``plot_toy`` loads the limits-paper plot modules, which turn
+    on ``text.usetex``. The paper style uses mathtext, so usetex is turned
+    back off after the rcParams update.
+    """
+    ps.apply_paper_style()
+    mpl.rcParams["text.usetex"] = False
+
+
+use_paper_style()
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Plot toy µPC vs BP results from train_toy.py."
+        description=(
+            "Plot toy µPC vs BP results from train_toy.py "
+            "in the DMFT paper style."
+        )
     )
     add_common_args(parser)
     parser.add_argument(
@@ -55,251 +78,265 @@ def parse_args():
     return parser.parse_args()
 
 
-def load_bp_dmft_loss(results_dir, gamma_0, n_hidden, seed):
-    path = bp_dmft_loss_path(results_dir, gamma_0, n_hidden, seed)
-    return toy_plots._load_npy_safe(path)
+def _curve(values):
+    values = np.asarray(values, dtype=float).ravel()
+    return np.arange(1, values.size + 1), values
 
 
-def pc_energies_on_mse_scale(data, param_type, *, sweep):
-    """Copy of ``data`` with energy-scaled µPC ``F*`` divided by ``γ² N``.
+THEORY_LABEL = r"Theory ($N \rightarrow \infty$)"
 
-    ``mupc_old`` (limits-paper µPC, no energy precisions) and SP are left
-    unchanged: their equilibrated energy is not divided by ``N``.
+
+def _cmap_val(idx, n):
+    """Sample a sequential map the way the param_checks plots do."""
+    if n <= 1:
+        return 0.15
+    return 0.15 + (idx / (n - 1)) * 0.85
+
+
+def _sequential_colors(n, cmap_name):
+    cmap = plt.get_cmap(cmap_name)
+    return [cmap(_cmap_val(idx, n)) for idx in range(n)]
+
+
+def _expand_for_outside_legend(fig, ax, *, loc, bbox_to_anchor):
+    """Grow the figure so an outside legend leaves the axes at panel size.
+
+    Constrained layout fits the legend by shrinking the axes. The axes
+    size is recorded without the legend, then the figure is enlarged
+    until that size comes back.
     """
-    if not divides_plotted_energy_by_n(param_type):
-        return data
-    data = dict(data)
-    energies = data.get("pc_energies") or {}
-    scaled = {}
-    if sweep == "width":
-        gamma_0 = data["gamma_0"]
-        for width, arr in energies.items():
-            scaled[width] = (
-                np.asarray(arr, dtype=float)
-                / mup_loss_scale(param_type, gamma_0, width)
-            )
-    else:
-        width = data["width"]
-        for gamma_0, arr in energies.items():
-            scaled[gamma_0] = (
-                np.asarray(arr, dtype=float)
-                / mup_loss_scale(param_type, gamma_0, width)
-            )
-    data["pc_energies"] = scaled
-    return data
+    legend = ax.get_legend()
+    if legend is None:
+        return
+    handles = legend.legend_handles
+    labels = [text.get_text() for text in legend.get_texts()]
+    legend.remove()
+    fig.canvas.draw()
+    bare = ax.get_window_extent(fig.canvas.get_renderer())
+    target_w = bare.width / fig.dpi
+    target_h = bare.height / fig.dpi
+    ax.legend(
+        handles,
+        labels,
+        loc=loc,
+        bbox_to_anchor=bbox_to_anchor,
+        borderaxespad=0.0,
+    )
+    for _ in range(4):
+        fig.canvas.draw()
+        box = ax.get_window_extent(fig.canvas.get_renderer())
+        extra_w = target_w - box.width / fig.dpi
+        extra_h = target_h - box.height / fig.dpi
+        if extra_w <= 0.02 and extra_h <= 0.02:
+            break
+        width, height = fig.get_size_inches()
+        fig.set_size_inches(
+            width + max(extra_w, 0.0),
+            height + max(extra_h, 0.0),
+        )
 
 
-def data_for_widths(data, widths):
-    """Copy of width-sweep ``data`` containing only ``widths``, in that order."""
-    if not widths:
-        return data
-    data = dict(data)
-    available = set(data["widths"])
-    data["widths"] = [w for w in widths if w in available]
-    width_set = set(data["widths"])
-    for key in (
-        "pc_energies",
-        "pc_train_losses",
-        "pc_rescalings",
-        "bp_losses",
-        "pc_grads",
-        "bp_grads",
-        "grad_cosine_similarities",
-    ):
-        mapping = data.get(key)
-        if isinstance(mapping, dict):
-            data[key] = {w: v for w, v in mapping.items() if w in width_set}
-    return data
-
-
-def experiment_dirs(
-    results_dir,
+def _save(
+    fig,
+    plot_dir,
+    filename,
     *,
-    input_dim,
-    n_samples,
-    n_hidden,
-    use_skips,
-    act_fn,
-    param_type,
-    param_optim,
-    param_lr,
-    gamma_0,
-    n_train_iters,
-    infer_mode,
-    n_infer_iters,
-    activity_lr,
-    width,
-    loss_id,
-    seed,
+    outside_legend=False,
+    legend_loc="upper left",
+    legend_anchor=(1.02, 1.0),
 ):
-    pc_dir = setup_pc_experiment(
-        results_dir=results_dir,
-        input_dim=input_dim,
-        n_samples=n_samples,
-        n_hidden=n_hidden,
-        use_skips=use_skips,
-        act_fn=act_fn,
-        param_type=param_type,
-        param_lr=param_lr,
-        gamma_0=gamma_0,
-        param_optim_id=param_optim,
-        n_train_iters=n_train_iters,
-        infer_mode=infer_mode,
-        n_infer_iters=n_infer_iters,
-        activity_lr=activity_lr,
-        width=width,
-        loss_id=loss_id,
-        seed=seed,
+    ax = fig.gca()
+    ps.style_axes(ax)
+    if outside_legend:
+        _expand_for_outside_legend(
+            fig, ax, loc=legend_loc, bbox_to_anchor=legend_anchor
+        )
+    path = ps.save_figure(
+        fig, os.path.join(plot_dir, filename), formats=("pdf",)
     )
-    bp_dir = setup_bp_experiment(
-        results_dir=results_dir,
-        input_dim=input_dim,
-        n_samples=n_samples,
-        n_hidden=n_hidden,
-        use_skips=use_skips,
-        act_fn=act_fn,
-        param_type=param_type,
-        optim_id=param_optim,
-        param_lr=param_lr,
-        gamma_0=gamma_0,
-        n_train_iters=n_train_iters,
-        width=width,
-        loss_id=loss_id,
-        seed=seed,
+    print(f"    {path}")
+    return path
+
+
+def _line(label, color, linestyle="-"):
+    return Line2D([], [], color=color, linestyle=linestyle, label=label)
+
+
+def plot_keyed_series(
+    keys,
+    series,
+    plot_dir,
+    filename,
+    ylabel,
+    *,
+    key_label,
+    log_y=False,
+    log_x=False,
+):
+    """One coloured curve per swept key (width or γ)."""
+    present = [key for key in keys if key in series]
+    if not present:
+        return
+    fig = plt.figure(figsize=PANEL)
+    ax = fig.gca()
+    colors = _sequential_colors(len(present), "Blues")
+    for key, color in zip(present, colors):
+        iterations, values = _curve(series[key])
+        ax.plot(iterations, values, color=color, label=key_label(key))
+    ax.set_xlabel(ps.TEX["time"])
+    ax.set_ylabel(ylabel)
+    if log_x:
+        ax.set_xscale("log")
+    if log_y:
+        ax.set_yscale("log")
+    ax.legend()
+    _save(fig, plot_dir, filename)
+
+
+def plot_width_pc_bp(
+    data,
+    plot_dir,
+    filename,
+    ylabel,
+    *,
+    pc_key,
+    log_y,
+    log_x,
+    pc_label,
+    bp_label,
+    include_dmft,
+    legend_loc="upper left",
+    legend_anchor=(1.02, 1.0),
+):
+    """PC curves coloured by width, BP at the largest width, optional DMFT."""
+    pc_series = data.get(pc_key) or {}
+    widths = sorted(width for width in data["widths"] if width in pc_series)
+    max_width = max(data["widths"]) if data["widths"] else None
+    bp_series = data.get("bp_losses") or {}
+    has_bp = max_width in bp_series
+    has_dmft = include_dmft and data.get("dmft_loss") is not None
+    if not widths and not has_bp and not has_dmft:
+        return
+
+    fig = plt.figure(figsize=PANEL)
+    ax = fig.gca()
+
+    blues = _sequential_colors(len(widths), "Blues")
+    for width, color in zip(widths, blues):
+        iterations, values = _curve(pc_series[width])
+        ax.plot(iterations, values, color=color)
+    if has_bp:
+        iterations, values = _curve(bp_series[max_width])
+        ax.plot(iterations, values, color=BP_COLOR)
+    if has_dmft:
+        iterations, values = _curve(data["dmft_loss"])
+        ax.plot(
+            iterations,
+            values,
+            color="black",
+            linestyle="--",
+        )
+
+    handles = []
+    if widths:
+        handles.append(_line(pc_label, PC_LEGEND_COLOR))
+    if has_bp:
+        handles.append(_line(bp_label, BP_COLOR))
+    legend_widths = sorted(set(widths + ([max_width] if has_bp else [])))
+    greys = plt.get_cmap("Greys")
+    n_legend = len(legend_widths)
+    for idx, width in enumerate(legend_widths):
+        gray_val = 0.3 + (idx / max(n_legend - 1, 1)) * 0.5 if n_legend > 1 else 0.5
+        handles.append(_line(ps.width_label(width), greys(gray_val)))
+    if has_dmft:
+        handles.append(_line(THEORY_LABEL, "black", linestyle="--"))
+    ax.legend(
+        handles=handles,
+        loc=legend_loc,
+        bbox_to_anchor=legend_anchor,
+        borderaxespad=0.0,
     )
-    return pc_dir, bp_dir
+    ax.set_xlabel(ps.TEX["time"])
+    ax.set_ylabel(ylabel)
+    if log_x:
+        ax.set_xscale("log")
+    if log_y:
+        ax.set_yscale("log")
+    _save(
+        fig,
+        plot_dir,
+        filename,
+        outside_legend=True,
+        legend_loc=legend_loc,
+        legend_anchor=legend_anchor,
+    )
 
 
-def load_run_metrics(pc_dir, bp_dir):
-    """Load PC/BP arrays for one (width, gamma) run from known save dirs."""
-    metrics = {}
-    mapping = {
-        "pc_energies": (pc_dir, "energies.npy", True),
-        "pc_train_losses": (pc_dir, "train_losses.npy", True),
-        "pc_rescalings": (pc_dir, "loss_rescalings.npy", True),
-        "grad_cosine_similarities": (
-            pc_dir, "grad_cosine_similarities.npy", True
-        ),
-        "bp_losses": (bp_dir, "losses.npy", True),
-    }
-    for key, (directory, filename, flatten) in mapping.items():
-        arr = toy_plots._load_npy_safe(
-            os.path.join(directory, filename), flatten=flatten
+def plot_gamma_pc_bp(
+    data,
+    plot_dir,
+    filename,
+    ylabel,
+    *,
+    pc_key,
+    log_y,
+    log_x,
+    pc_label,
+    bp_label,
+):
+    """γ sweep: colour is γ, solid is PC, dashed is BP."""
+    pc_series = data.get(pc_key) or {}
+    bp_series = data.get("bp_losses") or {}
+    pc_gammas = sorted(gamma for gamma in data["gamma_0s"] if gamma in pc_series)
+    bp_gammas = sorted(gamma for gamma in data["gamma_0s"] if gamma in bp_series)
+    all_gammas = sorted(set(pc_gammas + bp_gammas))
+    if not all_gammas:
+        return
+
+    fig = plt.figure(figsize=PANEL)
+    ax = fig.gca()
+    n_gammas = len(all_gammas)
+    blues = plt.get_cmap("Blues")
+    reds = plt.get_cmap("Reds")
+
+    def gamma_label(gamma_0):
+        return rf"$\gamma = {ps.fmt_number(gamma_0)}$"
+
+    for gamma_0 in pc_gammas:
+        iterations, values = _curve(pc_series[gamma_0])
+        idx = all_gammas.index(gamma_0)
+        ax.plot(
+            iterations,
+            values,
+            color=blues(_cmap_val(idx, n_gammas)),
+            linestyle="-",
         )
-        if arr is not None:
-            metrics[key] = arr
-    return metrics
-
-
-def load_width_data(args, *, seed, n_hidden, use_skips, param_type, activity_lr, gamma_0):
-    data = {
-        "widths": list(args.widths),
-        "pc_rescalings": {},
-        "pc_energies": {},
-        "pc_train_losses": {},
-        "pc_grads": {},
-        "bp_losses": {},
-        "bp_grads": {},
-        "grad_cosine_similarities": {},
-        "dmft_loss": None,
-        "gamma_0": gamma_0,
-    }
-    widths = list(args.widths)
-    for width in getattr(args, "plot_widths", None) or []:
-        if width not in widths:
-            widths.append(width)
-    data["widths"] = widths
-    for width in widths:
-        pc_dir, bp_dir = experiment_dirs(
-            args.results_dir,
-            input_dim=args.input_dim,
-            n_samples=args.n_samples,
-            n_hidden=n_hidden,
-            use_skips=use_skips,
-            act_fn=args.act_fn,
-            param_type=param_type,
-            param_optim=args.param_optim,
-            param_lr=args.param_lr,
-            gamma_0=gamma_0,
-            n_train_iters=args.n_train_iters,
-            infer_mode=args.infer_mode,
-            n_infer_iters=args.n_infer_iters,
-            activity_lr=activity_lr,
-            width=width,
-            loss_id="mse",
-            seed=seed,
+    for gamma_0 in bp_gammas:
+        iterations, values = _curve(bp_series[gamma_0])
+        idx = all_gammas.index(gamma_0)
+        ax.plot(
+            iterations,
+            values,
+            color=reds(_cmap_val(idx, n_gammas)),
+            linestyle="--",
         )
-        metrics = load_run_metrics(pc_dir, bp_dir)
-        for key in (
-            "pc_energies",
-            "pc_train_losses",
-            "pc_rescalings",
-            "bp_losses",
-            "grad_cosine_similarities",
-        ):
-            if key in metrics:
-                data[key][width] = metrics[key]
-    if not use_skips:
-        data["dmft_loss"] = load_bp_dmft_loss(
-            args.results_dir, gamma_0, n_hidden, seed
-        )
-    return data
 
-
-def load_gamma_data(args, *, seed, n_hidden, use_skips, param_type, activity_lr, width):
-    data = {
-        "gamma_0s": list(args.gamma_0s),
-        "width": width,
-        "pc_rescalings": {},
-        "pc_energies": {},
-        "pc_train_losses": {},
-        "pc_grads": {},
-        "bp_losses": {},
-        "bp_grads": {},
-        "grad_cosine_similarities": {},
-        "dmft_loss": None,
-        "dmft_losses": {},
-    }
-    for gamma_0 in args.gamma_0s:
-        pc_dir, bp_dir = experiment_dirs(
-            args.results_dir,
-            input_dim=args.input_dim,
-            n_samples=args.n_samples,
-            n_hidden=n_hidden,
-            use_skips=use_skips,
-            act_fn=args.act_fn,
-            param_type=param_type,
-            param_optim=args.param_optim,
-            param_lr=args.param_lr,
-            gamma_0=gamma_0,
-            n_train_iters=args.n_train_iters,
-            infer_mode=args.infer_mode,
-            n_infer_iters=args.n_infer_iters,
-            activity_lr=activity_lr,
-            width=width,
-            loss_id="mse",
-            seed=seed,
-        )
-        metrics = load_run_metrics(pc_dir, bp_dir)
-        for key in (
-            "pc_energies",
-            "pc_train_losses",
-            "pc_rescalings",
-            "bp_losses",
-            "grad_cosine_similarities",
-        ):
-            if key in metrics:
-                data[key][gamma_0] = metrics[key]
-    if not use_skips:
-        for gamma_0 in args.gamma_0s:
-            dmft = load_bp_dmft_loss(
-                args.results_dir, gamma_0, n_hidden, seed
-            )
-            if dmft is not None:
-                data["dmft_losses"][gamma_0] = dmft
-                if data["dmft_loss"] is None:
-                    data["dmft_loss"] = dmft
-    return data
+    handles = []
+    if pc_gammas:
+        handles.append(_line(pc_label, blues(0.5), linestyle="-"))
+    if bp_gammas:
+        handles.append(_line(bp_label, reds(0.5), linestyle="--"))
+    for idx, gamma_0 in enumerate(all_gammas):
+        grey_val = 0.8 - (idx / (n_gammas - 1)) * 0.6 if n_gammas > 1 else 0.5
+        handles.append(_line(gamma_label(gamma_0), (grey_val, grey_val, grey_val)))
+    ax.legend(handles=handles, loc="upper right")
+    ax.set_xlabel(ps.TEX["time"])
+    ax.set_ylabel(ylabel)
+    if log_x:
+        ax.set_xscale("log")
+    if log_y:
+        ax.set_yscale("log")
+    _save(fig, plot_dir, filename)
 
 
 def plot_inv_rescaling_vs_width(data, plot_dir, gamma_0, param_type):
@@ -309,11 +346,11 @@ def plot_inv_rescaling_vs_width(data, plot_dir, gamma_0, param_type):
     uses a constant line at 1.
     """
     rescalings = data.get("pc_rescalings") or {}
-    widths = sorted(w for w in data["widths"] if w in rescalings)
+    widths = sorted(width for width in data["widths"] if width in rescalings)
     first = []
     valid = []
     for width in widths:
-        values = np.asarray(rescalings[width]).flatten()
+        values = np.asarray(rescalings[width]).ravel()
         if values.size == 0:
             continue
         s0 = float(values[0])
@@ -325,275 +362,48 @@ def plot_inv_rescaling_vs_width(data, plot_dir, gamma_0, param_type):
         print("  Skipping 1/s vs N: no rescaling data (need closed_form).")
         return
 
-    plt.figure(figsize=toy_plots.FIG_SIZE)
-    plt.scatter(
+    fig = plt.figure(figsize=PANEL)
+    ax = fig.gca()
+    ax.plot(
         valid,
         first,
-        s=300,
-        alpha=toy_plots.ALPHA,
-        color="#1E88E5",
+        linestyle="none",
+        marker="o",
+        color=DATA_COLOR,
         label="Data",
         zorder=3,
     )
     if param_type != "sp":
-        theory_widths = np.logspace(np.log10(min(valid)), np.log10(max(valid)), 100)
+        theory_widths = np.logspace(
+            np.log10(min(valid)), np.log10(max(valid)), 100
+        )
         if param_type == "mupc_old":
             theory = np.ones_like(theory_widths)
             theory_label = r"Theory: $\Theta_N(1)$"
         else:
             theory = (gamma_0 ** 2) * theory_widths
             theory_label = r"Theory: $\Theta(N)$"
-        plt.plot(
+        ax.plot(
             theory_widths,
             theory,
-            "--",
-            color="black",
-            linewidth=toy_plots.LINE_WIDTH,
+            linestyle="--",
+            color=ps.COLOR_REFERENCE,
             label=theory_label,
-            alpha=0.8,
             zorder=2,
         )
-    ax = plt.gca()
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    plt.xlabel("$N$", fontsize=toy_plots.FONT_SIZES["label"], labelpad=toy_plots.LABEL_PAD)
-    plt.ylabel(
-        r"$1/s(\boldsymbol{\theta})$",
-        fontsize=toy_plots.FONT_SIZES["label"],
-        labelpad=toy_plots.LABEL_PAD,
-    )
-    plt.legend(fontsize=toy_plots.FONT_SIZES["legend"])
-    plt.grid(True, which="both", ls="-", alpha=0.4)
-    plt.tick_params(axis="both", labelsize=toy_plots.FONT_SIZES["tick"])
-    plt.xscale("log", base=10)
-    plt.yscale("log", base=10)
-    toy_plots.save_plot(plot_dir, "inv_rescaling_vs_width.pdf", None)
+    ax.set_xlabel(ps.TEX["width"])
+    ax.set_ylabel(r"$1/s(\boldsymbol{\theta})$")
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.legend()
+    _save(fig, plot_dir, "inv_rescaling_vs_width.pdf")
 
 
-def _plot_gamma_pc_bp(
-    data,
-    plot_dir,
-    *,
-    pc_key,
-    filename,
-    ylabel,
-    log_y,
-    log_x_scale,
-    n_hidden,
-    bp_legend="BP",
-):
-    """PC/BP γ-sweep overlay for param_checks (dashed BP, ``γ`` legend, no theory)."""
-    pc_gammas = sorted(g for g in data["gamma_0s"] if g in data[pc_key])
-    bp_gammas = sorted(g for g in data["gamma_0s"] if g in data["bp_losses"])
-    all_gammas = sorted(set(pc_gammas + bp_gammas))
-    n_gammas = len(all_gammas)
-    plt.figure(figsize=(10, 6))
-    if all_gammas:
-        blue_cmap = plt.get_cmap("Blues")
-        red_cmap = plt.get_cmap("Reds")
-        for gamma_0 in pc_gammas:
-            values = np.array(data[pc_key][gamma_0]).flatten()
-            iterations = np.arange(1, len(values) + 1)
-            idx = all_gammas.index(gamma_0)
-            color = blue_cmap(gamma_plots.get_color_val(idx, n_gammas, "Blues"))
-            plt.plot(
-                iterations,
-                values,
-                "-",
-                alpha=gamma_plots.ALPHA,
-                linewidth=gamma_plots.LINE_WIDTH,
-                color=color,
-            )
-        for gamma_0 in bp_gammas:
-            bp_loss = np.array(data["bp_losses"][gamma_0]).flatten()
-            iterations = np.arange(1, len(bp_loss) + 1)
-            idx = all_gammas.index(gamma_0)
-            color = red_cmap(gamma_plots.get_color_val(idx, n_gammas, "Reds"))
-            plt.plot(
-                iterations,
-                bp_loss,
-                "--",
-                alpha=gamma_plots.ALPHA,
-                linewidth=gamma_plots.LINE_WIDTH,
-                color=color,
-            )
-    plt.xlabel("$t$", fontsize=gamma_plots.FONT_SIZES["label"], labelpad=gamma_plots.LABEL_PAD)
-    plt.ylabel(ylabel, fontsize=gamma_plots.FONT_SIZES["label"], labelpad=gamma_plots.LABEL_PAD)
-    if log_x_scale:
-        plt.xscale("log", base=10)
-    if log_y:
-        plt.yscale("log", base=10)
-    legend_elements = [
-        plt.Line2D(
-            [0], [0], color=plt.get_cmap("Blues")(0.5), linestyle="-",
-            linewidth=gamma_plots.LINE_WIDTH, label="PC",
-        ),
-        plt.Line2D(
-            [0], [0], color=plt.get_cmap("Reds")(0.5), linestyle="--",
-            linewidth=gamma_plots.LINE_WIDTH, label=bp_legend,
-        ),
-    ]
-    for idx, gamma_0 in enumerate(all_gammas):
-        grey_val = 0.8 - (idx / (n_gammas - 1)) * 0.6 if n_gammas > 1 else 0.5
-        legend_elements.append(
-            plt.Line2D(
-                [0], [0], color=(grey_val, grey_val, grey_val), linestyle="-",
-                linewidth=gamma_plots.LINE_WIDTH,
-                label=rf"$\gamma = {gamma_0}$",
-            )
-        )
-    plt.legend(
-        handles=legend_elements,
-        fontsize=gamma_plots.FONT_SIZES["legend"],
-        bbox_to_anchor=(1.05, 1),
-        loc="upper left",
-    )
-    plt.grid(True, which="both", ls="-", alpha=0.4)
-    plt.tick_params(axis="both", labelsize=gamma_plots.FONT_SIZES["tick"])
-    ax = plt.gca()
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    gamma_plots.save_plot(plot_dir, filename, n_hidden, add_suffix=False)
-
-
-def plot_losses_and_energies_logy(
-    data,
-    plot_dir,
-    *,
-    sweep,
-    log_x_scale,
-    n_hidden=None,
-    pc_legend_label=None,
-):
-    """PC energies and BP losses on a log-y axis (same series as the linear overlay).
-
-    Callers that use energy-scaled µPC should pass PC energies already
-    divided by ``γ² N`` and the ``F*/N`` legend. ``mupc_old`` passes the
-    raw equilibrated energy.
-    """
-    if sweep == "width":
-        plt.figure(figsize=(12.5, 6))
-        max_width = max(data["widths"])
-        pc_legend_color = "#4A90E2"
-        bp_color = "#DC143C"
-        widths_list = sorted([w for w in data["widths"] if w in data["pc_energies"]])
-        if widths_list:
-            blues_cmap = plt.get_cmap("Blues")
-            n_widths = len(widths_list)
-            for idx, width in enumerate(widths_list):
-                energies = np.array(data["pc_energies"][width]).flatten()
-                iterations = np.arange(1, len(energies) + 1)
-                color = blues_cmap(toy_plots.get_color_val(idx, n_widths, "Blues"))
-                plt.plot(
-                    iterations,
-                    energies,
-                    "-",
-                    alpha=toy_plots.ALPHA,
-                    linewidth=toy_plots.LINE_WIDTH,
-                    color=color,
-                )
-        if max_width in data["bp_losses"]:
-            bp_loss = np.array(data["bp_losses"][max_width]).flatten()
-            iterations = np.arange(1, len(bp_loss) + 1)
-            plt.plot(
-                iterations,
-                bp_loss,
-                "-",
-                color=bp_color,
-                linewidth=toy_plots.LINE_WIDTH,
-                alpha=toy_plots.ALPHA,
-            )
-        legend_handles = []
-        legend_labels = []
-        if widths_list:
-            legend_handles.append(
-                plt.Line2D(
-                    [0], [0], color=pc_legend_color,
-                    linewidth=toy_plots.LINE_WIDTH, alpha=toy_plots.ALPHA,
-                )
-            )
-            legend_labels.append(
-                pc_legend_label
-                if pc_legend_label is not None
-                else r"$\mathcal{F}^*(\boldsymbol{\theta})/N$ (PC)"
-            )
-        if max_width in data["bp_losses"]:
-            legend_handles.append(
-                plt.Line2D(
-                    [0], [0], color=bp_color,
-                    linewidth=toy_plots.LINE_WIDTH, alpha=toy_plots.ALPHA,
-                )
-            )
-            legend_labels.append(r"$\mathcal{L}(\boldsymbol{\theta})$ (BP)")
-        gray_cmap = plt.get_cmap("Greys")
-        all_widths = sorted(
-            set(widths_list + ([max_width] if max_width in data["bp_losses"] else []))
-        )
-        n_all = len(all_widths)
-        for idx, width in enumerate(all_widths):
-            gray_val = 0.3 + (idx / max(n_all - 1, 1)) * 0.5 if n_all > 1 else 0.5
-            legend_handles.append(
-                plt.Line2D([0], [0], color=gray_cmap(gray_val), linewidth=toy_plots.LINE_WIDTH)
-            )
-            legend_labels.append(f"$N = {width}$")
-        if data.get("dmft_loss") is not None:
-            dmft_loss = np.array(data["dmft_loss"]).flatten()
-            iterations = np.arange(1, len(dmft_loss) + 1)
-            plt.plot(
-                iterations,
-                dmft_loss,
-                "--",
-                color="black",
-                linewidth=4,
-                alpha=0.8,
-            )
-            legend_handles.append(
-                plt.Line2D(
-                    [0], [0], color="black", linewidth=4,
-                    linestyle="--", alpha=0.8,
-                )
-            )
-            legend_labels.append(r"BP theory ($N \rightarrow \infty$)")
-        ax = plt.gca()
-        ax.spines["top"].set_visible(False)
-        ax.spines["right"].set_visible(False)
-        plt.xlabel("$t$", fontsize=toy_plots.FONT_SIZES["label"], labelpad=toy_plots.LABEL_PAD)
-        plt.ylabel(
-            LOSSES_AND_ENERGIES_YLABEL,
-            fontsize=toy_plots.FONT_SIZES["label"],
-            labelpad=toy_plots.LABEL_PAD,
-        )
-        if log_x_scale:
-            plt.xscale("log", base=10)
-        plt.yscale("log", base=10)
-        if legend_handles:
-            plt.legend(
-                handles=legend_handles,
-                labels=legend_labels,
-                fontsize=toy_plots.FONT_SIZES["legend"],
-                bbox_to_anchor=(1.05, 1),
-                loc="upper left",
-            )
-        plt.grid(True, which="both", ls="-", alpha=0.4)
-        plt.tick_params(axis="both", labelsize=toy_plots.FONT_SIZES["tick"])
-        toy_plots.save_plot(plot_dir, "losses_and_energies_logy.pdf", None)
-        return
-
-    bp_legend = (
-        rf"BP, $N = {data['width']}$"
-        if data.get("width") is not None
-        else "BP"
-    )
-    _plot_gamma_pc_bp(
-        data,
-        plot_dir,
-        pc_key="pc_energies",
-        filename="losses_and_energies_logy.pdf",
-        ylabel=LOSSES_AND_ENERGIES_YLABEL,
-        log_y=True,
-        log_x_scale=log_x_scale,
-        n_hidden=n_hidden,
-        bp_legend=bp_legend,
+def _show_dmft(data, param_type, use_skips):
+    return (
+        data.get("dmft_loss") is not None
+        and param_type != "sp"
+        and use_skips is not True
     )
 
 
@@ -607,40 +417,76 @@ def plot_width_sweep(data, plot_dir, param_type, use_skips, log_x_scale, plot_wi
     loss_data = data_for_widths(data, plot_widths)
     overlay = pc_energies_on_mse_scale(loss_data, param_type, sweep="width")
     energy_legend = pc_energy_legend(param_type)
-    toy_plots.plot_losses(
-        loss_data, plot_dir, "Blues", None, log_x_scale, param_type, use_skips
+    show_dmft = _show_dmft(loss_data, param_type, use_skips)
+    plot_width_pc_bp(
+        loss_data,
+        plot_dir,
+        "losses.pdf",
+        ps.LOSS_LABEL,
+        pc_key="pc_train_losses",
+        log_y=True,
+        log_x=log_x_scale,
+        pc_label=ps.LABEL_PC,
+        bp_label=ps.LABEL_BP,
+        include_dmft=show_dmft,
     )
-    toy_plots.plot_losses_and_energies(
+    plot_width_pc_bp(
         overlay,
         plot_dir,
-        "Blues",
-        None,
-        log_x_scale,
-        param_type,
-        use_skips,
-        pc_legend_label=energy_legend,
-        ylabel=LOSSES_AND_ENERGIES_YLABEL,
+        "losses_and_energies.pdf",
+        LOSSES_AND_ENERGIES_YLABEL,
+        pc_key="pc_energies",
+        log_y=False,
+        log_x=log_x_scale,
+        pc_label=energy_legend,
+        bp_label=BP_LOSS_LABEL,
+        include_dmft=show_dmft,
+        legend_loc="center left",
+        legend_anchor=(1.02, 0.5),
     )
-    plot_losses_and_energies_logy(
+    plot_width_pc_bp(
         overlay,
         plot_dir,
-        sweep="width",
-        log_x_scale=log_x_scale,
-        pc_legend_label=energy_legend,
+        "losses_and_energies_logy.pdf",
+        LOSSES_AND_ENERGIES_YLABEL,
+        pc_key="pc_energies",
+        log_y=True,
+        log_x=log_x_scale,
+        pc_label=energy_legend,
+        bp_label=BP_LOSS_LABEL,
+        include_dmft=loss_data.get("dmft_loss") is not None,
     )
-    similarities = toy_plots.calculate_cosine_similarity(loss_data)
+    similarities = {
+        width: loss_data["grad_cosine_similarities"][width]
+        for width in loss_data["widths"]
+        if width in loss_data["grad_cosine_similarities"]
+    }
     if similarities:
-        toy_plots.plot_cosine_similarity(loss_data, similarities, plot_dir, "Blues", None)
+        plot_keyed_series(
+            sorted(similarities),
+            similarities,
+            plot_dir,
+            "grads_cosine_similarities.pdf",
+            ALIGNMENT_YLABEL,
+            key_label=ps.width_label,
+        )
     else:
         print("  Warning: no cosine similarity data for width sweep")
     if loss_data["pc_rescalings"]:
-        toy_plots.plot_rescalings(loss_data, plot_dir, "Blues", None, output_dim=1)
+        plot_keyed_series(
+            sorted(width for width in loss_data["widths"] if width in loss_data["pc_rescalings"]),
+            loss_data["pc_rescalings"],
+            plot_dir,
+            "pc_rescaling.pdf",
+            RESCALING_YLABEL,
+            key_label=ps.width_label,
+        )
         plot_inv_rescaling_vs_width(
             loss_data, plot_dir, loss_data["gamma_0"], param_type
         )
 
 
-def plot_gamma_sweep(data, plot_dir, n_hidden, log_x_scale, use_skips, param_type):
+def plot_gamma_sweep(data, plot_dir, log_x_scale, param_type):
     os.makedirs(plot_dir, exist_ok=True)
     print(f"  Gamma sweep plots → {plot_dir}")
     if not data["pc_train_losses"] and not data["pc_energies"]:
@@ -648,76 +494,84 @@ def plot_gamma_sweep(data, plot_dir, n_hidden, log_x_scale, use_skips, param_typ
         return
 
     overlay = pc_energies_on_mse_scale(data, param_type, sweep="gamma")
-    gamma_legend = r"$\gamma = {}$"
-    _plot_gamma_pc_bp(
+    bp_label = ps.LABEL_BP
+    if data.get("width") is not None:
+        bp_with_width = rf"{ps.LABEL_BP}, {ps.width_label(data['width'])}"
+    else:
+        bp_with_width = ps.LABEL_BP
+
+    def gamma_label(gamma_0):
+        return rf"$\gamma = {ps.fmt_number(gamma_0)}$"
+
+    plot_gamma_pc_bp(
         data,
         plot_dir,
+        "losses.pdf",
+        ps.LOSS_LABEL,
         pc_key="pc_train_losses",
-        filename="losses.pdf",
-        ylabel=r"$\mathcal{L}(\boldsymbol{\theta}_t)$",
         log_y=True,
-        log_x_scale=log_x_scale,
-        n_hidden=n_hidden,
+        log_x=log_x_scale,
+        pc_label=ps.LABEL_PC,
+        bp_label=bp_label,
     )
-    _plot_gamma_pc_bp(
+    plot_gamma_pc_bp(
         overlay,
         plot_dir,
+        "losses_and_energies.pdf",
+        LOSSES_AND_ENERGIES_YLABEL,
         pc_key="pc_energies",
-        filename="losses_and_energies.pdf",
-        ylabel=LOSSES_AND_ENERGIES_YLABEL,
         log_y=False,
-        log_x_scale=log_x_scale,
-        n_hidden=n_hidden,
+        log_x=log_x_scale,
+        pc_label=ps.LABEL_PC,
+        bp_label=bp_label,
     )
-    plot_losses_and_energies_logy(
-        overlay, plot_dir, sweep="gamma", log_x_scale=log_x_scale, n_hidden=n_hidden
+    plot_gamma_pc_bp(
+        overlay,
+        plot_dir,
+        "losses_and_energies_logy.pdf",
+        LOSSES_AND_ENERGIES_YLABEL,
+        pc_key="pc_energies",
+        log_y=True,
+        log_x=log_x_scale,
+        pc_label=ps.LABEL_PC,
+        bp_label=bp_with_width,
     )
-    similarities = gamma_plots.calculate_cosine_similarity(data)
+    similarities = {
+        gamma_0: data["grad_cosine_similarities"][gamma_0]
+        for gamma_0 in data["gamma_0s"]
+        if gamma_0 in data["grad_cosine_similarities"]
+    }
     if similarities:
-        gamma_plots.plot_gammas_series(
-            {"gamma_0s": data["gamma_0s"], "cosine": similarities},
-            "cosine",
+        plot_keyed_series(
+            sorted(similarities),
+            similarities,
             plot_dir,
-            "Blues",
-            "PC-BP alignment",
             "grads_cosine_similarities.pdf",
-            n_hidden,
-            label_prefix=gamma_legend,
+            ALIGNMENT_YLABEL,
+            key_label=gamma_label,
         )
     else:
         print("  Warning: no cosine similarity data for gamma sweep")
     if data["pc_rescalings"]:
-        gamma_plots.plot_gammas_series(
-            data,
-            "pc_rescalings",
+        plot_keyed_series(
+            sorted(gamma for gamma in data["gamma_0s"] if gamma in data["pc_rescalings"]),
+            data["pc_rescalings"],
             plot_dir,
-            "Blues",
-            r"$s(\boldsymbol{\theta}_t)$",
             "pc_rescaling.pdf",
-            n_hidden,
-            label_prefix=gamma_legend,
+            RESCALING_YLABEL,
+            key_label=gamma_label,
         )
 
 
-def make_plot_dir(plot_root, seed, n_hidden, use_skips, param_type, activity_lr):
-    return os.path.join(
-        plot_root,
-        f"seed_{seed}",
-        f"{n_hidden}_n_hidden",
-        f"{use_skips}_use_skips",
-        param_type,
-        f"{activity_lr}_activity_lr",
-    )
-
-
 def generate_plots(args):
+    use_paper_style()
     args = resolve_results_dir(args)
     data_results_dir = os.path.join(args.results_dir, f"{args.input_dim}_input_dim")
     if not os.path.isdir(data_results_dir):
         print(f"No results at {data_results_dir}; skipping plots.")
         return
 
-    plot_root = os.path.join(args.results_dir, "plots")
+    plot_root = os.path.join(args.results_dir, "plots_paper")
     os.makedirs(plot_root, exist_ok=True)
 
     for seed in range(args.seed, args.seed + args.n_seeds):
@@ -774,9 +628,7 @@ def generate_plots(args):
                                     os.path.join(
                                         base, "gamma_sweep", f"{width}_width"
                                     ),
-                                    n_hidden,
                                     args.log_x_scale,
-                                    use_skips,
                                     param_type,
                                 )
 

@@ -1,5 +1,3 @@
-"""Plot learning-regime (γ) sweeps at N=2048 from ``train_toy.py``."""
-
 from __future__ import annotations
 
 import argparse
@@ -13,14 +11,15 @@ if str(_REPO_ROOT) not in sys.path:
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
-from plot_toy import generate_plots
+from plot_toy_paper import generate_plots
 from train_toy import add_common_args
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
         description=(
-            "Plot toy µPC vs BP learning regimes (γ sweep at N=2048)."
+            "Plot toy µPC vs BP learning regimes (γ sweep at N=2048) "
+            "in the DMFT paper style."
         )
     )
     add_common_args(parser)
